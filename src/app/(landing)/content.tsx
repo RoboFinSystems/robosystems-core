@@ -15,7 +15,7 @@ export default function LandingPageContent() {
     <div className="min-h-screen bg-black">
       <Header />
 
-      <main className="pt-24">
+      <main>
         <HeroSection />
         <ProductOverview />
         <FeaturesGrid />
