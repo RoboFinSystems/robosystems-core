@@ -1,12 +1,20 @@
-/** @type {import("eslint").Linter.Config} */
 module.exports = {
   root: true,
   env: {
+    es6: true,
     browser: true,
-    commonjs: true,
-    es2021: true,
+    node: true,
   },
+  extends: [
+    'eslint:recommended',
+    'plugin:jsx-a11y/recommended',
+    'plugin:prettier/recommended',
+    'plugin:react/recommended',
+    'plugin:react-hooks/recommended',
+    'plugin:@next/next/recommended',
+  ],
   globals: {
+    React: 'readonly',
     vi: 'readonly',
     vitest: 'readonly',
     describe: 'readonly',
@@ -17,20 +25,36 @@ module.exports = {
     beforeAll: 'readonly',
     afterAll: 'readonly',
   },
-  extends: [
-    'eslint:recommended',
-    'plugin:jsx-a11y/recommended',
-    'plugin:prettier/recommended',
-    'plugin:react/recommended',
-    'plugin:react-hooks/recommended',
-    'plugin:@next/next/recommended',
+  ignorePatterns: ['*.js', '!.*.js', 'node_modules/', '.next/'],
+  parser: '@typescript-eslint/parser',
+  parserOptions: {
+    ecmaFeatures: {
+      jsx: true,
+    },
+    ecmaVersion: 2022,
+    sourceType: 'module',
+  },
+  plugins: [
+    '@typescript-eslint',
+    'jsx-a11y',
+    'prettier',
+    'react',
+    'react-hooks',
   ],
+  rules: {
+    'jsx-a11y/anchor-is-valid': 'off',
+    'react/no-unescaped-entities': 'off',
+    'react/react-in-jsx-scope': 'off',
+    'no-unused-vars': 'off',
+  },
+  settings: {
+    react: {
+      version: 'detect',
+    },
+  },
   overrides: [
     {
-      files: ['**/*.{ts,tsx}'],
-      plugins: ['@typescript-eslint'],
-      parser: '@typescript-eslint/parser',
-      extends: ['plugin:@typescript-eslint/recommended'],
+      files: ['**/*.ts', '**/*.tsx'],
       rules: {
         '@typescript-eslint/consistent-type-imports': 'error',
         '@typescript-eslint/no-explicit-any': 'off',
@@ -38,18 +62,4 @@ module.exports = {
       },
     },
   ],
-  parserOptions: {
-    ecmaVersion: 'latest',
-    sourceType: 'module',
-  },
-  settings: {
-    react: {
-      version: 'detect',
-    },
-  },
-  rules: {
-    'jsx-a11y/anchor-is-valid': 'off',
-    'react/no-unescaped-entities': 'off',
-    'react/react-in-jsx-scope': 'off',
-  },
 }

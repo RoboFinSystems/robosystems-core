@@ -1,200 +1,232 @@
-# RoboLedger App
+# RoboSystems Core Components
 
-RoboLedger is an AI-native accounting platform that builds a semantic knowledge graph of your financial data, enabling intelligent automation and natural language financial analysis powered by Claude AI.
+A shared library of React components, hooks, utilities, and types used across RoboInvestor ecosystem applications.
 
-- **Semantic Financial Intelligence**: Every transaction connected semantically, preserving relationships and context for AI-powered insights
-- **Flexible Deployment Options**: QuickBooks integration layer, standalone with Plaid bank feeds, or self-hosted Docker deployment
-- **Natural Language Queries**: Ask questions in plain English and get instant, intelligent answers about your finances
-- **AI-Powered Automation**: Leverage Claude AI for intelligent financial analysis that understands business context
-- **Enterprise-Ready**: SEC integration, process automation, report sharing, and API key authentication
+## Overview
 
-## Core Features
+This repository contains reusable components that are shared between:
 
-RoboLedger transforms traditional financial data storage from isolated tables into a connected, intelligent system that enables AI agents to understand business context, not just rules.
+- **roboinvestor-app** - Primary investment management interface
+- **roboledger-app** - Financial reporting and ledger management
+- **robosystems-app** - Core systems management
 
-- **Knowledge Graph Architecture**: Financial data modeled as a semantic graph preserving relationships and context
-- **QuickBooks Intelligence Layer**: Sync with existing QuickBooks data and add AI automation without changing workflows
-- **Complete Financial Platform**: Direct bank connections via Plaid with built-in double-entry accounting
-- **SEC Integration**: Process SEC XBRL filings with intelligent automation
-- **Process Automation**: RPA tools for automating reporting processes and schedules
-- **Report Sharing**: Create and share reports with shareholders and stakeholders
-- **API Key Authentication**: Secure programmatic access for integrations
+## Structure
 
-## Quick Start
-
-### Development Environment
-
-```bash
-# Clone the repository
-git clone https://github.com/RoboFinSystems/roboledger-app.git
-cd roboledger-app
-
-# Install dependencies
-npm install
-
-# Configure environment
-cp .env.example .env
-# Edit .env with your API credentials
-
-# Start development server
-npm run dev
+```
+├── auth-components/          # Authentication UI components
+│   ├── AuthProvider.tsx      # Authentication context provider
+│   ├── SignInForm.tsx        # Login form component
+│   └── SignUpForm.tsx        # Registration form component
+├── auth-core/               # Authentication logic and types
+│   ├── client.ts            # Authentication client
+│   ├── hooks.ts             # Authentication hooks
+│   └── types.ts             # Authentication TypeScript types
+├── contexts/                # React contexts
+│   └── sidebar-context.tsx  # Sidebar state management
+├── hooks/                   # Custom React hooks
+│   └── use-media-query.ts   # Media query hook for responsive design
+├── lib/                     # Utility libraries
+│   └── sidebar-cookie.ts    # Sidebar state persistence
+├── theme/                   # UI theming
+│   └── flowbite-theme.ts    # Flowbite React custom theme
+├── types/                   # Shared TypeScript definitions
+│   └── user.d.ts           # User type definitions
+├── ui-components/          # Reusable UI components
+│   ├── api-keys/           # API key management components
+│   ├── forms/              # Form components and validation
+│   ├── layout/             # Layout and container components
+│   └── settings/           # Settings page components
+└── index.ts                # Main export file
 ```
 
-The application will be available at: http://localhost:3001
+## Technology Stack
 
-### Docker Development
+- **React 18** with modern hooks and patterns
+- **TypeScript** for type safety
+- **Flowbite React** for UI components
+- **Tailwind CSS** for styling
+- **Next.js 15** App Router compatibility
+- **Auto-generated SDK** from OpenAPI specifications
 
-```bash
-# Build and run with Docker
-docker build -t roboledger-app .
-docker run -p 3001:3000 --env-file .env roboledger-app
-```
+## Usage as Git Subtree
 
-## Development Commands
+### Initial Setup
 
-### Core Development
-
-```bash
-npm run dev              # Start development server (port 3001)
-npm run build           # Production build with optimization
-```
-
-### Code Quality
+Add this repository as a subtree to your app:
 
 ```bash
-npm run lint            # ESLint validation
-npm run lint:fix        # Auto-fix linting issues
-npm run format          # Prettier code formatting
-npm run format:check    # Check formatting compliance
-npm run typecheck       # TypeScript type checking
+# In your app directory (roboinvestor-app, roboledger-app, etc.)
+git subtree add --prefix=src/lib/core \
+  https://github.com/yourorg/robosystems-core.git main --squash
 ```
 
-### Testing
+### Pull Updates
+
+Get the latest common components:
 
 ```bash
-npm run test            # Run Vitest test suite
-npm run test:watch      # Interactive test watch mode
-npm run test:coverage   # Generate coverage report
+git subtree pull --prefix=src/lib/core \
+  https://github.com/yourorg/robosystems-core.git main --squash
 ```
 
-### Prerequisites
+### Push Changes
 
-#### System Requirements
+Push your improvements back to the common repository:
 
-- Node.js 22+ (LTS recommended)
-- npm 10+ or yarn 1.22+
-- 4GB RAM minimum
-- Modern browser (Chrome, Firefox, Safari, Edge)
+```bash
+git subtree push --prefix=src/lib/core \
+  https://github.com/yourorg/robosystems-core.git main
+```
 
-#### Required Services
+## Component Usage
 
-- RoboSystems API endpoint (production or development)
-- Intuit Developer account (for QuickBooks OAuth)
-- Optional: AWS account for production deployment
+### Import from Common
 
-## Architecture
+```typescript
+import {
+  useMediaQuery,
+  useSidebarContext,
+  SidebarProvider,
+  customTheme,
+  sidebarCookie,
+} from '@/lib/common'
 
-### Application Layer
+import type { CommonUser, SidebarCookie } from '@/lib/common'
+```
 
-- **Next.js 15 App Router** with React Server Components for optimal performance
-- **TypeScript 5** for type safety and developer experience
-- **Flowbite React Components** with Tailwind CSS for consistent UI
-- **RoboSystems Client SDK** for API communication and authentication
+### Authentication
 
-### Key Application Features
+```typescript
+import { useAuth, AuthProvider } from '@/lib/common'
 
-#### Dashboard (`/app/(app)/dashboard/`)
+function MyApp() {
+  return (
+    <AuthProvider>
+      <MyComponents />
+    </AuthProvider>
+  )
+}
 
-The primary interface for financial overview:
+function MyComponent() {
+  const { user, isAuthenticated, login, logout } = useAuth()
+  // ... component logic
+}
+```
 
-- **Financial Summary**: Key metrics and account balances at a glance
-- **Recent Transactions**: Latest activity across all accounts
-- **AI Insights**: Claude-powered analysis of financial trends
+### Sidebar Management
 
-#### Ledger (`/app/(app)/ledger/`)
+```typescript
+import { SidebarProvider, useSidebarContext } from '@/lib/common'
 
-Double-entry accounting interface:
+function Layout({ children }) {
+  return (
+    <SidebarProvider initialCollapsed={false}>
+      <MySidebar />
+      <main>{children}</main>
+    </SidebarProvider>
+  )
+}
 
-- **Chart of Accounts**: Hierarchical account structure management
-- **Journal Entries**: Create and review journal entries
-- **Trial Balance**: Real-time trial balance with drill-down capability
-- **Financial Statements**: Balance sheet, income statement, cash flow
+function MySidebar() {
+  const { desktop, mobile } = useSidebarContext()
+  // ... sidebar logic
+}
+```
 
-#### Reports (`/app/(app)/reports/`)
+### Responsive Design
 
-Financial reporting and analysis:
+```typescript
+import { useMediaQuery } from '@/lib/common'
 
-- **Report Builder**: Create custom financial reports
-- **Report Templates**: Pre-built templates for common reports
-- **Export Options**: PDF, Excel, and CSV export
-- **Scheduled Reports**: Automated report generation and distribution
+function ResponsiveComponent() {
+  const isMobile = useMediaQuery('(max-width: 768px)')
 
-#### Process Automation (`/app/(app)/processes/`)
+  return (
+    <div className={isMobile ? 'mobile-layout' : 'desktop-layout'}>
+      {/* component content */}
+    </div>
+  )
+}
+```
 
-RPA tools for workflow automation:
+### API Integration
 
-- **Process Designer**: Visual workflow builder
-- **Scheduled Tasks**: Automated recurring processes
-- **Integration Triggers**: Event-driven automation
+```typescript
+import { SDK } from '@/lib/common'
+import type { UserResponse } from '@/lib/common/sdk/types.gen'
 
-#### Companies (`/app/(app)/companies/`)
+async function fetchUser() {
+  const response = await SDK.getCurrentUser()
+  const userData = response.data as UserResponse
+  return userData
+}
+```
 
-Multi-company management:
+## Development Guidelines
 
-- **Company Setup**: Configure company settings and preferences
-- **QuickBooks Sync**: Connect and sync with QuickBooks
-- **Bank Connections**: Plaid integration for bank feeds
+### Adding New Components
 
-### Core Library (`/src/lib/core/`)
+1. **Create component** in appropriate directory
+2. **Add TypeScript types** in `types/` if needed
+3. **Export from index.ts** files
+4. **Update main index.ts** to include new exports
+5. **Test in one app** before pushing to common repo
 
-Shared authentication and utility modules maintained as a git subtree:
+### Naming Conventions
 
-- **Auth Components**: Login/register forms with RoboLedger branding
-- **Auth Core**: Session management and JWT handling
-- **UI Components**: Consistent interface elements across RoboSystems apps
-- **Contexts**: User, company, and credit system contexts
+- **Components**: PascalCase (`SidebarProvider`)
+- **Hooks**: camelCase with `use` prefix (`useMediaQuery`)
+- **Types**: PascalCase (`SidebarCookie`)
+- **Utilities**: camelCase (`sidebarCookie`)
 
-### GitHub Actions Workflows
+### TypeScript Patterns
 
-#### Primary Deployment Workflows
+- Use `type` for simple types, `interface` for objects
+- Prefer runtime type guards over direct assertions
+- Export types from `types/` directory
+- Use generated SDK types when available
 
-- **`prod.yml`**: Production deployment pipeline
-  - Manual deployment via workflow_dispatch
-  - Deploys to roboledger.ai with S3 static hosting
-  - Full testing, build, and ECS deployment
-  - Auto-scaling configuration with Fargate Spot
+## Testing
 
-- **`staging.yml`**: Staging environment deployment
-  - Manual workflow dispatch
-  - Deploys to staging.roboledger.ai
-  - Integration testing environment
+Components should be tested in the consuming applications. Common patterns:
 
-- **`test.yml`**: Automated testing suite
-  - Runs on pull requests and main branch
-  - TypeScript, ESLint, and Prettier checks
-  - Vitest unit and integration tests
-  - Build verification
+```typescript
+import { render, screen } from '@testing-library/react'
+import { SidebarProvider } from '@/lib/common'
 
-- **`build.yml`**: Docker image building
-  - Multi-architecture support (AMD64/ARM64)
-  - Pushes to Amazon ECR
-  - Static asset upload to S3
+test('sidebar provider works', () => {
+  render(
+    <SidebarProvider initialCollapsed={false}>
+      <TestComponent />
+    </SidebarProvider>
+  )
+  // ... test logic
+})
+```
 
-### CloudFormation Templates
+## Versioning
 
-Infrastructure as Code templates in `/cloudformation/`:
+This repository follows semantic versioning principles:
 
-- **`template.yaml`**: Complete ECS Fargate stack with auto-scaling
-- **`s3.yaml`**: Static asset hosting for CloudFront CDN
+- **Major**: Breaking changes to public APIs
+- **Minor**: New features, non-breaking changes
+- **Patch**: Bug fixes, internal improvements
 
-## Support
+## Contributing
 
-- Issues: [GitHub Issues](https://github.com/RoboFinSystems/roboledger-app/issues)
-- Discussions: [GitHub Discussions](https://github.com/RoboFinSystems/roboledger-app/discussions)
-- Wiki: [GitHub Wiki](https://github.com/RoboFinSystems/roboledger-app/wiki)
+1. Make changes in your app's `src/lib/core` directory
+2. Test thoroughly in your app
+3. Push changes back to this repository
+4. Update other apps to pull the latest changes
+5. Ensure all apps pass their test suites
 
-## License
+## Security
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+- Never commit secrets or API keys
+- Use environment variables for configuration
+- Follow authentication best practices
+- Validate all inputs and API responses
 
-MIT © 2025 RFS LLC
+---
+
+Generated with Claude Code for consistent, reliable shared components across the RoboInvestor ecosystem.
