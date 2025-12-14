@@ -53,9 +53,9 @@ export default function Header() {
               alt="RoboSystems Logo"
               width={40}
               height={40}
-              className="mr-2"
+              className="rounded-lg"
             />
-            <span className="font-heading mt-2 ml-1 self-center text-2xl font-semibold whitespace-nowrap text-white">
+            <span className="font-heading ml-2 text-xl font-semibold text-white sm:text-2xl">
               RoboSystems
             </span>
           </Link>
