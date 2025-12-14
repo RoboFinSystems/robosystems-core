@@ -14,9 +14,9 @@ export default function PlatformContent() {
     <div className="min-h-screen bg-black">
       <Header />
 
-      <main className="pt-24">
+      <main>
         {/* Hero Section */}
-        <section className="relative overflow-hidden bg-black py-16 sm:py-24">
+        <section className="relative overflow-hidden bg-black pt-32 pb-16 sm:pt-40 sm:pb-24">
           <div className="absolute inset-0">
             <div className="absolute inset-0 bg-linear-to-br from-cyan-900/20 via-blue-900/20 to-purple-900/20"></div>
             <div className="absolute inset-0 bg-[url('/grid.svg')] bg-center opacity-20"></div>

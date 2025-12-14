@@ -31,7 +31,7 @@ export default function HeroSection() {
       {/* Floating elements */}
       <FloatingElementsVariant variant="hero" />
 
-      <div className="relative mx-auto max-w-7xl px-4 py-16 sm:px-6 sm:py-24 md:py-32 lg:px-8">
+      <div className="relative mx-auto max-w-7xl px-4 pt-32 pb-16 sm:px-6 sm:pt-40 sm:pb-24 md:pt-48 md:pb-32 lg:px-8">
         <div className="text-center">
           {/* Badge */}
           <h1 className="font-heading mb-6 text-4xl leading-tight font-extrabold sm:text-5xl md:mb-8 md:text-7xl lg:text-8xl">
