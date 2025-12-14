@@ -1,180 +1,232 @@
-# RoboInvestor App
+# RoboSystems Core Components
 
-RoboInvestor is an AI-powered investment management platform that provides intelligent portfolio tracking, securities analysis, and personalized investment guidance powered by Claude AI.
+A shared library of React components, hooks, utilities, and types used across RoboInvestor ecosystem applications.
 
-- **Portfolio Intelligence**: Track and analyze investment holdings with AI-powered insights and recommendations
-- **Securities Analysis**: Real-time market data integration with intelligent pattern recognition
-- **Natural Language Queries**: Ask questions about your portfolio in plain English and get instant answers
-- **AI-Powered Guidance**: Leverage Claude AI for investment analysis that understands market context
-- **Secure Report Sharing**: Share financial reports with shareholders and stakeholders
+## Overview
 
-## Core Features
+This repository contains reusable components that are shared between:
 
-RoboInvestor transforms traditional portfolio management into an intelligent system that enables AI agents to understand investment context, not just data points.
+- **roboinvestor-app** - Primary investment management interface
+- **roboledger-app** - Financial reporting and ledger management
+- **robosystems-app** - Core systems management
 
-- **Investment Dashboard**: Personalized portfolio overview with key metrics and AI insights
-- **Securities Management**: Track stocks, bonds, and other securities with real-time data
-- **AI Chat Interface**: Natural language interaction for investment guidance and analysis
-- **User Preferences**: Customizable investment preferences and risk profiles
-- **Report Generation**: Create and share investment reports with stakeholders
-- **API Key Authentication**: Secure programmatic access for integrations
+## Structure
 
-## Quick Start
-
-### Development Environment
-
-```bash
-# Clone the repository
-git clone https://github.com/RoboFinSystems/roboinvestor-app.git
-cd roboinvestor-app
-
-# Install dependencies
-npm install
-
-# Configure environment
-cp .env.example .env
-# Edit .env with your API credentials
-
-# Start development server
-npm run dev
+```
+├── auth-components/          # Authentication UI components
+│   ├── AuthProvider.tsx      # Authentication context provider
+│   ├── SignInForm.tsx        # Login form component
+│   └── SignUpForm.tsx        # Registration form component
+├── auth-core/               # Authentication logic and types
+│   ├── client.ts            # Authentication client
+│   ├── hooks.ts             # Authentication hooks
+│   └── types.ts             # Authentication TypeScript types
+├── contexts/                # React contexts
+│   └── sidebar-context.tsx  # Sidebar state management
+├── hooks/                   # Custom React hooks
+│   └── use-media-query.ts   # Media query hook for responsive design
+├── lib/                     # Utility libraries
+│   └── sidebar-cookie.ts    # Sidebar state persistence
+├── theme/                   # UI theming
+│   └── flowbite-theme.ts    # Flowbite React custom theme
+├── types/                   # Shared TypeScript definitions
+│   └── user.d.ts           # User type definitions
+├── ui-components/          # Reusable UI components
+│   ├── api-keys/           # API key management components
+│   ├── forms/              # Form components and validation
+│   ├── layout/             # Layout and container components
+│   └── settings/           # Settings page components
+└── index.ts                # Main export file
 ```
 
-The application will be available at: http://localhost:3002
+## Technology Stack
 
-### Docker Development
+- **React 18** with modern hooks and patterns
+- **TypeScript** for type safety
+- **Flowbite React** for UI components
+- **Tailwind CSS** for styling
+- **Next.js 15** App Router compatibility
+- **Auto-generated SDK** from OpenAPI specifications
 
-```bash
-# Build and run with Docker
-docker build -t roboinvestor-app .
-docker run -p 3002:3000 --env-file .env roboinvestor-app
-```
+## Usage as Git Subtree
 
-## Development Commands
+### Initial Setup
 
-### Core Development
-
-```bash
-npm run dev              # Start development server (port 3002)
-npm run build           # Production build with optimization
-```
-
-### Code Quality
+Add this repository as a subtree to your app:
 
 ```bash
-npm run lint            # ESLint validation
-npm run lint:fix        # Auto-fix linting issues
-npm run format          # Prettier code formatting
-npm run format:check    # Check formatting compliance
-npm run typecheck       # TypeScript type checking
+# In your app directory (roboinvestor-app, roboledger-app, etc.)
+git subtree add --prefix=src/lib/core \
+  https://github.com/yourorg/robosystems-core.git main --squash
 ```
 
-### Testing
+### Pull Updates
+
+Get the latest common components:
 
 ```bash
-npm run test            # Run Vitest test suite
-npm run test:watch      # Interactive test watch mode
-npm run test:coverage   # Generate coverage report
+git subtree pull --prefix=src/lib/core \
+  https://github.com/yourorg/robosystems-core.git main --squash
 ```
 
-### Prerequisites
+### Push Changes
 
-#### System Requirements
+Push your improvements back to the common repository:
 
-- Node.js 22+ (LTS recommended)
-- npm 10+ or yarn 1.22+
-- 4GB RAM minimum
-- Modern browser (Chrome, Firefox, Safari, Edge)
+```bash
+git subtree push --prefix=src/lib/core \
+  https://github.com/yourorg/robosystems-core.git main
+```
 
-#### Required Services
+## Component Usage
 
-- RoboSystems API endpoint (production or development)
-- Optional: AWS account for production deployment
+### Import from Common
 
-## Architecture
+```typescript
+import {
+  useMediaQuery,
+  useSidebarContext,
+  SidebarProvider,
+  customTheme,
+  sidebarCookie,
+} from '@/lib/common'
 
-### Application Layer
+import type { CommonUser, SidebarCookie } from '@/lib/common'
+```
 
-- **Next.js 15 App Router** with React Server Components for optimal performance
-- **TypeScript 5** for type safety and developer experience
-- **Flowbite React Components** with Tailwind CSS for consistent UI
-- **RoboSystems Client SDK** for API communication and authentication
+### Authentication
 
-### Key Application Features
+```typescript
+import { useAuth, AuthProvider } from '@/lib/common'
 
-#### Dashboard (`/app/(app)/home/`)
+function MyApp() {
+  return (
+    <AuthProvider>
+      <MyComponents />
+    </AuthProvider>
+  )
+}
 
-The primary interface for investment overview:
+function MyComponent() {
+  const { user, isAuthenticated, login, logout } = useAuth()
+  // ... component logic
+}
+```
 
-- **Portfolio Summary**: Key metrics and investment balances at a glance
-- **Holdings Overview**: Current positions across all accounts
-- **AI Insights**: Claude-powered analysis of investment trends
+### Sidebar Management
 
-#### Securities (`/app/(app)/securities/`)
+```typescript
+import { SidebarProvider, useSidebarContext } from '@/lib/common'
 
-Securities management interface:
+function Layout({ children }) {
+  return (
+    <SidebarProvider initialCollapsed={false}>
+      <MySidebar />
+      <main>{children}</main>
+    </SidebarProvider>
+  )
+}
 
-- **Portfolio Tracking**: Real-time position tracking and performance
-- **Market Data**: Live quotes and historical data
-- **Analysis Tools**: Technical and fundamental analysis capabilities
+function MySidebar() {
+  const { desktop, mobile } = useSidebarContext()
+  // ... sidebar logic
+}
+```
 
-#### Settings (`/app/(app)/settings/`)
+### Responsive Design
 
-User configuration and preferences:
+```typescript
+import { useMediaQuery } from '@/lib/common'
 
-- **Investment Preferences**: Risk tolerance and investment goals
-- **Account Settings**: Profile and notification preferences
-- **API Keys**: Manage programmatic access credentials
+function ResponsiveComponent() {
+  const isMobile = useMediaQuery('(max-width: 768px)')
 
-### Core Library (`/src/lib/core/`)
+  return (
+    <div className={isMobile ? 'mobile-layout' : 'desktop-layout'}>
+      {/* component content */}
+    </div>
+  )
+}
+```
 
-Shared authentication and utility modules maintained as a git subtree:
+### API Integration
 
-- **Auth Components**: Login/register forms with RoboInvestor branding
-- **Auth Core**: Session management and JWT handling
-- **UI Components**: Consistent interface elements across RoboSystems apps
-- **Contexts**: User, company, and credit system contexts
+```typescript
+import { SDK } from '@/lib/common'
+import type { UserResponse } from '@/lib/common/sdk/types.gen'
 
-### GitHub Actions Workflows
+async function fetchUser() {
+  const response = await SDK.getCurrentUser()
+  const userData = response.data as UserResponse
+  return userData
+}
+```
 
-#### Primary Deployment Workflows
+## Development Guidelines
 
-- **`prod.yml`**: Production deployment pipeline
-  - Manual deployment via workflow_dispatch
-  - Deploys to roboinvestor.ai with S3 static hosting
-  - Full testing, build, and ECS deployment
-  - Auto-scaling configuration with Fargate Spot
+### Adding New Components
 
-- **`staging.yml`**: Staging environment deployment
-  - Manual workflow dispatch
-  - Deploys to staging.roboinvestor.ai
-  - Integration testing environment
+1. **Create component** in appropriate directory
+2. **Add TypeScript types** in `types/` if needed
+3. **Export from index.ts** files
+4. **Update main index.ts** to include new exports
+5. **Test in one app** before pushing to common repo
 
-- **`test.yml`**: Automated testing suite
-  - Runs on pull requests and main branch
-  - TypeScript, ESLint, and Prettier checks
-  - Vitest unit and integration tests
-  - Build verification
+### Naming Conventions
 
-- **`build.yml`**: Docker image building
-  - Multi-architecture support (AMD64/ARM64)
-  - Pushes to Amazon ECR
-  - Static asset upload to S3
+- **Components**: PascalCase (`SidebarProvider`)
+- **Hooks**: camelCase with `use` prefix (`useMediaQuery`)
+- **Types**: PascalCase (`SidebarCookie`)
+- **Utilities**: camelCase (`sidebarCookie`)
 
-### CloudFormation Templates
+### TypeScript Patterns
 
-Infrastructure as Code templates in `/cloudformation/`:
+- Use `type` for simple types, `interface` for objects
+- Prefer runtime type guards over direct assertions
+- Export types from `types/` directory
+- Use generated SDK types when available
 
-- **`template.yaml`**: Complete ECS Fargate stack with auto-scaling
-- **`s3.yaml`**: Static asset hosting for CloudFront CDN
+## Testing
 
-## Support
+Components should be tested in the consuming applications. Common patterns:
 
-- Issues: [GitHub Issues](https://github.com/RoboFinSystems/roboinvestor-app/issues)
-- Discussions: [GitHub Discussions](https://github.com/RoboFinSystems/roboinvestor-app/discussions)
-- Wiki: [GitHub Wiki](https://github.com/RoboFinSystems/roboinvestor-app/wiki)
+```typescript
+import { render, screen } from '@testing-library/react'
+import { SidebarProvider } from '@/lib/common'
 
-## License
+test('sidebar provider works', () => {
+  render(
+    <SidebarProvider initialCollapsed={false}>
+      <TestComponent />
+    </SidebarProvider>
+  )
+  // ... test logic
+})
+```
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+## Versioning
 
-MIT © 2025 RFS LLC
+This repository follows semantic versioning principles:
+
+- **Major**: Breaking changes to public APIs
+- **Minor**: New features, non-breaking changes
+- **Patch**: Bug fixes, internal improvements
+
+## Contributing
+
+1. Make changes in your app's `src/lib/core` directory
+2. Test thoroughly in your app
+3. Push changes back to this repository
+4. Update other apps to pull the latest changes
+5. Ensure all apps pass their test suites
+
+## Security
+
+- Never commit secrets or API keys
+- Use environment variables for configuration
+- Follow authentication best practices
+- Validate all inputs and API responses
+
+---
+
+Generated with Claude Code for consistent, reliable shared components across the RoboInvestor ecosystem.
