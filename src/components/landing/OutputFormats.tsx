@@ -204,15 +204,9 @@ export default function OutputFormats() {
               key={idx}
               className="group relative overflow-hidden rounded-2xl border border-gray-800 bg-gradient-to-br from-zinc-900 to-black p-6 transition-all hover:border-gray-700"
             >
-              {format.badge && (
+              {format.badge && format.badge == 'Coming Soon' && (
                 <div className="absolute top-4 right-4">
-                  <span
-                    className={`rounded-full px-2 py-1 text-xs font-semibold ${
-                      format.badge === 'Current'
-                        ? 'bg-green-500/20 text-green-400'
-                        : 'bg-amber-500/20 text-amber-400'
-                    }`}
-                  >
+                  <span className="rounded-full bg-amber-500/20 px-2 py-1 text-xs font-semibold text-amber-400">
                     {format.badge}
                   </span>
                 </div>
@@ -230,23 +224,6 @@ export default function OutputFormats() {
                 {format.title}
               </h3>
               <p className="text-sm text-gray-400">{format.description}</p>
-
-              <div className="mt-4 flex items-center gap-2 text-xs text-gray-500">
-                <svg
-                  className="h-4 w-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M13 10V3L4 14h7v7l9-11h-7z"
-                  />
-                </svg>
-                <span>Same data source</span>
-              </div>
             </div>
           ))}
         </div>

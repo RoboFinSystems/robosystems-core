@@ -1,7 +1,20 @@
 export default function ReportCreator() {
   return (
-    <section className="relative bg-black py-16 sm:py-24">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+    <section className="relative overflow-hidden bg-black py-16 sm:py-24">
+      {/* Animated background */}
+      <div className="absolute inset-0">
+        <div className="absolute inset-0 bg-linear-to-br from-blue-900/20 via-purple-900/20 to-pink-900/20"></div>
+        <div className="absolute inset-0 bg-[url('/grid.svg')] bg-center opacity-10"></div>
+      </div>
+
+      {/* Floating elements */}
+      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+        <div className="animate-float-slow absolute -top-20 left-1/4 h-96 w-96 rounded-full bg-blue-500/10 blur-3xl"></div>
+        <div className="animate-float-slower absolute right-1/4 -bottom-20 h-96 w-96 rounded-full bg-purple-500/10 blur-3xl"></div>
+        <div className="animate-float absolute top-1/2 left-1/2 h-64 w-64 -translate-x-1/2 -translate-y-1/2 rounded-full bg-pink-500/5 blur-3xl"></div>
+      </div>
+
+      <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="mb-16 text-center">
           <h2 className="font-heading mb-6 text-3xl font-bold text-white sm:text-4xl md:text-5xl">
             Powerful Report Creator
