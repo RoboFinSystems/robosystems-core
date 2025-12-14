@@ -1,238 +1,232 @@
-# RoboSystems App
+# RoboSystems Core Components
 
-RoboSystems App is the graph database management interface for the RoboSystems platform, providing developers and data engineers with powerful tools to create, manage, and query financial knowledge graphs.
+A shared library of React components, hooks, utilities, and types used across RoboInvestor ecosystem applications.
 
-- **Graph Database Management**: Create and manage graph databases with visual schema designers and multi-tenant isolation
-- **Interactive Query Interface**: Execute Cypher queries with syntax highlighting, real-time results, and export capabilities
-- **Schema Definition Tools**: Design custom graph schemas with node and relationship type builders for any data model
-- **Subgraph Management**: Create isolated subgraphs for versioning, access control, and AI memory layers
-- **Shared Repository Access**: Query SEC XBRL filings and public financial data from shared knowledge graphs
+## Overview
 
-## Core Features
+This repository contains reusable components that are shared between:
 
-RoboSystems App is the primary interface for managing graph databases on the RoboSystems platform. While RoboLedger handles QuickBooks integration and RoboInvestor manages investment data, RoboSystems App focuses on the foundational graph infrastructure that powers these specialized applications.
+- **roboinvestor-app** - Primary investment management interface
+- **roboledger-app** - Financial reporting and ledger management
+- **robosystems-app** - Core systems management
 
-- **Entity Graph Creation**: Launch new graph databases with predefined schemas for RoboLedger, RoboInvestor, and other entity types
-- **Generic Graph Builder**: Design custom graph schemas for any use case with flexible node and relationship definitions
-- **Query Playground**: Interactive Cypher query editor with auto-completion, syntax validation, and result visualization
-- **Schema Explorer**: Visual schema inspection showing node types, relationships, and property definitions
-- **Subgraph Workflows**: Create, manage, and query subgraphs with independent schemas and access controls
-- **Database Analytics**: Monitor query performance, storage usage, and database health metrics
-- **API Key Management**: Generate and manage API keys for programmatic database access
-- **Credit Usage Tracking**: Monitor AI operation credits and storage usage across your organization
+## Structure
 
-## Quick Start
-
-### Development Environment
-
-```bash
-# Clone the repository
-git clone https://github.com/RoboFinSystems/robosystems-app.git
-cd robosystems-app
-
-# Install dependencies
-npm install
-
-# Configure environment
-cp .env.example .env
-# Edit .env with your API endpoint
-
-# Start development server
-npm run dev
+```
+├── auth-components/          # Authentication UI components
+│   ├── AuthProvider.tsx      # Authentication context provider
+│   ├── SignInForm.tsx        # Login form component
+│   └── SignUpForm.tsx        # Registration form component
+├── auth-core/               # Authentication logic and types
+│   ├── client.ts            # Authentication client
+│   ├── hooks.ts             # Authentication hooks
+│   └── types.ts             # Authentication TypeScript types
+├── contexts/                # React contexts
+│   └── sidebar-context.tsx  # Sidebar state management
+├── hooks/                   # Custom React hooks
+│   └── use-media-query.ts   # Media query hook for responsive design
+├── lib/                     # Utility libraries
+│   └── sidebar-cookie.ts    # Sidebar state persistence
+├── theme/                   # UI theming
+│   └── flowbite-theme.ts    # Flowbite React custom theme
+├── types/                   # Shared TypeScript definitions
+│   └── user.d.ts           # User type definitions
+├── ui-components/          # Reusable UI components
+│   ├── api-keys/           # API key management components
+│   ├── forms/              # Form components and validation
+│   ├── layout/             # Layout and container components
+│   └── settings/           # Settings page components
+└── index.ts                # Main export file
 ```
 
-The application will be available at: http://localhost:3000
+## Technology Stack
 
-### Docker Development
+- **React 18** with modern hooks and patterns
+- **TypeScript** for type safety
+- **Flowbite React** for UI components
+- **Tailwind CSS** for styling
+- **Next.js 15** App Router compatibility
+- **Auto-generated SDK** from OpenAPI specifications
 
-```bash
-# Build and run with Docker
-docker build -t robosystems-app .
-docker run -p 3000:3000 --env-file .env robosystems-app
-```
+## Usage as Git Subtree
 
-## Development Commands
+### Initial Setup
 
-### Core Development
-
-```bash
-npm run dev              # Start development server (port 3000)
-npm run build           # Production build with optimization
-```
-
-### Code Quality
+Add this repository as a subtree to your app:
 
 ```bash
-npm run lint            # ESLint validation
-npm run lint:fix        # Auto-fix linting issues
-npm run format          # Prettier code formatting
-npm run format:check    # Check formatting compliance
-npm run typecheck       # TypeScript type checking
+# In your app directory (roboinvestor-app, roboledger-app, etc.)
+git subtree add --prefix=src/lib/core \
+  https://github.com/yourorg/robosystems-core.git main --squash
 ```
 
-### Testing
+### Pull Updates
+
+Get the latest common components:
 
 ```bash
-npm run test            # Run Vitest test suite
-npm run test:watch      # Interactive test watch mode
-npm run test:coverage   # Generate coverage report
-npm run test:all        # All tests and code quality checks
+git subtree pull --prefix=src/lib/core \
+  https://github.com/yourorg/robosystems-core.git main --squash
 ```
 
-### SDLC Commands
+### Push Changes
+
+Push your improvements back to the common repository:
 
 ```bash
-npm run feature:create  # Create a feature branch
-npm run pr:create       # Create pull request
-npm run release:create  # Create GitHub release
-npm run deploy:staging  # Deploy to staging environment
-npm run deploy:prod     # Deploy to production
+git subtree push --prefix=src/lib/core \
+  https://github.com/yourorg/robosystems-core.git main
 ```
 
-### Core Subtree Management
+## Component Usage
 
-```bash
-npm run core:pull       # Pull latest core subtree updates
-npm run core:push       # Push core subtree changes
-npm run core:add        # Add core subtree
+### Import from Common
+
+```typescript
+import {
+  useMediaQuery,
+  useSidebarContext,
+  SidebarProvider,
+  customTheme,
+  sidebarCookie,
+} from '@/lib/common'
+
+import type { CommonUser, SidebarCookie } from '@/lib/common'
 ```
 
-### Prerequisites
+### Authentication
 
-#### System Requirements
+```typescript
+import { useAuth, AuthProvider } from '@/lib/common'
 
-- Node.js 22+ (LTS recommended)
-- npm 10+ or yarn 1.22+
-- 4GB RAM minimum
-- Modern browser (Chrome, Firefox, Safari, Edge)
+function MyApp() {
+  return (
+    <AuthProvider>
+      <MyComponents />
+    </AuthProvider>
+  )
+}
 
-#### Required Services
-
-- RoboSystems API endpoint (production or development)
-- Optional: AWS account for production deployment
-
-## Architecture
-
-### Application Layer
-
-- **Next.js 15 App Router** with React Server Components for optimal performance
-- **TypeScript 5** for type safety and developer experience
-- **Flowbite React Components** with Tailwind CSS for consistent UI
-- **RoboSystems Client SDK** for API communication and authentication
-
-### Key Application Features
-
-#### Graph Management (`/app/(app)/graphs/`)
-
-The primary interface for creating and managing graph databases:
-
-- **Graph Creation Wizard**: Step-by-step workflow for creating entity or generic graphs
-- **Graph List View**: Overview of all graphs with status, tier, and usage metrics
-- **Graph Settings**: Configuration for database tier, access control, and retention
-
-#### Query Interface (`/app/(app)/query/`)
-
-Interactive query playground for graph exploration:
-
-- **Cypher Editor**: Monaco-based editor with syntax highlighting and auto-completion
-- **Query History**: Save and replay previous queries
-- **Result Viewer**: Tabular and JSON views with export to CSV/JSON
-- **Query Templates**: Pre-built queries for common operations
-
-#### Schema Designer (`/app/(app)/schema/`)
-
-Visual tools for defining and inspecting graph schemas:
-
-- **Schema Builder**: Drag-and-drop interface for creating nodes and relationships
-- **Property Editor**: Define property types, constraints, and indexes
-- **Schema Validation**: Real-time validation of schema definitions
-- **Import/Export**: Share schemas as JSON or YAML
-
-#### Subgraph Management (`/app/(app)/subgraphs/`)
-
-Tools for creating and managing subgraphs:
-
-- **Subgraph Creation**: Define subgraphs with custom schemas
-- **Access Control**: Manage permissions at the subgraph level
-- **Version History**: Track schema changes and data evolution
-- **AI Memory Layers**: Special subgraphs for AI agent context
-
-#### Shared Repositories (`/app/(app)/shared-repositories/`)
-
-Access to public financial knowledge graphs:
-
-- **SEC XBRL**: Subscribe to the SEC XBRL shared repository knowledge graph
-- **MCP Client Config**: Create API Keys for accessing the MCP server
-- **AI Credit Management**: View and manage subscription AI credits to use AI agents
-
-### Core Library (`/src/lib/core/`)
-
-Shared authentication and utility modules maintained as a git subtree:
-
-- **Auth Components**: Login/register forms with RoboSystems branding
-- **Auth Core**: Session management and JWT handling
-- **UI Components**: Consistent interface elements across RoboSystems apps
-- **Contexts**: User, company, and credit system contexts
-- **Task Monitoring**: Background SSE job progress tracking
-
-## CI/CD
-
-### GitHub Actions Setup
-
-Configure GitHub repository secrets and variables using the automated setup script:
-
-```bash
-# Run the GitHub Actions setup script
-npm run setup:gha
-
-# Or run directly
-./bin/gha-setup
+function MyComponent() {
+  const { user, isAuthenticated, login, logout } = useAuth()
+  // ... component logic
+}
 ```
 
-This will guide you through configuring all required secrets and variables for the CI/CD pipeline.
+### Sidebar Management
 
-### GitHub Actions Workflows
+```typescript
+import { SidebarProvider, useSidebarContext } from '@/lib/common'
 
-#### Primary Deployment Workflows
+function Layout({ children }) {
+  return (
+    <SidebarProvider initialCollapsed={false}>
+      <MySidebar />
+      <main>{children}</main>
+    </SidebarProvider>
+  )
+}
 
-- **`prod.yml`**: Production deployment pipeline
-  - Manual deployment via workflow_dispatch
-  - Deploys to robosystems.ai with S3 static hosting
-  - Full testing, build, and ECS deployment
-  - Auto-scaling configuration with Fargate Spot
+function MySidebar() {
+  const { desktop, mobile } = useSidebarContext()
+  // ... sidebar logic
+}
+```
 
-- **`staging.yml`**: Staging environment deployment
-  - Manual workflow dispatch
-  - Deploys to staging.robosystems.ai
-  - Integration testing environment
+### Responsive Design
 
-- **`test.yml`**: Automated testing suite
-  - Runs on pull requests and main branch
-  - TypeScript, ESLint, and Prettier checks
-  - Vitest unit and integration tests
-  - Build verification
+```typescript
+import { useMediaQuery } from '@/lib/common'
 
-- **`build.yml`**: Docker image building
-  - Multi-architecture support (AMD64/ARM64)
-  - Pushes to Amazon ECR
-  - Static asset upload to S3
+function ResponsiveComponent() {
+  const isMobile = useMediaQuery('(max-width: 768px)')
 
-### CloudFormation Templates
+  return (
+    <div className={isMobile ? 'mobile-layout' : 'desktop-layout'}>
+      {/* component content */}
+    </div>
+  )
+}
+```
 
-Infrastructure as Code templates in `/cloudformation/`:
+### API Integration
 
-- **`template.yaml`**: Complete ECS Fargate stack with auto-scaling
-- **`s3.yaml`**: Static asset hosting for CloudFront CDN
+```typescript
+import { SDK } from '@/lib/common'
+import type { UserResponse } from '@/lib/common/sdk/types.gen'
 
-## Support
+async function fetchUser() {
+  const response = await SDK.getCurrentUser()
+  const userData = response.data as UserResponse
+  return userData
+}
+```
 
-- Issues: [GitHub Issues](https://github.com/RoboFinSystems/robosystems-app/issues)
-- Discussions: [GitHub Discussions](https://github.com/RoboFinSystems/robosystems-app/discussions)
-- Projects: [GitHub Projects](https://github.com/RoboFinSystems/robosystems-app/projects)
-- Wiki: [GitHub Wiki](https://github.com/RoboFinSystems/robosystems-app/wiki)
+## Development Guidelines
 
-## License
+### Adding New Components
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+1. **Create component** in appropriate directory
+2. **Add TypeScript types** in `types/` if needed
+3. **Export from index.ts** files
+4. **Update main index.ts** to include new exports
+5. **Test in one app** before pushing to common repo
 
-MIT © 2025 RFS LLC
+### Naming Conventions
+
+- **Components**: PascalCase (`SidebarProvider`)
+- **Hooks**: camelCase with `use` prefix (`useMediaQuery`)
+- **Types**: PascalCase (`SidebarCookie`)
+- **Utilities**: camelCase (`sidebarCookie`)
+
+### TypeScript Patterns
+
+- Use `type` for simple types, `interface` for objects
+- Prefer runtime type guards over direct assertions
+- Export types from `types/` directory
+- Use generated SDK types when available
+
+## Testing
+
+Components should be tested in the consuming applications. Common patterns:
+
+```typescript
+import { render, screen } from '@testing-library/react'
+import { SidebarProvider } from '@/lib/common'
+
+test('sidebar provider works', () => {
+  render(
+    <SidebarProvider initialCollapsed={false}>
+      <TestComponent />
+    </SidebarProvider>
+  )
+  // ... test logic
+})
+```
+
+## Versioning
+
+This repository follows semantic versioning principles:
+
+- **Major**: Breaking changes to public APIs
+- **Minor**: New features, non-breaking changes
+- **Patch**: Bug fixes, internal improvements
+
+## Contributing
+
+1. Make changes in your app's `src/lib/core` directory
+2. Test thoroughly in your app
+3. Push changes back to this repository
+4. Update other apps to pull the latest changes
+5. Ensure all apps pass their test suites
+
+## Security
+
+- Never commit secrets or API keys
+- Use environment variables for configuration
+- Follow authentication best practices
+- Validate all inputs and API responses
+
+---
+
+Generated with Claude Code for consistent, reliable shared components across the RoboInvestor ecosystem.
