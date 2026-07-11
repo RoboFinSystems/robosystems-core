@@ -19,6 +19,8 @@ import {
   validateResetToken,
   verifyEmail,
 } from '@robosystems/client'
+import * as sdkClientsModule from '@robosystems/client/clients'
+import { getToken, getValidToken } from './token-storage'
 import type {
   APIKey,
   AuthResponse,
@@ -39,18 +41,14 @@ import type {
 // GraphQL client inside LedgerClient/InvestorClient has no credentials and
 // every resolver call returns UNAUTHENTICATED.
 //
-// Lazy-required so auth-core keeps working on SDK versions that predate
-// the extensions surface (e.g. during a gradual `@robosystems/client`
-// upgrade); a missing module here falls through to a no-op, which just
-// means the extensions singleton is unconfigured but the core REST auth
-// path still works.
-let setSDKClientConfig: any = null
-try {
-  const clientsModule = require('@robosystems/client/clients')
-  setSDKClientConfig = clientsModule.setSDKClientConfig
-} catch {
-  // SDK extensions not available in this version
-}
+// Statically imported: the `@robosystems/client >=0.3.2` peer range
+// guarantees the clients surface (the root barrel imports it statically
+// too), and `require()` does not exist in this package's compiled ESM.
+// A missing *export* still falls through to a no-op, which just means the
+// extensions singleton is unconfigured but the core REST auth path works.
+const setSDKClientConfig: any =
+  (sdkClientsModule as { setSDKClientConfig?: unknown }).setSDKClientConfig ??
+  null
 
 // Configuration constants
 const CACHE_TTL_MS = 30 * 1000 // 30 seconds - optimized for performance
@@ -113,8 +111,9 @@ export class RoboSystemsAuthClient {
     // LedgerClient / InvestorClient / ReportClient via graphql-request.
     if (setSDKClientConfig && typeof window !== 'undefined') {
       try {
-        // Lazy-required to avoid pulling token-storage into server bundles.
-        const { getToken, getValidToken } = require('./token-storage')
+        // token-storage is imported statically (its functions are all
+        // window-guarded, so it is server-safe); `require()` is not
+        // available in this package's compiled ESM output.
         setSDKClientConfig({
           baseUrl: baseUrl.replace(/\/$/, ''),
           // Priming `token` with the current storage value isn't required
