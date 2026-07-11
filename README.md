@@ -1,14 +1,74 @@
-# RoboSystems Core Components
+# @robosystems/core
 
-A shared library of React components, hooks, utilities, and types used across RoboSystems ecosystem applications.
+Shared React components, hooks, contexts, and utilities for the RoboSystems ecosystem apps, published as an npm package.
+
+[![npm](https://img.shields.io/npm/v/%40robosystems%2Fcore)](https://www.npmjs.com/package/@robosystems/core)
 
 ## Overview
 
-This repository contains reusable components shared between:
+This library contains the platform-coupled frontend core shared between:
 
 - **robosystems-app** — Graph database management interface
 - **roboledger-app** — Accounting and bookkeeping interface
 - **roboinvestor-app** — Investment management interface
+
+It is Next.js-specific by design (App Router client/server components, Server Actions, `next/headers` cookie helpers) and is intended to be consumed by Next.js applications only. The compiled output targets bundler resolution — it is not loadable by Node's native ESM resolver.
+
+## Installation
+
+```bash
+npm install @robosystems/core
+```
+
+### Peer dependencies
+
+The consuming app provides:
+
+| Peer                  | Range      |
+| --------------------- | ---------- |
+| `react` / `react-dom` | >=18 <20   |
+| `next`                | >=15 <17   |
+| `flowbite-react`      | ^0.12.5    |
+| `react-icons`         | >=4 <6     |
+| `@robosystems/client` | >=0.3.2 <1 |
+
+### App wiring
+
+Two integration points beyond the install:
+
+1. **Tailwind content scan** — the package ships Tailwind utility classes in its compiled JS; add it to the app's `tailwind.config.ts`:
+
+   ```ts
+   content: [
+     // ...existing globs
+     'node_modules/@robosystems/core/**/*.js',
+   ]
+   ```
+
+2. **Vitest** (if the app tests components that render core) — the package is compiled ESM with directory imports and must be processed by vite, in `vitest.config.ts`:
+
+   ```ts
+   test: {
+     server: { deps: { inline: [/@robosystems\/core/] } },
+   }
+   ```
+
+## Usage
+
+Everything is importable from the root barrel, or from subpaths mirroring the folder structure:
+
+```typescript
+import {
+  AuthProvider,
+  useAuth,
+  useGraphContext,
+  customTheme,
+} from '@robosystems/core'
+import { PageHeader, Spinner } from '@robosystems/core/ui-components'
+import { useToast } from '@robosystems/core/hooks/use-toast'
+```
+
+> The root barrel has an import-time side effect: it configures the `@robosystems/client` SDK singleton (base URL from `NEXT_PUBLIC_ROBOSYSTEMS_API_URL`, Bearer-token request interceptor).
 
 ## Structure
 
@@ -58,6 +118,8 @@ This repository contains reusable components shared between:
 │   ├── graph-cookie.ts       # Graph selection persistence
 │   ├── graph-tiers.ts        # Tier display helpers
 │   └── sidebar-cookie.ts     # Sidebar state persistence
+├── library/                  # XBRL taxonomy browser
+├── research/                 # Research coverage components
 ├── task-monitoring/          # Background job and operation tracking
 │   ├── hooks.ts              # useTaskMonitoring, useEntityCreationTask
 │   ├── operationErrors.ts    # Operation error types
@@ -86,41 +148,12 @@ This repository contains reusable components shared between:
 
 ## Technology Stack
 
-- **React 18** with modern hooks and patterns
+- **React 18/19** with modern hooks and patterns
 - **TypeScript** for type safety
 - **Flowbite React** for UI components
-- **Tailwind CSS** for styling
-- **Next.js 15** App Router compatibility
-- **Auto-generated SDK** from OpenAPI specifications
-
-## Usage as Git Subtree
-
-Each consuming app has npm scripts for subtree management:
-
-```bash
-npm run core:pull        # Pull latest changes from core repository
-npm run core:push        # Push local core changes back to repository
-npm run core:add         # Initial setup (only needed once)
-```
-
-### Workflow
-
-1. **Before making changes**: `npm run core:pull` to get latest
-2. **Make and test changes** in your app
-3. **Push back**: `npm run core:push` to share with other apps
-4. **Sync other apps**: Run `npm run core:pull` in each other app
-
-### Manual Commands
-
-```bash
-# Pull updates
-git subtree pull --prefix=src/lib/core \
-  https://github.com/RoboFinSystems/robosystems-core.git main --squash
-
-# Push changes
-git subtree push --prefix=src/lib/core \
-  https://github.com/RoboFinSystems/robosystems-core.git main
-```
+- **Tailwind CSS** for styling (classes compiled by the consuming app)
+- **Next.js 15/16** App Router
+- **Auto-generated SDK** (`@robosystems/client`) from OpenAPI specifications
 
 ## Key Patterns
 
@@ -132,7 +165,7 @@ Two monitors handle async operations:
 - **`taskMonitor`** — Polling-based fallback for older task-style operations
 
 ```typescript
-import { useOperationMonitoring, useGraphCreation } from '@/lib/core/task-monitoring'
+import { useOperationMonitoring, useGraphCreation } from '@robosystems/core/task-monitoring'
 
 // Monitor a graph operation via SSE
 const { startMonitoring, progress, result } = useOperationMonitoring()
@@ -146,7 +179,7 @@ await createGraph({ graph_type: 'entity', graph_name: 'Acme Corp', ... })
 ### Contexts
 
 ```typescript
-import { useGraphContext, useOrgContext } from '@/lib/core/contexts'
+import { useGraphContext, useOrgContext } from '@robosystems/core/contexts'
 
 function MyComponent() {
   const { currentGraphId, setCurrentGraphId } = useGraphContext()
@@ -157,18 +190,40 @@ function MyComponent() {
 ### Authentication
 
 ```typescript
-import { useAuth, AuthProvider, AuthGuard } from '@/lib/core/auth-core'
-import { SignInForm, SignUpForm } from '@/lib/core/auth-components'
+import { useAuth, AuthProvider, AuthGuard } from '@robosystems/core/auth-core'
+import { SignInForm, SignUpForm } from '@robosystems/core/auth-components'
 ```
 
-## Development Guidelines
+## Development
+
+```bash
+npm install          # Also wires .githooks via the prepare script
+npm run test         # Vitest suite (jsdom, app-equivalent mocks in test/__mocks__)
+npm run test:all     # format:check + lint + typecheck + test + build
+npm run build        # tsc → dist/ + prepare-package.mjs (publishable package root)
+npm run pack:local   # Build + npm pack ./dist → tarball for local app testing
+```
+
+To test changes in an app before releasing:
+
+```bash
+npm run pack:local
+cd ../roboledger-app && npm install ../robosystems-core/robosystems-core-<version>.tgz
+```
+
+### Packaging notes
+
+- The package is published **from `dist/`** so compiled files sit at the package root — the apps' directory-barrel and direct-file deep imports both resolve without an `exports` map.
+- The build is **per-file tsc** (not a bundler) so `'use client'` / `'use server'` directives survive at the top of each emitted file.
+- **No CommonJS**: the output is ESM — `require()` is not available at runtime. Use static or dynamic `import`.
 
 ### Adding New Components
 
 1. Create component in the appropriate directory
 2. Add TypeScript types in `types/` if needed
-3. Export from the directory's `index.ts`
-4. Test in one app before pushing to core
+3. Export from the directory's `index.ts` (and the root `index.ts` if broadly useful)
+4. Add tests in the adjacent `__tests__/` directory
+5. Validate in an app with a `pack:local` tarball before releasing
 
 ### Naming Conventions
 
@@ -177,13 +232,13 @@ import { SignInForm, SignUpForm } from '@/lib/core/auth-components'
 - **Types**: PascalCase (`SidebarCookie`)
 - **Utilities**: camelCase (`sidebarCookie`)
 
-## Testing
+## Releasing
 
-Tests live in `__tests__/` directories alongside the source files. Run tests in the consuming application:
+Releases run through GitHub Actions (same pipeline as `@robosystems/report-components`):
 
-```bash
-npm run test
-```
+1. Run the **Create Release & Publish** workflow (`gh workflow run create-release.yml --field version_type=patch|minor|major`, or `npm run release:create`)
+2. It bumps the version on `main`, cuts a `release/<version>` branch, tags `v<version>`, and creates a GitHub Release with an AI-generated changelog
+3. The `release/**` push triggers `publish.yml`, which builds and runs `npm publish ./dist --provenance` via npm OIDC Trusted Publishing
 
 ## Security
 
@@ -191,3 +246,7 @@ npm run test
 - Use environment variables for configuration
 - Follow authentication best practices
 - Validate all inputs and API responses
+
+## License
+
+MIT
