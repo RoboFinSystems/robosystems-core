@@ -18,11 +18,7 @@ export interface Operation {
 }
 
 export type OperationStatus =
-  | 'pending'
-  | 'running'
-  | 'completed'
-  | 'failed'
-  | 'cancelled'
+  'pending' | 'running' | 'completed' | 'failed' | 'cancelled'
 
 export interface OperationMetadata {
   operation_type: string

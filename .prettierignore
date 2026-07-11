@@ -1,0 +1,28 @@
+# Dependencies
+node_modules/
+package-lock.json
+
+# Build outputs
+dist/
+build/
+coverage/
+*.tgz
+
+# Cache and temp files
+.cache/
+.tmp/
+.vite/
+*.log
+
+# IDE
+.vscode/
+.idea/
+
+# Environment files
+.env*
+
+# Test coverage
+*.lcov
+
+# GitHub
+.github/

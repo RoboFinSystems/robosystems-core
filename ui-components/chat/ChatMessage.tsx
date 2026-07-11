@@ -10,9 +10,7 @@ interface ChatMessageProps {
 
 export const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => (
   <div
-    className={`flex ${
-      message.user === 'You' ? 'justify-end' : 'justify-start'
-    }`}
+    className={`flex ${message.user === 'You' ? 'justify-end' : 'justify-start'}`}
   >
     <Card
       className={`max-w-[80%] ${

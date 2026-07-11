@@ -10,12 +10,7 @@ export interface TaskStatusResponse {
 }
 
 export type TaskStatus =
-  | 'pending'
-  | 'in_progress'
-  | 'completed'
-  | 'failed'
-  | 'cancelled'
-  | 'retrying'
+  'pending' | 'in_progress' | 'completed' | 'failed' | 'cancelled' | 'retrying'
 
 export interface TaskPollingOptions {
   taskId: string

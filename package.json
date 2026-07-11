@@ -1,12 +1,75 @@
 {
   "name": "@robosystems/core",
-  "version": "0.2.0",
-  "private": true,
+  "version": "0.3.0",
+  "description": "Shared RoboSystems frontend core library (auth, contexts, task monitoring, UI components) for the RoboSystems Next.js apps",
+  "license": "MIT",
+  "private": false,
+  "type": "module",
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/RoboFinSystems/robosystems-core.git"
   },
-  "publishConfig": {
-    "types": "dist/index.d.ts"
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "scripts": {
+    "prepare": "git config core.hooksPath .githooks",
+    "feature:create": "./bin/create-feature.sh",
+    "release:create": "./bin/create-release.sh",
+    "clean": "rm -rf dist *.tgz",
+    "build": "npm run clean && tsc -p tsconfig.build.json && node scripts/prepare-package.mjs",
+    "typecheck": "tsc -p tsconfig.build.json --noEmit",
+    "pack:local": "npm run build && npm pack ./dist",
+    "test": "vitest run --silent",
+    "test:watch": "vitest watch --silent",
+    "test:coverage": "vitest run --coverage --silent",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier . --write",
+    "format:check": "prettier . --check",
+    "test:all": "npm run format:check && npm run lint && npm run typecheck && npm run test && npm run build"
+  },
+  "peerDependencies": {
+    "@robosystems/client": ">=0.3.2 <1",
+    "flowbite-react": "^0.12.5",
+    "next": ">=15 <17",
+    "react": ">=18 <20",
+    "react-dom": ">=18 <20",
+    "react-icons": ">=4 <6"
+  },
+  "dependencies": {
+    "react-markdown": "^10",
+    "remark-gfm": "^4.0.1",
+    "tailwind-merge": "^3"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9",
+    "@next/eslint-plugin-next": "^16.2.10",
+    "@testing-library/jest-dom": "^6",
+    "@testing-library/react": "^16",
+    "@testing-library/user-event": "^14",
+    "@types/node": "^22",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "@vitejs/plugin-react": "^4.3.4",
+    "@vitest/coverage-v8": "^4.1.8",
+    "eslint": "^9.39.2",
+    "eslint-config-prettier": "^10",
+    "eslint-plugin-jsx-a11y": "^6.10.2",
+    "eslint-plugin-prettier": "^5",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "jsdom": "^29.1.1",
+    "prettier": "^3",
+    "prettier-plugin-organize-imports": "^4",
+    "prettier-plugin-tailwindcss": "^0.8.0",
+    "prop-types": "^15.8.1",
+    "tailwindcss": "^4.3.2",
+    "typescript": "^5.7.2",
+    "typescript-eslint": "^8",
+    "vitest": "^4.1.8"
   }
 }

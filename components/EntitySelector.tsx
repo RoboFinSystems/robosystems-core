@@ -264,9 +264,7 @@ function EntityDropdownItem<T extends SelectableEntity>({
         >
           {EntityIcon && (
             <EntityIcon
-              className={`h-4 w-4 ${
-                isRepository ? 'text-secondary-400' : 'text-primary-400'
-              }`}
+              className={`h-4 w-4 ${isRepository ? 'text-secondary-400' : 'text-primary-400'}`}
             />
           )}
         </div>
