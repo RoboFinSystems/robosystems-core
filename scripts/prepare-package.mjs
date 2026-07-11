@@ -8,7 +8,13 @@
  * resolution — no exports-map wildcards, which cannot serve both
  * directory-barrel and direct-file subpaths at once.
  */
-import { copyFileSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
+import {
+  copyFileSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  writeFileSync,
+} from 'node:fs'
 import { join } from 'node:path'
 
 const root = JSON.parse(readFileSync('package.json', 'utf8'))
@@ -17,6 +23,7 @@ const pkg = {
   name: root.name,
   version: root.version,
   description: root.description,
+  license: root.license,
   // `private` is inherited from the root manifest: flip it there when this
   // package is ready to publish, and dist/ follows.
   private: root.private,
@@ -36,6 +43,7 @@ const pkg = {
 writeFileSync(join('dist', 'package.json'), JSON.stringify(pkg, null, 2) + '\n')
 
 copyFileSync('README.md', join('dist', 'README.md'))
+copyFileSync('LICENSE', join('dist', 'LICENSE'))
 
 // tsc does not emit input .d.ts files (types/entity.d.ts, types/user.d.ts),
 // but dist/types/index.d.ts re-exports from them — copy them over.

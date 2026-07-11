@@ -19,11 +19,7 @@ const getSDKExtensions = async () => {
 }
 
 export type OperationStatus =
-  | 'pending'
-  | 'running'
-  | 'completed'
-  | 'failed'
-  | 'cancelled'
+  'pending' | 'running' | 'completed' | 'failed' | 'cancelled'
 
 export interface OperationEvent {
   event: string

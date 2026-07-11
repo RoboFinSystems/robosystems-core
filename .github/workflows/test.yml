@@ -1,0 +1,64 @@
+name: Test
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Check formatting
+        run: npm run format:check
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npm run test
+
+      - name: Build
+        run: npm run build
+
+      - name: Validate package structure
+        run: |
+          # Note: no Node-ESM import smoke test here (unlike report-components).
+          # This package targets bundler resolution only — the compiled output
+          # keeps extensionless directory imports that Next/vite resolve but
+          # Node's native ESM loader rejects.
+          test -f dist/package.json || (echo "❌ dist/package.json missing" && exit 1)
+          test -f dist/index.js || (echo "❌ dist/index.js missing" && exit 1)
+          test -f dist/index.d.ts || (echo "❌ dist/index.d.ts missing" && exit 1)
+          test -f dist/README.md || (echo "❌ dist/README.md missing" && exit 1)
+          test -f dist/types/entity.d.ts || (echo "❌ dist/types/entity.d.ts missing" && exit 1)
+
+          # 'use client' / 'use server' directives must survive compilation
+          CLIENT_COUNT=$(grep -rl "^'use client';" dist --include='*.js' | wc -l)
+          SERVER_COUNT=$(grep -rl "^'use server';" dist --include='*.js' | wc -l)
+          echo "use client files: $CLIENT_COUNT, use server files: $SERVER_COUNT"
+          [ "$CLIENT_COUNT" -ge 40 ] || (echo "❌ expected 'use client' directives in dist" && exit 1)
+          [ "$SERVER_COUNT" -ge 2 ] || (echo "❌ expected 'use server' directives in dist" && exit 1)
+
+          # The published manifest must not be private
+          node -e "const p=require('./dist/package.json'); if (p.private) { console.error('❌ dist package.json is private'); process.exit(1) }"
+          echo "✅ Package structure validated"

@@ -184,12 +184,16 @@ describe('AuthProvider - Simplified Tests', () => {
     expect(mockAddEventListener).toHaveBeenCalledWith(
       'mousedown',
       expect.any(Function),
-      { passive: true }
+      {
+        passive: true,
+      }
     )
     expect(mockAddEventListener).toHaveBeenCalledWith(
       'keydown',
       expect.any(Function),
-      { passive: true }
+      {
+        passive: true,
+      }
     )
   })
 

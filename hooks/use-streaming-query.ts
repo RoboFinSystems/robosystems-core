@@ -20,12 +20,7 @@ export interface StreamingQueryState {
   totalRows: number | null
   currentRow: number | null
   status:
-    | 'idle'
-    | 'connecting'
-    | 'streaming'
-    | 'completed'
-    | 'error'
-    | 'cancelled'
+    'idle' | 'connecting' | 'streaming' | 'completed' | 'error' | 'cancelled'
   creditsUsed: number | null
   cached: boolean
   duration: number | null
