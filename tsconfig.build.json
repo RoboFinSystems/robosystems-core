@@ -3,11 +3,12 @@
   "compilerOptions": {
     "noEmit": false,
     "declaration": true,
-    "emitDeclarationOnly": true,
     "declarationMap": false,
+    "jsx": "react-jsx",
     "skipLibCheck": true,
     "incremental": false,
-    "outDir": "./dist"
+    "outDir": "./dist",
+    "plugins": []
   },
   "include": ["index.ts", "**/*.ts", "**/*.tsx"],
   "exclude": [
