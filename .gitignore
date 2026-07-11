@@ -3,3 +3,4 @@ dist/
 *.tgz
 *.tsbuildinfo
 coverage/
+node_modules
