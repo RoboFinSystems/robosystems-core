@@ -9,10 +9,11 @@ import type { CoverageItem } from './types'
  * "Listen" card right under the video), then the brief rendered from markdown (its own
  * leading H1 is stripped — we render the title above it), and the continuing-coverage
  * history. Works in a server component (SSR'd for SEO) or a client one.
- * Styled for a dark background — render inside a dark (`bg-black`/`.dark`) container.
- * The prose styling mirrors the blog article body so research reads consistently with it
- * (explicit `prose-invert` + element overrides rather than `dark:prose-invert`, which the
- * Tailwind v4 + typography-plugin setup in these apps does not resolve from a `.dark` class).
+ * Theme-aware: readable in both light and dark. The prose body sets an explicit
+ * light + `dark:` color for every element it renders (headings, p, strong, em, links,
+ * lists, code, blockquote, hr, tables) rather than relying on `prose-invert` /
+ * `dark:prose-invert` — the latter doesn't resolve from a `.dark` class in the
+ * Tailwind v4 + typography-plugin setup these apps use.
  */
 export function ResearchArticle({
   item,
@@ -64,7 +65,7 @@ export function ResearchArticle({
       {(item.assets.podcast_mp3 || podcastYtId) && (
         <section className="mb-8">
           {item.assets.podcast_mp3 ? (
-            <div className="rounded-xl border border-cyan-500/30 bg-gray-900/50 p-4">
+            <div className="rounded-xl border border-cyan-500/30 bg-cyan-50/60 p-4 dark:bg-gray-900/50">
               <div className="mb-2 flex items-center justify-between gap-3">
                 <p className="text-sm font-semibold text-cyan-600 dark:text-cyan-400">
                   🎙 Listen — Q&amp;A podcast
@@ -110,7 +111,7 @@ export function ResearchArticle({
       )}
 
       {body && (
-        <div className="prose prose-lg prose-invert prose-headings:font-heading prose-headings:font-bold prose-headings:text-white prose-p:text-gray-300 prose-p:leading-relaxed prose-a:text-cyan-400 prose-a:no-underline hover:prose-a:text-cyan-300 prose-strong:text-white prose-strong:font-semibold prose-code:text-cyan-400 prose-code:bg-gray-800 prose-code:px-2 prose-code:py-1 prose-code:rounded prose-pre:bg-gray-900 prose-pre:border prose-pre:border-gray-800 prose-blockquote:border-l-cyan-500 prose-blockquote:text-gray-400 prose-blockquote:italic prose-ul:text-gray-300 prose-ol:text-gray-300 prose-li:marker:text-cyan-500 prose-table:border-gray-700 prose-th:bg-gray-900 prose-th:text-white prose-td:text-gray-300 max-w-none">
+        <div className="prose prose-lg prose-headings:font-heading prose-headings:font-bold prose-headings:text-gray-900 dark:prose-headings:text-white prose-p:text-gray-700 dark:prose-p:text-gray-300 prose-p:leading-relaxed prose-a:text-cyan-600 dark:prose-a:text-cyan-400 prose-a:no-underline hover:prose-a:text-cyan-500 dark:hover:prose-a:text-cyan-300 prose-strong:text-gray-900 dark:prose-strong:text-white prose-strong:font-semibold prose-em:text-gray-700 dark:prose-em:text-gray-300 prose-code:text-cyan-700 dark:prose-code:text-cyan-400 prose-code:bg-gray-100 dark:prose-code:bg-gray-800 prose-code:px-2 prose-code:py-1 prose-code:rounded prose-pre:bg-gray-900 prose-pre:border prose-pre:border-gray-800 prose-blockquote:border-l-cyan-500 prose-blockquote:text-gray-600 dark:prose-blockquote:text-gray-400 prose-blockquote:italic prose-ul:text-gray-700 dark:prose-ul:text-gray-300 prose-ol:text-gray-700 dark:prose-ol:text-gray-300 prose-li:marker:text-cyan-500 prose-hr:border-gray-200 dark:prose-hr:border-gray-800 prose-table:border-gray-300 dark:prose-table:border-gray-700 prose-th:bg-gray-100 dark:prose-th:bg-gray-900 prose-th:text-gray-900 dark:prose-th:text-white prose-td:text-gray-700 dark:prose-td:text-gray-300 max-w-none">
           <ReactMarkdown remarkPlugins={[remarkGfm]}>{body}</ReactMarkdown>
         </div>
       )}
