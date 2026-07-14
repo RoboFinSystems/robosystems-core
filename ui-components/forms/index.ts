@@ -1,4 +1,6 @@
+export { CategoryInput, type CategoryInputProps } from './CategoryInput'
 export { PasswordRequirements } from './PasswordRequirements'
 export { SettingsCard } from './SettingsCard'
 export { SettingsFormField } from './SettingsFormField'
 export { StatusAlert } from './StatusAlert'
+export { TagInput, type TagInputProps } from './TagInput'

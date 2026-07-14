@@ -139,7 +139,11 @@ export {
   GraphSelectorCore,
   PageLayout,
   RepositoryGuard,
+  SearchBar,
   SearchContent,
+  SearchHitCard,
+  SearchPagination,
+  SearchResultsMeta,
   useIsRepository,
   type ActiveSubscriptionsProps,
   type BrowseRepositoriesProps,
@@ -149,8 +153,12 @@ export {
   type EntitySelectorProps,
   type GraphSelectorProps,
   type GraphWithEntities,
+  type SearchBarProps,
   type SearchConfig,
   type SearchFilterConfig,
+  type SearchHitCardProps,
+  type SearchPaginationProps,
+  type SearchResultsMetaProps,
   type SelectableEntity,
 } from './components'
 
@@ -172,6 +180,7 @@ export {
   ApiKeyTable,
   BrandSpinner,
   categorizeError,
+  CategoryInput,
   ChatHeader,
   ChatInputArea,
   // Chat components
@@ -188,6 +197,7 @@ export {
   getErrorMessage,
   LandingFooter,
   LoadingState,
+  MarkdownProse,
   PageContainer,
   PageHeader,
   PasswordInformationCard,
@@ -201,7 +211,15 @@ export {
   StatCard,
   StatusAlert,
   SupportModal,
+  TagInput,
   ThemeToggle,
+} from './ui-components'
+
+// Export commonly used ui-component prop types
+export type {
+  CategoryInputProps,
+  MarkdownProseProps,
+  TagInputProps,
 } from './ui-components'
 
 // Export commonly used types

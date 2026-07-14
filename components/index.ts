@@ -34,5 +34,18 @@ export {
   type BrowseRepositoriesProps,
 } from './repositories'
 export { RepositoryGuard, useIsRepository } from './RepositoryGuard'
-export { SearchContent } from './search'
-export type { SearchConfig, SearchFilterConfig } from './search'
+export {
+  SearchBar,
+  SearchContent,
+  SearchHitCard,
+  SearchPagination,
+  SearchResultsMeta,
+} from './search'
+export type {
+  SearchBarProps,
+  SearchConfig,
+  SearchFilterConfig,
+  SearchHitCardProps,
+  SearchPaginationProps,
+  SearchResultsMetaProps,
+} from './search'
