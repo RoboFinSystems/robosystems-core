@@ -17,7 +17,7 @@
     "node": ">=22.0.0"
   },
   "scripts": {
-    "prepare": "git config core.hooksPath .githooks",
+    "prepare": "git config core.hooksPath .githooks || true",
     "feature:create": "./bin/create-feature.sh",
     "release:create": "./bin/create-release.sh",
     "clean": "rm -rf dist *.tgz",
