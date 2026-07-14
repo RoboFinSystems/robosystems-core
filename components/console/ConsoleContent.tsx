@@ -112,6 +112,9 @@ export function ConsoleContent({ config }: { config: ConsoleConfig }) {
     const builtInCommands =
       `  /query      - Execute a Cypher query\n` +
       `  /search     - Search documents\n` +
+      (config.enableRecall
+        ? `  /recall     - Recall semantic memories\n`
+        : '') +
       `  /mcp        - Show MCP connection setup\n` +
       `  /help       - Show this help message\n` +
       `  /clear      - Clear console history\n` +
@@ -625,6 +628,64 @@ export function ConsoleContent({ config }: { config: ConsoleConfig }) {
         }
       } catch {
         addErrorMessage('An error occurred while searching.')
+      }
+      return
+    }
+
+    // Handle /recall command — built-in only when the target supports
+    // semantic memory (user graphs; shared repositories reject it). When
+    // disabled it falls through to the unknown-command branch below.
+    if (config.enableRecall && command.toLowerCase().startsWith('/recall')) {
+      const recallQuery = command.slice(7).trim()
+      if (!recallQuery) {
+        addErrorMessage(
+          'Usage: /recall <query>\n\nExamples:\n  /recall payment terms for Acme\n  /recall quarter close checklist'
+        )
+        return
+      }
+      if (!graphId) {
+        addErrorMessage(config.noSelectionError)
+        return
+      }
+      addSystemMessage(`Recalling memories for "${recallQuery}"...`)
+      try {
+        const res = await SDK.recallMemory({
+          path: { graph_id: graphId },
+          body: { query: recallQuery, k: 10 },
+        })
+        if (res.data) {
+          const data = res.data as SearchResponse
+          if (data.hits.length === 0) {
+            addSystemMessage(`No memories found for "${recallQuery}".`)
+          } else {
+            const lines = data.hits.map((hit: SearchHit, idx: number) => {
+              const tags = hit.tags?.length ? ` [${hit.tags.join(', ')}]` : ''
+              const text = hit.snippet
+                ? `\n     ${hit.snippet.slice(0, 150)}${hit.snippet.length > 150 ? '...' : ''}`
+                : ''
+              return `  ${idx + 1}. [${hit.score.toFixed(2)}]${tags}${text}`
+            })
+            addSystemMessage(
+              `Recalled ${data.total} memor${data.total === 1 ? 'y' : 'ies'} for "${recallQuery}" (showing ${data.hits.length}):\n\n${lines.join('\n\n')}`,
+              true
+            )
+          }
+        } else {
+          const status = res.response?.status
+          if (status === 403) {
+            addErrorMessage(
+              'Memory recall is not available for shared repositories.'
+            )
+          } else if (status === 404 || status === 503) {
+            addErrorMessage(
+              'Semantic memory is not enabled in this environment.'
+            )
+          } else {
+            addErrorMessage('Recall failed. Please try again.')
+          }
+        }
+      } catch {
+        addErrorMessage('An error occurred while recalling memories.')
       }
       return
     }

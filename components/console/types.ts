@@ -62,6 +62,10 @@ export interface ConsoleConfig {
   examplesLabel: string
   /** Error message when no graph/portfolio is selected */
   noSelectionError: string
+  /** Enable the built-in /recall semantic-memory command. Off by default —
+   *  shared repositories don't support memory, so the graph-aware builder
+   *  enables it only for user graphs. */
+  enableRecall?: boolean
   /** Extra slash commands beyond the built-in set */
   extraCommands?: ConsoleExtraCommand[]
 }

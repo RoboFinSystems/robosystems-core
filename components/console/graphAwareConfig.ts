@@ -471,6 +471,8 @@ export function buildGraphAwareConsoleConfig(
     noSelectionError:
       branding.noSelectionError ??
       'No graph selected. Please select a graph first.',
+    // Semantic memory is per-user-graph; shared repositories reject it.
+    enableRecall: !isRepository,
   }
 }
 
