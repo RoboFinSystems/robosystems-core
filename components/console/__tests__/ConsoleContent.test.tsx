@@ -25,7 +25,16 @@ vi.mock('@robosystems/client/clients', () => ({
   },
 }))
 
+// The component imports the root SDK namespace (`import * as SDK`) for the
+// /search and /recall handlers; type-only imports are erased, so mocking the
+// runtime functions is enough.
+vi.mock('@robosystems/client', () => ({
+  recallMemory: vi.fn(),
+  searchDocuments: vi.fn(),
+}))
+
 // Import after mocks
+import * as SDK from '@robosystems/client'
 import { clients } from '@robosystems/client/clients'
 import { useGraphContext } from '../../../contexts'
 import { useStreamingQuery } from '../../../hooks'
@@ -34,6 +43,7 @@ import { ConsoleContent } from '../ConsoleContent'
 const mockUseGraphContext = vi.mocked(useGraphContext)
 const mockUseStreamingQuery = vi.mocked(useStreamingQuery)
 const mockOperatorExecuteQuery = vi.mocked(clients.operator.executeQuery)
+const mockRecallMemory = vi.mocked(SDK.recallMemory)
 
 const TEST_CONFIG: ConsoleConfig = {
   header: {
@@ -495,6 +505,214 @@ describe('ConsoleContent', () => {
         ).toBeInTheDocument()
       })
     })
+  })
+
+  describe('/recall command', () => {
+    const RECALL_CONFIG: ConsoleConfig = { ...TEST_CONFIG, enableRecall: true }
+
+    const typeCommand = (value: string) => {
+      const input = screen.getByPlaceholderText(
+        'Type a question, /query <cypher>, or /help...'
+      )
+      fireEvent.change(input, { target: { value } })
+      fireEvent.keyDown(input, { key: 'Enter' })
+    }
+
+    it('should call recallMemory and render scored hits', async () => {
+      mockRecallMemory.mockResolvedValue({
+        data: {
+          total: 2,
+          hits: [
+            {
+              document_id: 'mem_1',
+              score: 0.87,
+              source_type: 'memory',
+              snippet: 'Acme pays invoices net 30',
+              tags: ['billing'],
+            },
+            {
+              document_id: 'mem_2',
+              score: 0.61,
+              source_type: 'memory',
+              snippet: 'Quarter close starts on the 25th',
+              tags: null,
+            },
+          ],
+          query: 'payment terms',
+          graph_id: 'test-graph-id',
+        },
+        error: undefined,
+      } as any)
+
+      render(<ConsoleContent config={RECALL_CONFIG} />)
+      typeCommand('/recall payment terms')
+
+      await waitFor(() => {
+        expect(mockRecallMemory).toHaveBeenCalledWith({
+          path: { graph_id: 'test-graph-id' },
+          body: { query: 'payment terms', k: 10 },
+        })
+      })
+      // The result message types in progressively (ProgressiveText), so give
+      // the animation time to reach each fragment.
+      await waitFor(
+        () => {
+          expect(
+            screen.getByText((content) => content.includes('[0.87] [billing]'))
+          ).toBeInTheDocument()
+        },
+        { timeout: 5000 }
+      )
+      await waitFor(
+        () => {
+          expect(
+            screen.getByText((content) =>
+              content.includes('Acme pays invoices net 30')
+            )
+          ).toBeInTheDocument()
+        },
+        { timeout: 5000 }
+      )
+    })
+
+    it('should show usage when called without a query', async () => {
+      render(<ConsoleContent config={RECALL_CONFIG} />)
+      typeCommand('/recall')
+
+      await waitFor(() => {
+        expect(
+          screen.getByText((content) =>
+            content.includes('Usage: /recall <query>')
+          )
+        ).toBeInTheDocument()
+      })
+      expect(mockRecallMemory).not.toHaveBeenCalled()
+    })
+
+    it('should show config-driven error when no graph is selected', async () => {
+      graphContext = createGraphContext({
+        state: { currentGraphId: null, graphs: [] },
+      })
+      mockUseGraphContext.mockReturnValue(graphContext)
+
+      render(<ConsoleContent config={RECALL_CONFIG} />)
+      typeCommand('/recall payment terms')
+
+      await waitFor(() => {
+        expect(
+          screen.getByText(TEST_CONFIG.noSelectionError)
+        ).toBeInTheDocument()
+      })
+      expect(mockRecallMemory).not.toHaveBeenCalled()
+    })
+
+    it('should report when no memories are found', async () => {
+      mockRecallMemory.mockResolvedValue({
+        data: {
+          total: 0,
+          hits: [],
+          query: 'nothing here',
+          graph_id: 'test-graph-id',
+        },
+        error: undefined,
+      } as any)
+
+      render(<ConsoleContent config={RECALL_CONFIG} />)
+      typeCommand('/recall nothing here')
+
+      await waitFor(() => {
+        expect(
+          screen.getByText('No memories found for "nothing here".')
+        ).toBeInTheDocument()
+      })
+    })
+
+    it('should explain when semantic memory is not enabled (503)', async () => {
+      mockRecallMemory.mockResolvedValue({
+        data: undefined,
+        error: { detail: 'Semantic memory is not enabled' },
+        response: { status: 503 },
+      } as any)
+
+      render(<ConsoleContent config={RECALL_CONFIG} />)
+      typeCommand('/recall payment terms')
+
+      await waitFor(() => {
+        expect(
+          screen.getByText(
+            'Semantic memory is not enabled in this environment.'
+          )
+        ).toBeInTheDocument()
+      })
+    })
+
+    it('should treat /recall as unknown when enableRecall is off', async () => {
+      render(<ConsoleContent config={TEST_CONFIG} />)
+      typeCommand('/recall payment terms')
+
+      await waitFor(() => {
+        expect(
+          screen.getByText((content) =>
+            content.includes('Unknown command: /recall')
+          )
+        ).toBeInTheDocument()
+      })
+      expect(mockRecallMemory).not.toHaveBeenCalled()
+    })
+
+    it('should list /recall in help only when enabled', async () => {
+      // The welcome banner animates character by character; keep it short so
+      // the COMMANDS block renders within the test timeout.
+      const minimalWelcome: ConsoleConfig['welcome'] = {
+        ...TEST_CONFIG.welcome,
+        description: 'x',
+        naturalLanguageExamples: ['hi'],
+        directQueryExamples: ['RETURN 1'],
+        closingMessage: 'ok',
+      }
+      const enabled: ConsoleConfig = {
+        ...TEST_CONFIG,
+        welcome: minimalWelcome,
+        enableRecall: true,
+      }
+      const disabled: ConsoleConfig = {
+        ...TEST_CONFIG,
+        welcome: minimalWelcome,
+      }
+
+      const { unmount } = render(<ConsoleContent config={enabled} />)
+      await waitFor(
+        () => {
+          expect(
+            screen.getByText((content) =>
+              // testing-library normalizes whitespace before matching
+              content.includes('/recall - Recall semantic memories')
+            )
+          ).toBeInTheDocument()
+        },
+        { timeout: 10000 }
+      )
+      unmount()
+
+      render(<ConsoleContent config={disabled} />)
+      // /examples is the last line of the commands block — once it has typed
+      // out, the (absent) /recall line would already have appeared.
+      await waitFor(
+        () => {
+          expect(
+            screen.getByText((content) =>
+              content.includes('/examples - Show example queries')
+            )
+          ).toBeInTheDocument()
+        },
+        { timeout: 10000 }
+      )
+      expect(
+        screen.queryByText((content) =>
+          content.includes('/recall - Recall semantic memories')
+        )
+      ).not.toBeInTheDocument()
+    }, 25000)
   })
 
   describe('Accessibility', () => {

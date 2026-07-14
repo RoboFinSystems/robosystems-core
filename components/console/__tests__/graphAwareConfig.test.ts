@@ -107,6 +107,21 @@ describe('buildGraphAwareConsoleConfig', () => {
     )
   })
 
+  it('enables /recall for user graphs but not shared repositories', () => {
+    expect(buildGraphAwareConsoleConfig(LEDGER, BRANDING).enableRecall).toBe(
+      true
+    )
+    expect(buildGraphAwareConsoleConfig(GENERIC, BRANDING).enableRecall).toBe(
+      true
+    )
+    expect(buildGraphAwareConsoleConfig(SEC, BRANDING).enableRecall).toBe(false)
+    // No graph selected → not a repository; the verb is offered and its
+    // handler enforces graph selection at call time (like /search).
+    expect(buildGraphAwareConsoleConfig(undefined, BRANDING).enableRecall).toBe(
+      true
+    )
+  })
+
   it('selects the generic set and injects the graph name', () => {
     const config = buildGraphAwareConsoleConfig(
       graph({ graphName: 'Acme', schemaExtensions: [] }),
