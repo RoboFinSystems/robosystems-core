@@ -8,8 +8,6 @@ import type {
 import * as SDK from '@robosystems/client'
 import {
   Alert,
-  Badge,
-  Button,
   Card,
   Select,
   Spinner,
@@ -18,12 +16,15 @@ import {
 } from 'flowbite-react'
 import { useCallback, useEffect, useState } from 'react'
 import { HiChevronDown, HiChevronUp, HiSearch } from 'react-icons/hi'
-import ReactMarkdown from 'react-markdown'
-import remarkGfm from 'remark-gfm'
 
 import { useIsRepository } from '../../components/RepositoryGuard'
 import { useGraphContext } from '../../contexts'
+import { MarkdownProse } from '../../ui-components/MarkdownProse'
 import { PageLayout } from '../PageLayout'
+import { SearchBar } from './SearchBar'
+import { SearchHitCard } from './SearchHitCard'
+import { SearchPagination } from './SearchPagination'
+import { SearchResultsMeta } from './SearchResultsMeta'
 import type { SearchConfig } from './types'
 
 const PAGE_SIZE = 20
@@ -137,12 +138,6 @@ export function SearchContent({ config }: { config: SearchConfig }) {
     [graphId, query, sourceType, entity, formType, fiscalYear, semantic]
   )
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      handleSearch(0)
-    }
-  }
-
   const handleExpand = async (docId: string) => {
     if (expandedDocId === docId) {
       setExpandedDocId(null)
@@ -219,27 +214,13 @@ export function SearchContent({ config }: { config: SearchConfig }) {
       {/* Search Bar */}
       <Card>
         <div className="space-y-4">
-          <div className="flex gap-2">
-            <TextInput
-              className="flex-1"
-              placeholder={config.placeholder}
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              onKeyDown={handleKeyDown}
-              icon={HiSearch}
-            />
-            <Button
-              color="purple"
-              onClick={() => handleSearch(0)}
-              disabled={loading || !query.trim()}
-            >
-              {loading ? (
-                <Spinner size="sm" className="text-white" />
-              ) : (
-                'Search'
-              )}
-            </Button>
-          </div>
+          <SearchBar
+            query={query}
+            onQueryChange={setQuery}
+            onSearch={() => handleSearch(0)}
+            loading={loading}
+            placeholder={config.placeholder}
+          />
 
           {/* Toggles row */}
           <div className="flex flex-wrap items-center gap-4">
@@ -368,197 +349,55 @@ export function SearchContent({ config }: { config: SearchConfig }) {
       {results.length > 0 && (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <p className="text-sm text-gray-500 dark:text-gray-400">
-              Showing {offset + 1}–{Math.min(offset + PAGE_SIZE, total)} of{' '}
-              {total} results for &quot;{searchedQuery}&quot;
-            </p>
+            <SearchResultsMeta
+              total={total}
+              count={results.length}
+              offset={offset}
+              query={searchedQuery}
+            />
           </div>
 
           {results.map((hit) => (
-            <Card key={hit.document_id}>
-              <button
-                type="button"
-                className="w-full cursor-pointer text-left"
-                onClick={() => handleExpand(hit.document_id)}
-                aria-expanded={expandedDocId === hit.document_id}
-              >
-                <div className="flex items-start justify-between">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <h3 className="text-base font-semibold text-gray-900 dark:text-white">
-                        {hit.document_title || hit.section_label || 'Untitled'}
-                      </h3>
-                      {hit.section_label && hit.document_title && (
-                        <span className="text-sm text-gray-500 dark:text-gray-400">
-                          / {hit.section_label}
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="mt-2 flex flex-wrap items-center gap-2">
-                      <Badge color="info" size="xs">
-                        {hit.score.toFixed(2)}
-                      </Badge>
-                      <Badge color="gray" size="xs">
-                        {hit.source_type}
-                      </Badge>
-                      {hit.entity_ticker && (
-                        <Badge color="purple" size="xs">
-                          {hit.entity_ticker}
-                        </Badge>
-                      )}
-                      {hit.form_type && (
-                        <Badge color="warning" size="xs">
-                          {hit.form_type}
-                        </Badge>
-                      )}
-                      {hit.fiscal_year && (
-                        <Badge color="gray" size="xs">
-                          FY{hit.fiscal_year}
-                        </Badge>
-                      )}
-                      {hit.tags?.map((tag) => (
-                        <Badge key={tag} color="purple" size="xs">
-                          {tag}
-                        </Badge>
-                      ))}
-                    </div>
-
-                    {hit.snippet && (
-                      <p className="mt-3 line-clamp-2 text-sm text-gray-500 dark:text-gray-400">
-                        {hit.snippet}
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="ml-3 shrink-0 pt-1">
-                    {expandedDocId === hit.document_id ? (
-                      <HiChevronUp className="h-5 w-5 text-gray-400" />
-                    ) : (
-                      <HiChevronDown className="h-5 w-5 text-gray-400" />
-                    )}
-                  </div>
+            <SearchHitCard
+              key={hit.document_id}
+              hit={hit}
+              expanded={expandedDocId === hit.document_id}
+              onClick={() => handleExpand(hit.document_id)}
+            >
+              {sectionLoading ? (
+                <div className="flex items-center gap-2 text-sm text-gray-500">
+                  <Spinner size="sm" />
+                  Loading full content...
                 </div>
-              </button>
-
-              {/* Expanded content */}
-              {expandedDocId === hit.document_id && (
-                <div className="border-t border-gray-200 pt-4 dark:border-gray-700">
-                  {sectionLoading ? (
-                    <div className="flex items-center gap-2 text-sm text-gray-500">
-                      <Spinner size="sm" />
-                      Loading full content...
-                    </div>
-                  ) : sectionContent ? (
-                    <div>
-                      <div className="prose prose-sm prose-gray max-h-96 max-w-none overflow-auto rounded-lg border border-gray-200 bg-gray-50 p-4 dark:border-gray-600 dark:bg-gray-800">
-                        <ReactMarkdown
-                          remarkPlugins={[remarkGfm]}
-                          components={{
-                            h1: ({ children }) => (
-                              <h1 className="text-gray-900 dark:text-white">
-                                {children}
-                              </h1>
-                            ),
-                            h2: ({ children }) => (
-                              <h2 className="text-gray-900 dark:text-white">
-                                {children}
-                              </h2>
-                            ),
-                            h3: ({ children }) => (
-                              <h3 className="text-gray-900 dark:text-white">
-                                {children}
-                              </h3>
-                            ),
-                            h4: ({ children }) => (
-                              <h4 className="text-gray-900 dark:text-white">
-                                {children}
-                              </h4>
-                            ),
-                            p: ({ children }) => (
-                              <p className="text-gray-700 dark:text-gray-200">
-                                {children}
-                              </p>
-                            ),
-                            li: ({ children }) => (
-                              <li className="text-gray-700 dark:text-gray-200">
-                                {children}
-                              </li>
-                            ),
-                            strong: ({ children }) => (
-                              <strong className="text-gray-900 dark:text-white">
-                                {children}
-                              </strong>
-                            ),
-                            table: ({ children }) => (
-                              <div className="overflow-x-auto">
-                                <table className="min-w-full border-collapse text-sm">
-                                  {children}
-                                </table>
-                              </div>
-                            ),
-                            thead: ({ children }) => (
-                              <thead className="border-b-2 border-gray-300 dark:border-gray-600">
-                                {children}
-                              </thead>
-                            ),
-                            th: ({ children }) => (
-                              <th className="px-3 py-2 text-left font-semibold text-gray-900 dark:text-white">
-                                {children}
-                              </th>
-                            ),
-                            td: ({ children }) => (
-                              <td className="border-t border-gray-200 px-3 py-2 text-gray-700 dark:border-gray-700 dark:text-gray-200">
-                                {children}
-                              </td>
-                            ),
-                          }}
-                        >
-                          {sectionContent.content}
-                        </ReactMarkdown>
-                      </div>
-                      {sectionContent.content_length && (
-                        <p className="mt-2 text-xs text-gray-400 dark:text-gray-500">
-                          {sectionContent.content_length.toLocaleString()}{' '}
-                          characters
-                        </p>
-                      )}
-                    </div>
-                  ) : (
-                    <p className="text-sm text-gray-500">
-                      Could not load section content.
+              ) : sectionContent ? (
+                <div>
+                  <div className="max-h-96 overflow-auto rounded-lg border border-gray-200 bg-gray-50 p-4 dark:border-gray-600 dark:bg-gray-800">
+                    <MarkdownProse size="sm">
+                      {sectionContent.content}
+                    </MarkdownProse>
+                  </div>
+                  {sectionContent.content_length && (
+                    <p className="mt-2 text-xs text-gray-400 dark:text-gray-500">
+                      {sectionContent.content_length.toLocaleString()}{' '}
+                      characters
                     </p>
                   )}
                 </div>
+              ) : (
+                <p className="text-sm text-gray-500">
+                  Could not load section content.
+                </p>
               )}
-            </Card>
+            </SearchHitCard>
           ))}
 
-          {/* Pagination */}
-          {total > PAGE_SIZE && (
-            <div className="flex items-center justify-between pt-2">
-              <Button
-                color="gray"
-                size="sm"
-                disabled={offset === 0 || loading}
-                onClick={() => handleSearch(Math.max(0, offset - PAGE_SIZE))}
-              >
-                Previous
-              </Button>
-              <span className="text-sm text-gray-500 dark:text-gray-400">
-                Page {Math.floor(offset / PAGE_SIZE) + 1} of{' '}
-                {Math.ceil(total / PAGE_SIZE)}
-              </span>
-              <Button
-                color="gray"
-                size="sm"
-                disabled={offset + PAGE_SIZE >= total || loading}
-                onClick={() => handleSearch(offset + PAGE_SIZE)}
-              >
-                Next
-              </Button>
-            </div>
-          )}
+          <SearchPagination
+            total={total}
+            offset={offset}
+            pageSize={PAGE_SIZE}
+            loading={loading}
+            onPageChange={handleSearch}
+          />
         </div>
       )}
 

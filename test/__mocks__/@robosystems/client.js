@@ -117,6 +117,14 @@ export const getDetailedUserAnalytics = vi.fn()
 export const getStorageUsage = vi.fn()
 export const checkStorageLimits = vi.fn()
 
+// Document / knowledge-base functions
+export const listDocuments = vi.fn()
+export const getDocument = vi.fn()
+export const indexDocument = vi.fn()
+export const deleteDocument = vi.fn()
+export const searchDocuments = vi.fn()
+export const getDocumentSection = vi.fn()
+
 // Shared repository functions
 export const getUserSharedSubscriptions = vi.fn()
 export const subscribeToSharedRepository = vi.fn()

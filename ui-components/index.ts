@@ -9,6 +9,7 @@ export { ConfirmModal } from './ConfirmModal'
 export { EmptyState } from './EmptyState'
 export { LoadingState } from './LoadingState'
 export { AnimatedLogo, LogoBadge } from './Logo'
+export { MarkdownProse, type MarkdownProseProps } from './MarkdownProse'
 export { BrandSpinner, Spinner } from './Spinner'
 export { StatCard } from './StatCard'
 
