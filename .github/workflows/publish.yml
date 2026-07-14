@@ -41,7 +41,11 @@ jobs:
         if: steps.check-published.outputs.already_published == 'false'
         uses: actions/setup-node@v6
         with:
-          node-version: '22'
+          # Node 24 ships npm 11.x, which supports OIDC trusted publishing to
+          # npm (token-less). Node 22's npm 10.x does not, so `npm publish`
+          # falls back to token auth and fails with ENEEDAUTH on CI. This
+          # matches the sibling packages (report-components, typescript-client).
+          node-version: '24'
 
       - name: Install dependencies
         if: steps.check-published.outputs.already_published == 'false'
