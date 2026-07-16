@@ -183,6 +183,18 @@ export function LandingFooter({
                 </Link>
               </li>
               <li>
+                {/* Standalone public tool on its own subdomain — always an
+                    external link (absolute URL, new tab) from every app. */}
+                <Link
+                  href="https://holon.robosystems.ai"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={linkClass}
+                >
+                  Holon Viewer
+                </Link>
+              </li>
+              <li>
                 <Link
                   href={`${companyBase}/blog`}
                   {...companyLinkProps}
