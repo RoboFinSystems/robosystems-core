@@ -11,6 +11,7 @@ export {
   getCoverageTickers,
   youtubeId,
 } from './catalog'
+export { CoverageBrowser, type CoverageBrowserProps } from './CoverageBrowser'
 export { CoverageCard } from './CoverageCard'
 export { CoverageGrid } from './CoverageGrid'
 export { CoverageHistory } from './CoverageHistory'
