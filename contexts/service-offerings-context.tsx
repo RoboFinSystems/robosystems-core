@@ -123,12 +123,7 @@ export function ServiceOfferingsProvider({
               // field that does not exist; retained in the public type so
               // consumers don't break.
               creditMultiplier: 1,
-              // Served by the API since robosystems v1.6.14 but absent from the
-              // pinned @robosystems/client types. Drop the cast once the client
-              // is regenerated.
-              instanceStorageLimitGb: (
-                tier as { instance_storage_limit_gb?: number }
-              ).instance_storage_limit_gb,
+              instanceStorageLimitGb: tier.instance_storage_limit_gb,
             }
           })
         }
