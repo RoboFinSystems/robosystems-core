@@ -72,8 +72,12 @@ export function ServiceOfferingsProvider({
       const response = await SDK.getServiceOfferings()
 
       if (response.data) {
-        // Transform the API response to match our expected structure
-        const apiData = response.data as any
+        // Typed, not `as any`. The previous cast is what let graph tiers be
+        // read as `monthly_price`/`monthly_credits` — fields the endpoint has
+        // never returned for tiers — so every graphPlans entry carried an
+        // undefined price. Keep this typed so a field rename fails the build
+        // instead of silently producing undefined at runtime.
+        const apiData: ServiceOfferingsResponse = response.data
 
         // Transform repository_subscriptions.repositories array into repositoryPlans object
         const repositoryPlans: ServiceOfferings['repositoryPlans'] = {}
@@ -107,12 +111,24 @@ export function ServiceOfferingsProvider({
             graphPlans[tier.name] = {
               name: tier.name,
               displayName: tier.display_name,
-              monthlyPrice: tier.monthly_price,
-              monthlyCredits: tier.monthly_credits,
+              // Graph tiers are per-graph and use the *_per_graph fields.
+              // Repository plans above legitimately use monthly_price /
+              // monthly_credits — the two shapes differ, and copying the
+              // repository mapping here is what introduced the bug.
+              monthlyPrice: tier.monthly_price_per_graph,
+              monthlyCredits: tier.monthly_credits_per_graph,
               features: tier.features || [],
-              creditMultiplier:
-                apiData.graph_subscriptions?.tier_multipliers?.[tier.name] || 1,
-              instanceStorageLimitGb: tier.instance_storage_limit_gb,
+              // The endpoint serves no per-tier credit multiplier, so this has
+              // always resolved to 1. Kept as a constant rather than reading a
+              // field that does not exist; retained in the public type so
+              // consumers don't break.
+              creditMultiplier: 1,
+              // Served by the API since robosystems v1.6.14 but absent from the
+              // pinned @robosystems/client types. Drop the cast once the client
+              // is regenerated.
+              instanceStorageLimitGb: (
+                tier as { instance_storage_limit_gb?: number }
+              ).instance_storage_limit_gb,
             }
           })
         }
@@ -121,7 +137,9 @@ export function ServiceOfferingsProvider({
           billingEnabled: apiData.billing_enabled ?? true,
           repositoryPlans,
           graphPlans,
-          features: apiData.features,
+          // `features` is intentionally unset: the endpoint returns no
+          // top-level features object, so this only ever assigned undefined.
+          // The optional field stays on the public type for compatibility.
         }
 
         setOfferings(offerings)
