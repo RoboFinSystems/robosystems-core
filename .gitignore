@@ -4,3 +4,11 @@ dist/
 *.tsbuildinfo
 coverage/
 node_modules
+
+# Lock files
+# This is a published library, not an application: npm ignores a dependency's
+# lockfile entirely, so committing one constrains nothing for consumers. Hard
+# version pinning belongs in the apps. Matches robosystems-typescript-client.
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
