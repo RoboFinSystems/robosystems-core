@@ -13,14 +13,22 @@ jobs:
   test:
     runs-on: ubuntu-latest
 
+    # Matrix spans the engines.node range this package promises (>=22.0.0):
+    # 22 is the supported floor, 24 is the LTS the consuming apps now run on.
+    # Testing only the newest would leave the floor unverified.
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: ['22', '24']
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
 
-      - name: Setup Node.js
+      - name: Setup Node.js ${{ matrix.node-version }}
         uses: actions/setup-node@v7
         with:
-          node-version: '22'
+          node-version: ${{ matrix.node-version }}
 
       - name: Install dependencies
         run: npm install
