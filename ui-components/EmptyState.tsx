@@ -11,6 +11,13 @@ interface EmptyStateProps {
   action?: ReactNode
   /** Override the container spacing (default `py-12`). */
   className?: string
+  /**
+   * Heading level for the title. Defaults to `2`, which is correct when the
+   * empty state sits directly inside a page whose title is the `<h1>` — the
+   * common case. Pass `3` (or deeper) when it is nested under a section that
+   * already has its own heading, so the document outline stays contiguous.
+   */
+  headingLevel?: 2 | 3 | 4
 }
 
 /**
@@ -24,13 +31,16 @@ export function EmptyState({
   description,
   action,
   className,
+  headingLevel = 2,
 }: EmptyStateProps) {
+  const Heading = `h${headingLevel}` as 'h2' | 'h3' | 'h4'
+
   return (
     <div className={twMerge('py-12 text-center', className)}>
       <Icon className="mx-auto h-12 w-12 text-gray-400" aria-hidden="true" />
-      <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-white">
+      <Heading className="mt-2 text-sm font-medium text-gray-900 dark:text-white">
         {title}
-      </h3>
+      </Heading>
       {description && (
         <div className="mt-1 text-sm text-gray-500 dark:text-gray-400">
           {description}
