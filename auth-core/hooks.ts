@@ -17,7 +17,7 @@ export function useUserHook(
       const user = await authClient.getCurrentUser()
       setUser(user)
       return user
-    } catch (error) {
+    } catch {
       setUser(null)
       return null
     }

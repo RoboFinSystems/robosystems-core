@@ -52,7 +52,6 @@ export function ResearchArticle({
         </div>
       ) : (
         item.assets.video && (
-          // eslint-disable-next-line jsx-a11y/media-has-caption
           <video
             controls
             poster={item.assets.thumbnail}
@@ -81,7 +80,7 @@ export function ResearchArticle({
                   </a>
                 )}
               </div>
-              {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
+              {}
               <audio
                 controls
                 preload="none"
@@ -129,14 +128,14 @@ export function ResearchArticle({
           aria-label="Backed by the ElevenLabs Grants program"
           className="mt-3 inline-block"
         >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
+          {}
           <img
             src="/images/logos/elevenlabs-grants.webp"
             alt="Backed by the ElevenLabs Grants program"
             width={200}
             className="h-auto dark:hidden"
           />
-          {/* eslint-disable-next-line @next/next/no-img-element */}
+          {}
           <img
             src="/images/logos/elevenlabs-grants-white.webp"
             alt="Backed by the ElevenLabs Grants program"

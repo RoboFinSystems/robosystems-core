@@ -51,7 +51,7 @@ export const ApiKeysCard: React.FC<ApiKeysCardProps> = ({
       }))
 
       setApiKeys(keys)
-    } catch (err) {
+    } catch {
       setError('Failed to load API keys. Please try again.')
     } finally {
       setIsLoading(false)
@@ -94,7 +94,7 @@ export const ApiKeysCard: React.FC<ApiKeysCardProps> = ({
       })
 
       await fetchApiKeys() // Refresh the list
-    } catch (err) {
+    } catch {
       setError('Failed to revoke API key. Please try again.')
     }
   }

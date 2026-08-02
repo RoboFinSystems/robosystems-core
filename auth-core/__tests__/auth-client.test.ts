@@ -23,7 +23,7 @@ describe('Auth System Core Tests', () => {
 
     it('should initialize with correct config', () => {
       // Create a new instance to test initialization
-      const testClient = new RoboSystemsAuthClient('https://test.example.com')
+      new RoboSystemsAuthClient('https://test.example.com')
 
       // Check that setConfig was called (it gets called during construction)
       expect(mockedClient.setConfig).toHaveBeenCalledWith({

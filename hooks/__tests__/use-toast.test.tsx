@@ -164,8 +164,7 @@ describe('useToast', () => {
 
     // Get the ToastContainer and simulate manual dismissal
     const { ToastContainer } = result.current
-    const { container } = renderHook(() => ToastContainer()).result
-      .current as any
+    renderHook(() => ToastContainer())
 
     // The actual dismissal would happen through the ToastToggle onClick
     // Since we can't easily render and interact with the component in this test,

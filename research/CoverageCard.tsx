@@ -22,7 +22,6 @@ export function CoverageCard({
     >
       <div className="flex h-full flex-col overflow-hidden rounded-lg border border-gray-200 bg-white/80 shadow-lg backdrop-blur-sm transition-shadow duration-300 hover:shadow-xl dark:border-gray-700 dark:bg-zinc-950">
         {item.assets.thumbnail && (
-          // eslint-disable-next-line @next/next/no-img-element
           <img
             src={item.assets.thumbnail}
             alt={item.title}

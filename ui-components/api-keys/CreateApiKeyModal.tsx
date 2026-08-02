@@ -44,7 +44,7 @@ export const CreateApiKeyModal: React.FC<CreateApiKeyModalProps> = ({
       })
 
       setNewApiKey(result)
-    } catch (err) {
+    } catch {
       setError('Failed to create API key. Please try again.')
     } finally {
       setIsCreating(false)

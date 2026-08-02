@@ -150,7 +150,7 @@ export class RoboSystemsAuthClient {
     // Helper to add JWT token to headers and handle 401 responses
     const wrapWithAuthAndErrorHandling = (
       originalMethod: Function | undefined,
-      methodName: string
+      _methodName: string
     ) => {
       if (!originalMethod) return undefined
 
@@ -335,7 +335,7 @@ export class RoboSystemsAuthClient {
       })
 
       await Promise.race([logoutPromise, timeoutPromise])
-    } catch (error) {
+    } catch {
       // Don't throw - continue with local cleanup even if backend fails
     }
 
@@ -350,7 +350,7 @@ export class RoboSystemsAuthClient {
 
       // Try to get current user - this should fail if logout worked
       await this.getCurrentUser()
-    } catch (verifyError) {
+    } catch {
       // This is expected - getCurrentUser should throw an error after logout
     }
   }

@@ -124,16 +124,9 @@ export class OperationMonitor {
       return this.operationResults.get(operationId)!
     }
 
-    try {
-      const config = client.getConfig()
-      const baseUrl = config.baseUrl || 'http://localhost:8000'
-      // This would need to be implemented as a sync call or return cached data only
-      // For now, just return cached results
-      return null
-    } catch (error) {
-      console.error('Failed to get operation status:', error)
-      return null
-    }
+    // Fetching an uncached status would need a synchronous call; until that
+    // exists this returns cached results only.
+    return null
   }
 
   /**
