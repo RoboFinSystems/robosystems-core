@@ -30,6 +30,11 @@ updates:
       - dependency-name: 'eslint'
         update-types:
           - 'version-update:semver-major'
+      # Same wall: @eslint/js ships with the ESLint 10 line, so taking it alone
+      # would desynchronise the config package from the linter running it.
+      - dependency-name: '@eslint/js'
+        update-types:
+          - 'version-update:semver-major'
       # Blocked upstream: @typescript-eslint/eslint-plugin (8.65.0, latest)
       # peers typescript ">=4.8.4 <6.1.0". TypeScript 7 is also the native Go
       # port, so it is a migration to schedule rather than a bump to take.
