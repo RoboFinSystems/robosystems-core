@@ -11,6 +11,22 @@ describe('EmptyState', () => {
     ).toBeInTheDocument()
   })
 
+  it('defaults the title to an h2 so it does not skip a level under the page h1', () => {
+    render(<EmptyState icon={HiInbox} title="No items found" />)
+    expect(
+      screen.getByRole('heading', { name: 'No items found', level: 2 })
+    ).toBeInTheDocument()
+  })
+
+  it('honours an explicit heading level for nested usage', () => {
+    render(
+      <EmptyState icon={HiInbox} title="No items found" headingLevel={3} />
+    )
+    expect(
+      screen.getByRole('heading', { name: 'No items found', level: 3 })
+    ).toBeInTheDocument()
+  })
+
   it('renders the description when provided', () => {
     render(
       <EmptyState
