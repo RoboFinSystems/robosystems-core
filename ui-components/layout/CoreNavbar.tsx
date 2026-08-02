@@ -53,8 +53,6 @@ export function CoreNavbar({
   const { user } = useUser()
   const { logout } = useAuth()
 
-  const altText = logoAltText || `${appName} Logo`
-
   function handleToggleSidebar() {
     if (isDesktop) {
       sidebar.desktop.toggle()

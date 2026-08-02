@@ -24,7 +24,6 @@ const TOKEN_WARNING_CHECK_INTERVAL_MS = 30 * 1000 // 30 seconds - reduced for be
 const ACTIVITY_THROTTLE_MS = 1000 // 1 second
 const HEARTBEAT_INTERVAL_MS = 5 * 60 * 1000 // 5 minutes - server validation heartbeat
 const REFRESH_COOLDOWN_MS = 60 * 1000 // 60 seconds - prevent duplicate background refreshes
-const LOGOUT_TIMEOUT_MS = 10 * 1000 // 10 seconds - timeout for logout operation
 const CACHE_VERSION = '1' // Increment to invalidate all cached auth data
 
 // Debug logging helper
@@ -95,7 +94,7 @@ export function AuthProvider({
             }
           }
         }
-      } catch (error) {
+      } catch {
         // User not authenticated anymore, clear cache
         setUser(null)
         if (typeof window !== 'undefined') {
@@ -131,7 +130,7 @@ export function AuthProvider({
           logStorageError('write', error)
         }
       }
-    } catch (error) {
+    } catch {
       // User not authenticated, that's fine
       setUser(null)
       if (typeof window !== 'undefined') {
@@ -286,7 +285,7 @@ export function AuthProvider({
     let cachedUser: string | null = null
     try {
       cachedUser = sessionStorage.getItem('auth_user_cache')
-    } catch (error) {
+    } catch {
       // Storage access error - proceed without cache
     }
 
@@ -315,7 +314,7 @@ export function AuthProvider({
           validateCachedUser(userData)
           return
         }
-      } catch (error) {
+      } catch {
         // Invalid cache, proceed with normal check
         try {
           sessionStorage.removeItem('auth_user_cache')

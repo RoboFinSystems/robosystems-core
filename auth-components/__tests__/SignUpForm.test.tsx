@@ -7,7 +7,7 @@ import { SignUpForm } from '../SignUpForm'
 
 vi.mock('next/image', () => ({
   __esModule: true,
-  default: ({ alt, ...props }: any) => <img alt={alt} {...props} />, // eslint-disable-line @next/next/no-img-element
+  default: ({ alt, ...props }: any) => <img alt={alt} {...props} />,
 }))
 
 vi.mock('next/navigation', () => ({

@@ -4,7 +4,6 @@ import { APP_CONFIGS } from './config'
 import type { AppConfig, AuthUser } from './types'
 
 // Configuration constants
-const AUTH_CACHE_TTL_MS = 5 * 60 * 1000 // 5 minutes
 const NAVIGATION_DELAY_MS = 100 // 100ms delay for navigation
 
 // Debug logging helper
@@ -227,8 +226,7 @@ export class SSOManager {
 
       if (cachedUser) {
         try {
-          const userData = JSON.parse(cachedUser)
-          const cacheAge = Date.now() - (userData.cached_at || 0)
+          JSON.parse(cachedUser)
 
           // REMOVED: Cache bypass logic that was skipping SSO flow
           // Always use proper SSO flow for cross-app authentication
@@ -238,7 +236,7 @@ export class SSOManager {
           debugLog('Invalid cache found, proceeding with SSO flow', error)
           try {
             sessionStorage.removeItem('auth_user_cache')
-          } catch (removeError) {
+          } catch {
             // Storage error - continue silently
           }
         }

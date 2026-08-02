@@ -46,15 +46,6 @@ export interface GraphProviderProps<T extends GraphState = GraphState> {
   persistGraphSelection: (graphId: string) => Promise<void>
 }
 
-// Helper to check if error is 403 Forbidden
-function is403Error(error: any): boolean {
-  return (
-    error?.status === 403 ||
-    error?.response?.status === 403 ||
-    (typeof error === 'object' && 'status' in error && error.status === 403)
-  )
-}
-
 // Generic provider factory
 export function createGraphProvider<T extends GraphState = GraphState>(
   Context: React.Context<GraphContextValue<T> | null>

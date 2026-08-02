@@ -7,9 +7,7 @@ vi.mock('@robosystems/client')
 
 import {
   client,
-  completeSsoAuth,
   createUserApiKey,
-  generateSsoToken,
   getCurrentAuthUser,
   listUserApiKeys,
   loginUser,
@@ -17,7 +15,6 @@ import {
   refreshAuthSession,
   registerUser,
   revokeUserApiKey,
-  ssoTokenExchange,
 } from '@robosystems/client'
 
 const mockedLoginUser = vi.mocked(loginUser)
@@ -28,9 +25,6 @@ const mockedRefreshAuthSession = vi.mocked(refreshAuthSession)
 const mockedCreateUserApiKey = vi.mocked(createUserApiKey)
 const mockedListUserApiKeys = vi.mocked(listUserApiKeys)
 const mockedRevokeUserApiKey = vi.mocked(revokeUserApiKey)
-const mockedGenerateSsoToken = vi.mocked(generateSsoToken)
-const mockedSsoTokenExchange = vi.mocked(ssoTokenExchange)
-const mockedCompleteSsoAuth = vi.mocked(completeSsoAuth)
 
 describe('Auth Core - Basic Tests', () => {
   let authClient: RoboSystemsAuthClient

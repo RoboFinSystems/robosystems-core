@@ -81,8 +81,8 @@ describe('Authentication System Test Coverage', () => {
     expect(totalCategories).toBeGreaterThan(30) // Ensure comprehensive coverage
 
     // Verify all categories have tests
-    Object.entries(testCoverage).forEach(([category, tests]) => {
-      Object.entries(tests).forEach(([testName, status]) => {
+    Object.entries(testCoverage).forEach(([_category, tests]) => {
+      Object.entries(tests).forEach(([_testName, status]) => {
         expect(status).toMatch(/^✅/) // All tests should be implemented
       })
     })
@@ -100,7 +100,7 @@ describe('Authentication System Test Coverage', () => {
       ssoOptimization: '✅ Cache-aware SSO navigation',
     }
 
-    Object.entries(optimizationTests).forEach(([optimization, status]) => {
+    Object.entries(optimizationTests).forEach(([_optimization, status]) => {
       expect(status).toMatch(/^✅/)
     })
   })
@@ -117,7 +117,7 @@ describe('Authentication System Test Coverage', () => {
       cleanupTesting: '✅ Resource cleanup and memory management',
     }
 
-    Object.entries(testQuality).forEach(([standard, status]) => {
+    Object.entries(testQuality).forEach(([_standard, status]) => {
       expect(status).toMatch(/^✅/)
     })
   })
