@@ -53,7 +53,7 @@
     }
   },
   "devDependencies": {
-    "@eslint/js": "^9",
+    "@eslint/js": "^10",
     "@next/eslint-plugin-next": "^16.2.10",
     "@testing-library/jest-dom": "^7",
     "@testing-library/react": "^16",
