@@ -222,10 +222,10 @@ export function LandingFooter({
                 </Link>
               </li>
               <li>
-                {/* Vanta-hosted compliance portal — always an external link
-                    (absolute URL, new tab) from every app. */}
+                {/* Compliance portal on its own subdomain — always an external
+                    link (absolute URL, new tab) from every app. */}
                 <Link
-                  href="https://app.vanta.com/robosystems.ai/trust/lzitnsl1mo27b6zahy0ksy"
+                  href="https://trust.robosystems.ai"
                   target="_blank"
                   rel="noopener noreferrer"
                   className={linkClass}
