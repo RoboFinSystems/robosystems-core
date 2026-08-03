@@ -17,6 +17,7 @@ vi.mock('next/navigation', () => ({
 const mockAuthClient = vi.hoisted(() => ({
   login: vi.fn(),
   register: vi.fn(),
+  getInvitation: vi.fn(),
 }))
 
 vi.mock('../../auth-core/client', () => ({
@@ -82,6 +83,7 @@ describe('SignUpForm', () => {
 
     mockAuthClient.login.mockReset()
     mockAuthClient.register.mockReset()
+    mockAuthClient.getInvitation.mockReset()
 
     mockRoboSystemsAuthClient.mockImplementation(function () {
       return mockAuthClient as any
@@ -149,6 +151,7 @@ describe('SignUpForm', () => {
         'test@example.com',
         'password123',
         'Test User',
+        undefined,
         undefined
       )
     })
@@ -183,6 +186,7 @@ describe('SignUpForm', () => {
         'existing@example.com',
         'password123',
         'Test User',
+        undefined,
         undefined
       )
     })
@@ -349,6 +353,97 @@ describe('SignUpForm', () => {
       await waitFor(() => {
         expect(mockOnSuccess).toHaveBeenCalledWith(mockUser)
         expect(screen.queryByText(/first error/i)).not.toBeInTheDocument()
+      })
+    })
+  })
+  describe('Invitation', () => {
+    const invitation = {
+      org_name: 'Acme Books',
+      email: 'invited@example.com',
+      role: 'member',
+      expires_at: '2026-09-01T00:00:00Z',
+    }
+
+    const fillPasswords = () => {
+      fireEvent.change(screen.getByLabelText(/name/i), {
+        target: { value: 'Invited User' },
+      })
+      fireEvent.change(screen.getByPlaceholderText('Password'), {
+        target: { value: 'password123' },
+      })
+      fireEvent.change(screen.getByPlaceholderText('Confirm password'), {
+        target: { value: 'password123' },
+      })
+    }
+
+    it('should show the inviting org, lock the email, and pass the token', async () => {
+      mockAuthClient.getInvitation.mockResolvedValue(invitation)
+      mockAuthClient.register.mockResolvedValue({
+        user: mockUser,
+        success: true,
+        message: 'Registration successful',
+      })
+
+      render(<SignUpForm {...defaultProps} inviteToken="invite-token-123" />)
+
+      await waitFor(() => {
+        expect(screen.getByText(/join acme books/i)).toBeInTheDocument()
+      })
+      expect(mockAuthClient.getInvitation).toHaveBeenCalledWith(
+        'invite-token-123'
+      )
+
+      // The token is only valid for the invited address, so the field is fixed.
+      const email = screen.getByLabelText(/email/i) as HTMLInputElement
+      expect(email.value).toBe('invited@example.com')
+      expect(email).toHaveAttribute('readonly')
+
+      fillPasswords()
+      fireEvent.click(
+        screen.getByRole('button', { name: /accept invitation/i })
+      )
+
+      await waitFor(() => {
+        expect(mockAuthClient.register).toHaveBeenCalledWith(
+          'invited@example.com',
+          'password123',
+          'Invited User',
+          undefined,
+          'invite-token-123'
+        )
+      })
+    })
+
+    it('should fall back to ordinary registration when the token is dead', async () => {
+      mockAuthClient.getInvitation.mockResolvedValue(null)
+      mockAuthClient.register.mockResolvedValue({
+        user: mockUser,
+        success: true,
+        message: 'Registration successful',
+      })
+
+      render(<SignUpForm {...defaultProps} inviteToken="expired-token" />)
+
+      await waitFor(() => {
+        expect(
+          screen.getByText(/invitation link is no longer valid/i)
+        ).toBeInTheDocument()
+      })
+
+      fillPasswords()
+      fireEvent.change(screen.getByLabelText(/email/i), {
+        target: { value: 'self@example.com' },
+      })
+      fireEvent.click(screen.getByRole('button', { name: /create account/i }))
+
+      await waitFor(() => {
+        expect(mockAuthClient.register).toHaveBeenCalledWith(
+          'self@example.com',
+          'password123',
+          'Invited User',
+          undefined,
+          undefined
+        )
       })
     })
   })

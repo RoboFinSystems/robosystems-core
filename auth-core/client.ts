@@ -6,6 +6,7 @@ import {
   forgotPassword,
   generateSsoToken,
   getCurrentAuthUser,
+  getInvitationPreview,
   getPasswordPolicy,
   listUserApiKeys,
   loginUser,
@@ -273,7 +274,8 @@ export class RoboSystemsAuthClient {
     email: string,
     password: string,
     name?: string,
-    captchaToken?: string
+    captchaToken?: string,
+    inviteToken?: string
   ): Promise<AuthResponse> {
     const response = await registerUser({
       client: this.client,
@@ -282,6 +284,7 @@ export class RoboSystemsAuthClient {
         password,
         name: name || '',
         captcha_token: captchaToken || undefined,
+        invite_token: inviteToken || undefined,
       },
     })
 
@@ -853,6 +856,42 @@ export class RoboSystemsAuthClient {
   /**
    * Check password strength
    */
+  /**
+   * Look up an organization invitation by its token.
+   *
+   * Unauthenticated by design — the token is the credential, and the sign-up
+   * page has to render who invited you before an account exists. Returns null
+   * for a token that is unknown, revoked, expired, or already accepted, so the
+   * caller can fall back to ordinary registration rather than dead-ending.
+   */
+  async getInvitation(token: string): Promise<{
+    org_name: string
+    email: string
+    role: string
+    expires_at: string
+  } | null> {
+    try {
+      const response = await getInvitationPreview({
+        client: this.client,
+        path: { token },
+      })
+
+      if (response.error || !response.data) {
+        return null
+      }
+
+      const data = response.data as {
+        org_name: string
+        email: string
+        role: string
+        expires_at: string
+      }
+      return data
+    } catch {
+      return null
+    }
+  }
+
   async checkPasswordStrength(
     password: string,
     email?: string
