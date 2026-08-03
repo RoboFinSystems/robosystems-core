@@ -102,7 +102,7 @@ export function LandingFooter({
                 </svg>
               </Link>
               <Link
-                href="https://www.linkedin.com/company/robofinsystems"
+                href="https://www.linkedin.com/company/robosystems"
                 target="_blank"
                 rel="noopener noreferrer"
                 aria-label="RoboSystems on LinkedIn"
