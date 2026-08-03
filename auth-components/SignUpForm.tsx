@@ -18,6 +18,20 @@ export interface SignUpFormProps {
   apiUrl: string
   currentApp?: string
   turnstileSiteKey?: string // Cloudflare Turnstile site key for CAPTCHA
+  /**
+   * Organization invitation token, from the `?invite=` link in the email.
+   * When present the form registers the user into the inviting organization
+   * instead of creating a personal one, and the invited address is fixed —
+   * the token is only valid for that email.
+   */
+  inviteToken?: string
+}
+
+interface InvitationPreview {
+  org_name: string
+  email: string
+  role: string
+  expires_at: string
 }
 
 export function SignUpForm({
@@ -31,6 +45,7 @@ export function SignUpForm({
   apiUrl,
   currentApp,
   turnstileSiteKey,
+  inviteToken,
 }: SignUpFormProps) {
   const [formData, setFormData] = useState({
     name: '',
@@ -50,8 +65,40 @@ export function SignUpForm({
     is_valid: boolean
   } | null>(null)
   const [checkingPassword, setCheckingPassword] = useState(false)
+  const [invitation, setInvitation] = useState<InvitationPreview | null>(null)
+  const [inviteChecked, setInviteChecked] = useState(!inviteToken)
   const debounceRef = useRef<NodeJS.Timeout | null>(null)
   const authClientRef = useRef(new RoboSystemsAuthClient(apiUrl))
+
+  // Resolve the invitation before the form is usable. A token that no longer
+  // resolves (revoked, expired, already accepted) degrades to ordinary
+  // registration with a notice rather than a dead end.
+  useEffect(() => {
+    if (!inviteToken) return
+
+    let cancelled = false
+    setInviteChecked(false)
+    authClientRef.current
+      .getInvitation(inviteToken)
+      .then((preview) => {
+        if (cancelled) return
+        if (preview) {
+          setInvitation(preview)
+          setFormData((prev) => ({ ...prev, email: preview.email }))
+        } else {
+          setError(
+            'This invitation link is no longer valid. It may have expired or already been used. You can still create an account below.'
+          )
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setInviteChecked(true)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [inviteToken])
 
   const checkPassword = useCallback(async (password: string, email: string) => {
     if (password.length < 4) {
@@ -150,7 +197,8 @@ export function SignUpForm({
         formData.email,
         formData.password,
         formData.name,
-        captchaToken || undefined
+        captchaToken || undefined,
+        invitation ? inviteToken : undefined
       )
 
       // Call onSuccess callback if provided
@@ -207,8 +255,17 @@ export function SignUpForm({
             {appName}
           </h1>
           <h2 className="mt-6 text-center text-xl font-semibold tracking-tight text-gray-300">
-            Create your account
+            {invitation ? `Join ${invitation.org_name}` : 'Create your account'}
           </h2>
+          {invitation && (
+            <p className="mt-2 text-center text-sm text-gray-400">
+              You&apos;ve been invited as{' '}
+              <span className="font-medium text-gray-200">
+                {invitation.role}
+              </span>
+              . Create your account to accept.
+            </p>
+          )}
         </div>
         <form
           className={['mt-8 space-y-6', className].filter(Boolean).join(' ')}
@@ -256,10 +313,22 @@ export function SignUpForm({
                 required
                 value={formData.email}
                 onChange={handleInputChange}
-                className="focus:ring-primary-500 relative block w-full rounded-md border-0 bg-gray-800 px-5 py-4 text-base leading-7 text-white ring-1 ring-gray-600 ring-inset placeholder:text-gray-400 focus:z-10 focus:ring-2 focus:ring-inset"
+                readOnly={!!invitation}
+                className={[
+                  'focus:ring-primary-500 relative block w-full rounded-md border-0 bg-gray-800 px-5 py-4 text-base leading-7 text-white ring-1 ring-gray-600 ring-inset placeholder:text-gray-400 focus:z-10 focus:ring-2 focus:ring-inset',
+                  invitation ? 'cursor-not-allowed text-gray-300' : '',
+                ]
+                  .filter(Boolean)
+                  .join(' ')}
                 placeholder="Email address"
                 disabled={loading}
               />
+              {invitation && (
+                <p className="mt-1 text-xs text-gray-400">
+                  The invitation was sent to this address and can only be
+                  accepted with it.
+                </p>
+              )}
             </div>
             <div>
               <label htmlFor="password" className="sr-only">
@@ -368,12 +437,21 @@ export function SignUpForm({
               disabled={
                 loading ||
                 checkingPassword ||
+                !inviteChecked ||
                 (turnstileSiteKey && !captchaToken)
               }
               className="group bg-primary-600 hover:bg-primary-700 focus-visible:outline-primary-500 relative flex w-full justify-center rounded-md px-4 py-3 text-sm font-semibold text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-solid disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {loading && <Spinner size="sm" className="mr-2 text-white" />}
-              {loading ? 'Creating account...' : 'Create account'}
+              {(loading || !inviteChecked) && (
+                <Spinner size="sm" className="mr-2 text-white" />
+              )}
+              {loading
+                ? 'Creating account...'
+                : !inviteChecked
+                  ? 'Checking invitation...'
+                  : invitation
+                    ? 'Accept invitation'
+                    : 'Create account'}
             </button>
           </div>
 
