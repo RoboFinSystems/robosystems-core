@@ -233,6 +233,20 @@ export function LandingFooter({
                   Trust Center
                 </Link>
               </li>
+              <li>
+                {/* Uptime + incident history on its own subdomain, hosted
+                    independently of the platform so it stays up during an
+                    outage — always an external link (absolute URL, new tab)
+                    from every app. */}
+                <Link
+                  href="https://status.robosystems.ai"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={linkClass}
+                >
+                  Status
+                </Link>
+              </li>
               {ContactModal && (
                 <li>
                   <button
