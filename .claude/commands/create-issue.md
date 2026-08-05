@@ -72,7 +72,7 @@ User: "The graph selector dropdown doesn't close on outside click"
 
 Response: Let me confirm this is core rather than an app...
 
-[Read the component under ui-components/ or components/ and its **tests**/]
+[Read the component under `ui-components/` or `components/` and its `__tests__/`]
 [Ask which app(s) reproduce it and on which core version]
 [Draft a body with import path, apps affected, actual vs expected]
 [Create with `gh issue create --type Bug --label bug`]
