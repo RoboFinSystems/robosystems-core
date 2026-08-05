@@ -417,7 +417,8 @@ export interface ConsoleBranding {
   closingMessage: string
   mcp: {
     serverName: string
-    packageName: string
+    /** @deprecated Unused since the remote MCP transport landed. */
+    packageName?: string
     contextIdFallback: string
   }
   /** Defaults to "Example Cypher Queries:". */
