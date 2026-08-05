@@ -30,10 +30,15 @@ export interface ConsoleHeaderConfig {
 }
 
 export interface ConsoleMcpConfig {
-  /** MCP server name in the JSON config, e.g. "robosystems" */
+  /** Connector name prefix, e.g. "robosystems". The graph id is appended, so
+   *  each of a user's graphs gets a distinctly named connector. */
   serverName: string
-  /** npm package name, e.g. "@robosystems/mcp" */
-  packageName: string
+  /**
+   * @deprecated Unused since the remote MCP transport landed — `/mcp` now emits
+   * a URL + `X-API-Key` header instead of an npx stdio config. Kept optional so
+   * consuming apps can drop it on their own schedule.
+   */
+  packageName?: string
   /** Example questions shown after MCP setup */
   exampleQuestions: string[]
   /** Fallback text for graph ID placeholder, e.g. "your_graph_id" */

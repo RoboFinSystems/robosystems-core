@@ -501,6 +501,10 @@ export function ConsoleContent({ config }: { config: ConsoleConfig }) {
   const showMcpSetup = async () => {
     addSystemMessage('Creating MCP API key...', true)
 
+    const apiUrl =
+      process.env.NEXT_PUBLIC_ROBOSYSTEMS_API_URL ||
+      'https://api.robosystems.ai'
+
     try {
       const { createUserApiKey } = await import('@robosystems/client/sdk')
 
@@ -515,11 +519,14 @@ export function ConsoleContent({ config }: { config: ConsoleConfig }) {
       }
 
       const apiKey = response.data.key
-      const apiUrl =
-        process.env.NEXT_PUBLIC_ROBOSYSTEMS_API_URL ||
-        'https://api.robosystems.ai'
 
       const { mcp } = config
+      const contextId = graphId || mcp.contextIdFallback
+      // The graph id lives in the URL path and never becomes a tool argument,
+      // so one connector is anchored to exactly one graph. Multi-graph users
+      // add one connector per graph, which is why the name carries the id.
+      const mcpUrl = `${apiUrl}/v1/graphs/${contextId}/mcp`
+      const connectorName = `${mcp.serverName}-${contextId}`
       const exampleLines = mcp.exampleQuestions
         .map((q) => `  • "${q}"`)
         .join('\n')
@@ -528,32 +535,34 @@ export function ConsoleContent({ config }: { config: ConsoleConfig }) {
         `MCP Setup Instructions:\n` +
           `═══════════════════════════════════════════════════════════════\n\n` +
           `API Key Created Successfully!\n\n` +
-          `Add this configuration to claude_desktop_config.json:\n\n` +
-          `   {\n` +
-          `     "mcpServers": {\n` +
-          `       "${mcp.serverName}": {\n` +
-          `         "command": "npx",\n` +
-          `         "args": ["-y", "${mcp.packageName}@latest"],\n` +
-          `         "env": {\n` +
-          `           "ROBOSYSTEMS_API_URL": "${apiUrl}",\n` +
-          `           "ROBOSYSTEMS_API_KEY": "${apiKey}",\n` +
-          `           "ROBOSYSTEMS_GRAPH_ID": "${graphId || mcp.contextIdFallback}"\n` +
-          `         }\n` +
-          `       }\n` +
-          `     }\n` +
-          `   }\n\n` +
-          `Restart Claude Desktop or Claude Code to apply.\n\n` +
+          `One URL, one header — no install required.\n\n` +
+          `   URL:    ${mcpUrl}\n` +
+          `   Header: X-API-Key: ${apiKey}\n\n` +
+          `Claude (claude.ai / Desktop)\n` +
+          `  Settings → Connectors → Add custom connector, then paste the URL\n` +
+          `  above and add the header.\n\n` +
+          `Claude Code\n` +
+          `  claude mcp add --transport http ${connectorName} \\\n` +
+          `    ${mcpUrl} \\\n` +
+          `    --header "X-API-Key: ${apiKey}"\n\n` +
+          `Cursor / VS Code (mcp.json)\n` +
+          `  "${connectorName}": {\n` +
+          `    "url": "${mcpUrl}",\n` +
+          `    "headers": { "X-API-Key": "${apiKey}" }\n` +
+          `  }\n\n` +
           `Once connected, ask Claude questions like:\n` +
           `${exampleLines}\n\n` +
+          `Clients without HTTP transport support can use the legacy stdio\n` +
+          `bridge: https://github.com/RoboFinSystems/robosystems-mcp-client\n\n` +
           `Keep this API key secure! It has full access to your account.`,
         true
       )
     } catch (error: any) {
       addErrorMessage(
         `Failed to create API key: ${error.message || 'Unknown error'}\n\n` +
-          `You can manually create an API key in Settings and use it with:\n` +
-          `  ROBOSYSTEMS_API_URL: https://api.robosystems.ai\n` +
-          `  ROBOSYSTEMS_GRAPH_ID: ${graphId || config.mcp.contextIdFallback}`
+          `You can create an API key in Settings and connect with:\n` +
+          `  URL:    ${apiUrl}/v1/graphs/${graphId || config.mcp.contextIdFallback}/mcp\n` +
+          `  Header: X-API-Key: <your key>`
       )
     }
   }

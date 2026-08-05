@@ -60,7 +60,9 @@ describe('getGraphExampleKind', () => {
   })
 
   it('uses preferredKind as the tiebreak for dual-extension graphs', () => {
-    expect(getGraphExampleKind(BOTH)).toBe('roboinvestor') // default priority
+    // With no app lens (the brand-neutral RoboSystems console), a graph
+    // carrying the ledger schema shows ledger examples, not portfolio ones.
+    expect(getGraphExampleKind(BOTH)).toBe('roboledger')
     expect(getGraphExampleKind(BOTH, 'roboledger')).toBe('roboledger')
     expect(getGraphExampleKind(BOTH, 'roboinvestor')).toBe('roboinvestor')
   })

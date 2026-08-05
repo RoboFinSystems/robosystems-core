@@ -33,9 +33,15 @@ vi.mock('@robosystems/client', () => ({
   searchDocuments: vi.fn(),
 }))
 
+// /mcp mints an API key before printing the connect instructions.
+vi.mock('@robosystems/client/sdk', () => ({
+  createUserApiKey: vi.fn(),
+}))
+
 // Import after mocks
 import * as SDK from '@robosystems/client'
 import { clients } from '@robosystems/client/clients'
+import { createUserApiKey } from '@robosystems/client/sdk'
 import { useGraphContext } from '../../../contexts'
 import { useStreamingQuery } from '../../../hooks'
 import { ConsoleContent } from '../ConsoleContent'
@@ -44,6 +50,7 @@ const mockUseGraphContext = vi.mocked(useGraphContext)
 const mockUseStreamingQuery = vi.mocked(useStreamingQuery)
 const mockOperatorExecuteQuery = vi.mocked(clients.operator.executeQuery)
 const mockRecallMemory = vi.mocked(SDK.recallMemory)
+const mockCreateUserApiKey = vi.mocked(createUserApiKey)
 
 const TEST_CONFIG: ConsoleConfig = {
   header: {
@@ -250,6 +257,43 @@ describe('ConsoleContent', () => {
       await waitFor(() => {
         expect(screen.getByText('Console cleared.')).toBeInTheDocument()
       })
+    })
+
+    it('should handle /mcp command with the remote URL and header', async () => {
+      mockCreateUserApiKey.mockResolvedValue({
+        data: { key: 'rfs_test_key' },
+      } as any)
+
+      render(<ConsoleContent config={TEST_CONFIG} />)
+
+      const input = screen.getByPlaceholderText(
+        'Type a question, /query <cypher>, or /help...'
+      )
+      fireEvent.change(input, { target: { value: '/mcp' } })
+      fireEvent.keyDown(input, { key: 'Enter' })
+
+      // The message animates in, so wait on its closing line to be sure the
+      // whole body has rendered before asserting on what it does not contain.
+      await waitFor(
+        () => {
+          expect(
+            screen.getByText(/Keep this API key secure/)
+          ).toBeInTheDocument()
+        },
+        { timeout: 5000 }
+      )
+
+      const output = screen.getByText(/Keep this API key secure/)
+      // The graph id is anchored in the URL path, and the connector name
+      // carries it so multi-graph users get distinct connectors.
+      expect(output.textContent).toContain(
+        'https://api.robosystems.ai/v1/graphs/test-graph-id/mcp'
+      )
+      expect(output.textContent).toContain('X-API-Key: rfs_test_key')
+      expect(output.textContent).toContain('test-server-test-graph-id')
+      // The npx stdio recipe is retired from user-facing surfaces.
+      expect(output.textContent).not.toContain('mcpServers')
+      expect(output.textContent).not.toContain('npx')
     })
 
     it('should handle /examples command with config-driven label', async () => {
