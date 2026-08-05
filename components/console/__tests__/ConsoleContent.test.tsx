@@ -272,15 +272,17 @@ describe('ConsoleContent', () => {
       fireEvent.change(input, { target: { value: '/mcp' } })
       fireEvent.keyDown(input, { key: 'Enter' })
 
-      // The message animates in, so wait on its closing line to be sure the
-      // whole body has rendered before asserting on what it does not contain.
+      // The message animates in at a rate proportional to its length, so wait
+      // on its closing line to be sure the whole body has rendered before
+      // asserting on what it does not contain. The connector-URL message is
+      // long; slow CI runners need well over the local ~2.5s render time.
       await waitFor(
         () => {
           expect(
             screen.getByText(/treat it like a password/)
           ).toBeInTheDocument()
         },
-        { timeout: 5000 }
+        { timeout: 15000 }
       )
 
       // The key is minted graph-scoped — that is what makes the URL carriage
@@ -304,7 +306,7 @@ describe('ConsoleContent', () => {
       // The npx stdio recipe is retired from user-facing surfaces.
       expect(output.textContent).not.toContain('mcpServers')
       expect(output.textContent).not.toContain('npx')
-    })
+    }, 20000)
 
     it('should handle /examples command with config-driven label', async () => {
       render(<ConsoleContent config={TEST_CONFIG} />)
