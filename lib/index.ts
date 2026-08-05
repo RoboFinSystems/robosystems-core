@@ -11,3 +11,5 @@ export {
 } from './graph-cookie'
 
 export { entityCookie, type EntityCookie } from './entity-cookie'
+
+export { createMcpConnectorUrl, type McpConnectorUrl } from './mcp-connector'
