@@ -382,7 +382,9 @@ export const EXAMPLE_SETS: Record<GraphExampleKind, GraphExampleSet> = {
  * @param preferredKind Tiebreak used only when a graph carries more than one
  *   entity extension (e.g. both roboledger and roboinvestor). Pass the app's
  *   own lens (a RoboLedger app passes 'roboledger') so a dual-extension graph
- *   shows the examples that fit the app the user is in.
+ *   shows the examples that fit the app the user is in. With no lens — the
+ *   brand-neutral RoboSystems console — a graph carrying the roboledger schema
+ *   gets ledger examples, never portfolio ones.
  */
 export function getGraphExampleKind(
   graph: GraphInfo | undefined,
@@ -398,7 +400,7 @@ export function getGraphExampleKind(
   if (hasInvestor && hasLedger) {
     return preferredKind === 'roboledger' || preferredKind === 'roboinvestor'
       ? preferredKind
-      : 'roboinvestor'
+      : 'roboledger'
   }
   if (hasInvestor) return 'roboinvestor'
   if (hasLedger) return 'roboledger'
