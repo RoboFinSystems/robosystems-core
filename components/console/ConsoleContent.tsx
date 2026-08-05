@@ -499,33 +499,23 @@ export function ConsoleContent({ config }: { config: ConsoleConfig }) {
   }
 
   const showMcpSetup = async () => {
-    addSystemMessage('Creating MCP API key...', true)
+    addSystemMessage('Creating graph-scoped connector key...', true)
 
     const apiUrl =
       process.env.NEXT_PUBLIC_ROBOSYSTEMS_API_URL ||
       'https://api.robosystems.ai'
+    const { mcp } = config
+    const contextId = graphId || mcp.contextIdFallback
 
     try {
-      const { createUserApiKey } = await import('@robosystems/client/sdk')
+      const { createMcpConnectorUrl } = await import('../../lib/mcp-connector')
 
-      const response = await createUserApiKey({
-        body: {
-          name: `MCP - Console Generated - ${new Date().toLocaleDateString()}`,
-        },
-      })
-
-      if (!response.data) {
-        throw new Error('Failed to create API key')
-      }
-
-      const apiKey = response.data.key
-
-      const { mcp } = config
-      const contextId = graphId || mcp.contextIdFallback
       // The graph id lives in the URL path and never becomes a tool argument,
       // so one connector is anchored to exactly one graph. Multi-graph users
       // add one connector per graph, which is why the name carries the id.
-      const mcpUrl = `${apiUrl}/v1/graphs/${contextId}/mcp`
+      // The key is graph-scoped: valid only for this graph, revocable in
+      // Settings → API Keys, and rejected on every account-level surface.
+      const connector = await createMcpConnectorUrl(contextId, { apiUrl })
       const connectorName = `${mcp.serverName}-${contextId}`
       const exampleLines = mcp.exampleQuestions
         .map((q) => `  • "${q}"`)
@@ -534,34 +524,33 @@ export function ConsoleContent({ config }: { config: ConsoleConfig }) {
       addSystemMessage(
         `MCP Setup Instructions:\n` +
           `═══════════════════════════════════════════════════════════════\n\n` +
-          `API Key Created Successfully!\n\n` +
-          `One URL, one header — no install required.\n\n` +
-          `   URL:    ${mcpUrl}\n` +
-          `   Header: X-API-Key: ${apiKey}\n\n` +
+          `Graph-scoped API key created — it works only for ${contextId}\n` +
+          `and can be revoked anytime in Settings → API Keys.\n\n` +
           `Claude (claude.ai / Desktop)\n` +
-          `  Settings → Connectors → Add custom connector, then paste the URL\n` +
-          `  above and add the header.\n\n` +
+          `  Settings → Connectors → Add custom connector, then paste this\n` +
+          `  URL (the key rides inside it — no header field needed):\n` +
+          `  ${connector.url}\n\n` +
           `Claude Code\n` +
           `  claude mcp add --transport http ${connectorName} \\\n` +
-          `    ${mcpUrl} \\\n` +
-          `    --header "X-API-Key: ${apiKey}"\n\n` +
+          `    ${connector.endpoint} \\\n` +
+          `    --header "X-API-Key: ${connector.apiKey}"\n\n` +
           `Cursor / VS Code (mcp.json)\n` +
           `  "${connectorName}": {\n` +
-          `    "url": "${mcpUrl}",\n` +
-          `    "headers": { "X-API-Key": "${apiKey}" }\n` +
+          `    "url": "${connector.endpoint}",\n` +
+          `    "headers": { "X-API-Key": "${connector.apiKey}" }\n` +
           `  }\n\n` +
           `Once connected, ask Claude questions like:\n` +
           `${exampleLines}\n\n` +
-          `Clients without HTTP transport support can use the legacy stdio\n` +
-          `bridge: https://github.com/RoboFinSystems/robosystems-mcp-client\n\n` +
-          `Keep this API key secure! It has full access to your account.`,
+          `Clients without HTTP transport support can use the stdio bridge\n` +
+          `in proxy mode: https://github.com/RoboFinSystems/robosystems-mcp-client\n\n` +
+          `The connector URL contains the key — treat it like a password.`,
         true
       )
     } catch (error: any) {
       addErrorMessage(
-        `Failed to create API key: ${error.message || 'Unknown error'}\n\n` +
+        `Failed to create connector key: ${error.message || 'Unknown error'}\n\n` +
           `You can create an API key in Settings and connect with:\n` +
-          `  URL:    ${apiUrl}/v1/graphs/${graphId || config.mcp.contextIdFallback}/mcp\n` +
+          `  URL:    ${apiUrl}/v1/graphs/${contextId}/mcp\n` +
           `  Header: X-API-Key: <your key>`
       )
     }

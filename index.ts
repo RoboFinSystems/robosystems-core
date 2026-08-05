@@ -79,11 +79,13 @@ export {
 export {
   clientGraphCookie,
   clientSidebarCookie,
+  createMcpConnectorUrl,
   entityCookie,
   graphCookie,
   sidebarCookie,
   type EntityCookie,
   type GraphCookie,
+  type McpConnectorUrl,
   type SidebarCookie,
 } from './lib'
 

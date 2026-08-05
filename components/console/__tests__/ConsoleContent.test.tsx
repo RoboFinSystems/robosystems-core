@@ -259,9 +259,9 @@ describe('ConsoleContent', () => {
       })
     })
 
-    it('should handle /mcp command with the remote URL and header', async () => {
+    it('should handle /mcp command with a graph-scoped connector URL', async () => {
       mockCreateUserApiKey.mockResolvedValue({
-        data: { key: 'rfs_test_key' },
+        data: { key: 'rfsc_test_key' },
       } as any)
 
       render(<ConsoleContent config={TEST_CONFIG} />)
@@ -277,20 +277,30 @@ describe('ConsoleContent', () => {
       await waitFor(
         () => {
           expect(
-            screen.getByText(/Keep this API key secure/)
+            screen.getByText(/treat it like a password/)
           ).toBeInTheDocument()
         },
         { timeout: 5000 }
       )
 
-      const output = screen.getByText(/Keep this API key secure/)
-      // The graph id is anchored in the URL path, and the connector name
-      // carries it so multi-graph users get distinct connectors.
-      expect(output.textContent).toContain(
-        'https://api.robosystems.ai/v1/graphs/test-graph-id/mcp'
+      // The key is minted graph-scoped — that is what makes the URL carriage
+      // acceptable (an account-wide key is rejected in a URL server-side).
+      expect(mockCreateUserApiKey).toHaveBeenCalledWith(
+        expect.objectContaining({
+          body: expect.objectContaining({ graph_id: 'test-graph-id' }),
+        })
       )
-      expect(output.textContent).toContain('X-API-Key: rfs_test_key')
+
+      const output = screen.getByText(/treat it like a password/)
+      // claude.ai / Desktop get the pasteable token URL; header-capable
+      // clients get the bare endpoint + X-API-Key. The connector name
+      // carries the graph id so multi-graph users get distinct connectors.
+      expect(output.textContent).toContain(
+        'https://api.robosystems.ai/v1/graphs/test-graph-id/mcp?token=rfsc_test_key'
+      )
+      expect(output.textContent).toContain('X-API-Key: rfsc_test_key')
       expect(output.textContent).toContain('test-server-test-graph-id')
+      expect(output.textContent).toContain('Settings → Connectors')
       // The npx stdio recipe is retired from user-facing surfaces.
       expect(output.textContent).not.toContain('mcpServers')
       expect(output.textContent).not.toContain('npx')
