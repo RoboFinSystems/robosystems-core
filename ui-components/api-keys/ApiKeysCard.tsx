@@ -2,8 +2,9 @@
 
 import * as SDK from '@robosystems/client'
 import { Button } from 'flowbite-react'
-import React, { useEffect, useState } from 'react'
+import React, { useContext, useEffect, useState } from 'react'
 import { HiKey, HiPlusCircle } from 'react-icons/hi'
+import { GraphContext } from '../../contexts'
 import { Spinner } from '../Spinner'
 import { SettingsCard } from '../forms/SettingsCard'
 import { StatusAlert } from '../forms/StatusAlert'
@@ -14,12 +15,23 @@ import { CreateApiKeyModal } from './CreateApiKeyModal'
 export interface ApiKeysCardProps {
   theme?: any
   className?: string
+  /**
+   * When set, the card links MCP users to the app's Connect page (the
+   * ready-made connector-URL flow) — e.g. "/connect" in robosystems-app.
+   */
+  connectHref?: string
 }
 
 export const ApiKeysCard: React.FC<ApiKeysCardProps> = ({
   theme,
   className = '',
+  connectHref,
 }) => {
+  // Read the graph context leniently: outside a GraphProvider the scope
+  // selector simply doesn't render, preserving the card's old standalone
+  // contract instead of throwing.
+  const graphContext = useContext(GraphContext)
+  const availableGraphs = graphContext?.state.graphs ?? []
   const [apiKeys, setApiKeys] = useState<ApiKey[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [isOpenCreateModal, setIsOpenCreateModal] = useState(false)
@@ -60,12 +72,14 @@ export const ApiKeysCard: React.FC<ApiKeysCardProps> = ({
 
   const handleCreateKey = async (data: {
     name: string
+    graphId?: string
   }): Promise<ApiKeyWithValue> => {
     // Always use SDK to create key
     const response = await SDK.createUserApiKey({
       body: {
         name: data.name,
         description: `API key for ${data.name}`,
+        graph_id: data.graphId,
       },
     })
 
@@ -77,6 +91,7 @@ export const ApiKeysCard: React.FC<ApiKeysCardProps> = ({
     return {
       id: apiKeyInfo?.id || '',
       name: apiKeyInfo?.name || data.name,
+      graphId: apiKeyInfo?.graph_id ?? data.graphId,
       key: responseData?.key || '', // The actual API key value
       createdAt: apiKeyInfo?.created_at || new Date().toISOString(),
       lastUsedAt: apiKeyInfo?.last_used_at || null,
@@ -154,11 +169,29 @@ export const ApiKeysCard: React.FC<ApiKeysCardProps> = ({
         />
       )}
 
+      {connectHref && (
+        <p className="mt-4 text-sm text-zinc-500 dark:text-zinc-400">
+          Connecting Claude or another MCP client? Generate a ready-made
+          connector URL from the{' '}
+          <a
+            href={connectHref}
+            className="text-primary-600 dark:text-primary-400 font-medium hover:underline"
+          >
+            Connect page
+          </a>
+          .
+        </p>
+      )}
+
       <CreateApiKeyModal
         isOpen={isOpenCreateModal}
         onClose={() => setIsOpenCreateModal(false)}
         onCreateKey={handleCreateKey}
         theme={theme}
+        graphs={availableGraphs.map((g: any) => ({
+          graphId: g.graphId,
+          graphName: g.graphName ?? g.graphId,
+        }))}
       />
     </SettingsCard>
   )

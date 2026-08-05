@@ -7,6 +7,7 @@ import {
   ModalBody,
   ModalFooter,
   ModalHeader,
+  Select,
 } from 'flowbite-react'
 import React, { useState } from 'react'
 import { Spinner } from '../Spinner'
@@ -15,11 +16,21 @@ import { StatusAlert } from '../forms/StatusAlert'
 import type { ApiKeyWithValue } from '../types'
 import { ApiKeyDisplay } from './ApiKeyDisplay'
 
+export interface CreateApiKeyModalGraph {
+  graphId: string
+  graphName: string
+}
+
 export interface CreateApiKeyModalProps {
   isOpen: boolean
   onClose: () => void
-  onCreateKey: (data: { name: string }) => Promise<ApiKeyWithValue>
+  onCreateKey: (data: {
+    name: string
+    graphId?: string
+  }) => Promise<ApiKeyWithValue>
   theme?: any
+  /** Graphs offered as scope choices; omit to create account-wide keys only */
+  graphs?: CreateApiKeyModalGraph[]
 }
 
 export const CreateApiKeyModal: React.FC<CreateApiKeyModalProps> = ({
@@ -27,10 +38,12 @@ export const CreateApiKeyModal: React.FC<CreateApiKeyModalProps> = ({
   onClose,
   onCreateKey,
   theme,
+  graphs,
 }) => {
   const [isCreating, setIsCreating] = useState(false)
   const [newApiKey, setNewApiKey] = useState<ApiKeyWithValue | null>(null)
   const [keyName, setKeyName] = useState('')
+  const [scopeGraphId, setScopeGraphId] = useState('')
   const [error, setError] = useState<string | null>(null)
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -41,6 +54,7 @@ export const CreateApiKeyModal: React.FC<CreateApiKeyModalProps> = ({
     try {
       const result = await onCreateKey({
         name: keyName,
+        graphId: scopeGraphId || undefined,
       })
 
       setNewApiKey(result)
@@ -54,6 +68,7 @@ export const CreateApiKeyModal: React.FC<CreateApiKeyModalProps> = ({
   const handleCloseModal = () => {
     onClose()
     setKeyName('')
+    setScopeGraphId('')
     setNewApiKey(null)
     setError(null)
   }
@@ -108,6 +123,14 @@ export const CreateApiKeyModal: React.FC<CreateApiKeyModalProps> = ({
                 </div>
                 <div className="flex justify-between">
                   <span className="text-sm font-medium text-zinc-500 dark:text-zinc-400">
+                    Scope:
+                  </span>
+                  <span className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                    {newApiKey.graphId ?? 'Account-wide'}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-sm font-medium text-zinc-500 dark:text-zinc-400">
                     Created:
                   </span>
                   <span className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
@@ -139,6 +162,32 @@ export const CreateApiKeyModal: React.FC<CreateApiKeyModalProps> = ({
             <p className="text-sm text-zinc-500 dark:text-zinc-400">
               Give your API key a memorable name to identify it later
             </p>
+
+            {graphs && graphs.length > 0 && (
+              <div className="space-y-2">
+                <Label theme={theme?.label} htmlFor="keyScope">
+                  Scope
+                </Label>
+                <Select
+                  id="keyScope"
+                  theme={theme?.select}
+                  value={scopeGraphId}
+                  onChange={(e) => setScopeGraphId(e.target.value)}
+                >
+                  <option value="">Account-wide (all graphs)</option>
+                  {graphs.map((graph) => (
+                    <option key={graph.graphId} value={graph.graphId}>
+                      {graph.graphName} ({graph.graphId})
+                    </option>
+                  ))}
+                </Select>
+                <p className="text-sm text-zinc-500 dark:text-zinc-400">
+                  {scopeGraphId
+                    ? 'Graph-scoped: works only for this graph (and its subgraphs), and is the only kind of key accepted inside an MCP connector URL.'
+                    : 'Account-wide: works for every graph via the X-API-Key header and the SDKs. Not accepted inside MCP connector URLs — pick a graph scope for that, or use the Connect page.'}
+                </p>
+              </div>
+            )}
 
             <div className="bg-primary-50 dark:bg-primary-900/30 rounded-lg p-3">
               <p className="text-primary-800 dark:text-primary-300 text-sm">
