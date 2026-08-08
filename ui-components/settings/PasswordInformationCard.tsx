@@ -4,6 +4,8 @@ import * as SDK from '@robosystems/client'
 import { Button } from 'flowbite-react'
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { HiLockClosed } from 'react-icons/hi'
+import { useOptionalAuth } from '../../auth-components/AuthProvider'
+import { ConfirmModal } from '../ConfirmModal'
 import { Spinner } from '../Spinner'
 import { SettingsCard } from '../forms/SettingsCard'
 import { SettingsFormField } from '../forms/SettingsFormField'
@@ -42,7 +44,12 @@ export const PasswordInformationCard: React.FC<
   const [passwordStrength, setPasswordStrength] =
     useState<PasswordStrengthResult | null>(null)
   const [checkingPassword, setCheckingPassword] = useState(false)
+  const [pendingUpdate, setPendingUpdate] = useState<PasswordUpdateData | null>(
+    null
+  )
   const debounceRef = useRef<NodeJS.Timeout | null>(null)
+  const formRef = useRef<HTMLFormElement>(null)
+  const auth = useOptionalAuth()
 
   const checkPassword = useCallback(async (password: string) => {
     if (password.length < 4) {
@@ -83,7 +90,7 @@ export const PasswordInformationCard: React.FC<
     }
   }, [newPassword, checkPassword])
 
-  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     setError(null)
     setSuccess(false)
@@ -124,18 +131,25 @@ export const PasswordInformationCard: React.FC<
       return
     }
 
+    // A password change ends every session, this one included, so take an
+    // explicit confirmation before doing something the user can't walk back.
+    setPendingUpdate(updateData)
+  }
+
+  const handleConfirm = async () => {
+    if (!pendingUpdate) return
+
     setIsLoading(true)
-    const form = event.currentTarget
 
     try {
       if (onUpdate) {
-        await onUpdate(updateData)
+        await onUpdate(pendingUpdate)
       } else {
         const response = await SDK.updateUserPassword({
           body: {
-            current_password: updateData.currentPassword,
-            new_password: updateData.newPassword,
-            confirm_password: updateData.confirmPassword,
+            current_password: pendingUpdate.currentPassword,
+            new_password: pendingUpdate.newPassword,
+            confirm_password: pendingUpdate.confirmPassword,
           },
         })
         if (response.error) {
@@ -149,13 +163,29 @@ export const PasswordInformationCard: React.FC<
         }
       }
 
+      setPendingUpdate(null)
+
       if (onSuccess) {
         onSuccess('Password updated successfully.')
       } else {
         setSuccess(true)
       }
+
+      // The server invalidates every session on a password change, so the token
+      // this app holds is already dead. Sign out deliberately instead of
+      // letting it fail on the next request as an unexplained error.
+      if (auth) {
+        try {
+          await auth.logout('password_changed')
+          return // navigating away — leave the card as-is
+        } catch {
+          // The password did change; only the redirect failed. Fall through so
+          // the card resets rather than sitting on a spinner.
+        }
+      }
+
       // Clear form fields and strength state
-      form.reset()
+      formRef.current?.reset()
       setNewPassword('')
       setPasswordStrength(null)
       setTimeout(() => {
@@ -172,6 +202,7 @@ export const PasswordInformationCard: React.FC<
       } else {
         setError(msg)
       }
+      setPendingUpdate(null)
       setIsLoading(false)
     }
   }
@@ -218,7 +249,7 @@ export const PasswordInformationCard: React.FC<
         )}
       </div>
 
-      <form onSubmit={handleSubmit}>
+      <form ref={formRef} onSubmit={handleSubmit}>
         <div className="space-y-4">
           <div className="grid gap-4 md:grid-cols-2">
             <SettingsFormField
@@ -297,6 +328,23 @@ export const PasswordInformationCard: React.FC<
           </div>
         </div>
       </form>
+
+      <ConfirmModal
+        show={pendingUpdate !== null}
+        onClose={() => setPendingUpdate(null)}
+        onConfirm={handleConfirm}
+        loading={isLoading}
+        title="Change password"
+        confirmLabel="Change password"
+        loadingLabel="Changing…"
+        confirmColor="blue"
+        confirmIcon={HiLockClosed}
+      >
+        <p className="text-sm text-gray-300">
+          Changing your password signs you out everywhere, including on this
+          device. You'll need to sign in again with your new password.
+        </p>
+      </ConfirmModal>
     </SettingsCard>
   )
 }

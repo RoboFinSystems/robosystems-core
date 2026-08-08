@@ -686,3 +686,13 @@ export function useAuth(): AuthContextType {
   }
   return context
 }
+
+/**
+ * Like `useAuth`, but returns `null` outside an `AuthProvider` instead of
+ * throwing. For components that integrate with auth when it is present but must
+ * still render without it — design-system previews and isolated component tests
+ * mount components with no provider around them.
+ */
+export function useOptionalAuth(): AuthContextType | null {
+  return useContext(AuthContext)
+}

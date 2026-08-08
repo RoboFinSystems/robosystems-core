@@ -47,6 +47,18 @@ export function loginErrorMessage(error: unknown): string {
   return 'Invalid email or password'
 }
 
+/**
+ * Messages for the `?reason=` a redirect into the login page can carry. The
+ * producer is `AuthProvider`'s `logout(reason)`, which sends the user to
+ * `/login?reason=<reason>`; without this the redirect arrives unexplained.
+ */
+export const SIGN_IN_NOTICES: Record<string, string> = {
+  password_changed:
+    'Your password was updated. Please sign in with your new password.',
+  session_expired: 'Your session expired. Please sign in again.',
+  session_invalid: 'Your session is no longer valid. Please sign in again.',
+}
+
 export function SignInForm({
   onSuccess,
   onRedirect,
@@ -64,6 +76,18 @@ export function SignInForm({
   const [error, setError] = useState('')
   const [ssoChecking, setSSOChecking] = useState(enableSSO)
   const [redirecting, setRedirecting] = useState(false)
+  const [notice, setNotice] = useState('')
+
+  // Read via window.location rather than useSearchParams(): the latter forces
+  // the consuming app to wrap this component in a Suspense boundary during
+  // static prerender, and the login pages render it bare. Runs before the SSO
+  // effect below, which strips its own params from the URL.
+  useEffect(() => {
+    const reason = new URLSearchParams(window.location.search).get('reason')
+    if (reason && SIGN_IN_NOTICES[reason]) {
+      setNotice(SIGN_IN_NOTICES[reason])
+    }
+  }, [])
 
   const authClient = useMemo(() => new RoboSystemsAuthClient(apiUrl), [apiUrl])
   const { checkSSOAuthentication, handleSSOLogin } = useSSO(apiUrl)
@@ -205,6 +229,12 @@ export function SignInForm({
           {error && (
             <div className="rounded-md border border-red-800 bg-red-900/50 p-4">
               <div className="text-sm text-red-300">{error}</div>
+            </div>
+          )}
+
+          {notice && !error && (
+            <div className="border-primary-800 bg-primary-900/50 rounded-md border p-4">
+              <div className="text-primary-200 text-sm">{notice}</div>
             </div>
           )}
 

@@ -81,7 +81,7 @@ export interface AuthContextType {
     password: string,
     name?: string
   ) => Promise<AuthUser>
-  logout: () => Promise<void>
+  logout: (reason?: string) => Promise<void>
   refreshUser: () => Promise<AuthUser | null>
   refreshSession: (force?: boolean) => Promise<void>
   forgotPassword: (

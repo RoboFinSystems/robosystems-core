@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { useRouter } from 'next/navigation'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { RoboSystemsAuthClient } from '../../auth-core/client'
 import { useSSO } from '../../auth-core/sso'
 import type { AuthUser } from '../../auth-core/types'
@@ -136,6 +136,68 @@ describe('SignInForm', () => {
       })
 
       expect(screen.getByLabelText(/email/i)).toBeInTheDocument()
+    })
+  })
+
+  describe('Redirect notice', () => {
+    const setSearch = (search: string) =>
+      window.history.replaceState({}, '', `/login${search}`)
+
+    afterEach(() => setSearch(''))
+
+    it('explains why a password change sent the user back to sign in', async () => {
+      setSearch('?reason=password_changed')
+
+      render(<SignInForm {...defaultProps} enableSSO={false} />)
+
+      expect(
+        await screen.findByText(/password was updated.*sign in with your new/i)
+      ).toBeInTheDocument()
+    })
+
+    it('explains an expired session', async () => {
+      setSearch('?reason=session_expired')
+
+      render(<SignInForm {...defaultProps} enableSSO={false} />)
+
+      expect(
+        await screen.findByText(/session expired.*sign in again/i)
+      ).toBeInTheDocument()
+    })
+
+    it('shows nothing without a reason, and ignores an unknown one', async () => {
+      render(<SignInForm {...defaultProps} enableSSO={false} />)
+      await waitFor(() =>
+        expect(screen.getByLabelText(/email/i)).toBeInTheDocument()
+      )
+      expect(screen.queryByText(/please sign in/i)).not.toBeInTheDocument()
+
+      setSearch('?reason=not_a_real_reason')
+      render(<SignInForm {...defaultProps} enableSSO={false} />)
+      expect(screen.queryByText(/please sign in/i)).not.toBeInTheDocument()
+    })
+
+    it('yields to a login error rather than stacking two banners', async () => {
+      setSearch('?reason=session_expired')
+      mockAuthClient.login.mockRejectedValue({ status: 401 })
+
+      render(<SignInForm {...defaultProps} enableSSO={false} />)
+
+      await waitFor(() =>
+        expect(screen.getByLabelText(/email/i)).toBeInTheDocument()
+      )
+      fireEvent.change(screen.getByLabelText(/email/i), {
+        target: { value: 'test@example.com' },
+      })
+      fireEvent.change(screen.getByLabelText(/password/i), {
+        target: { value: 'wrong' },
+      })
+      fireEvent.click(screen.getByRole('button', { name: /sign in/i }))
+
+      expect(
+        await screen.findByText('Invalid email or password')
+      ).toBeInTheDocument()
+      expect(screen.queryByText(/session expired/i)).not.toBeInTheDocument()
     })
   })
 
