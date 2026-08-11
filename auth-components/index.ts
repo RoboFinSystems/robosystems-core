@@ -1,6 +1,7 @@
 export { AppSwitcher } from './AppSwitcher'
 export { AuthGuard } from './AuthGuard'
 export { AuthProvider, useAuth, useOptionalAuth } from './AuthProvider'
+export { LoginRedirector } from './LoginRedirector'
 export { SignInForm } from './SignInForm'
 export { SignUpForm } from './SignUpForm'
 export { TurnstileWidget, useTurnstile } from './TurnstileWidget'

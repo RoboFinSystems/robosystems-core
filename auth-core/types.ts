@@ -81,11 +81,12 @@ export interface AuthContextType {
     password: string,
     name?: string
   ) => Promise<AuthUser>
-  logout: (reason?: string) => Promise<void>
+  logout: (reason?: string, options?: { redirectTo?: string }) => Promise<void>
   refreshUser: () => Promise<AuthUser | null>
   refreshSession: (force?: boolean) => Promise<void>
   forgotPassword: (
-    email: string
+    email: string,
+    options?: { appSource?: string }
   ) => Promise<{ success: boolean; message?: string }>
   resetPassword: (
     token: string,
@@ -98,7 +99,8 @@ export interface AuthContextType {
     token: string
   ) => Promise<{ success: boolean; message?: string; user?: AuthUser }>
   resendVerificationEmail: (
-    email: string
+    email: string,
+    options?: { appSource?: string }
   ) => Promise<{ success: boolean; message?: string }>
 }
 

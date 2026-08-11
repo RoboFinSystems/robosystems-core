@@ -13,7 +13,9 @@ import { clearEntitySelection } from '../actions/entity-actions'
 import { clearGraphSelection } from '../actions/graph-actions'
 import { performLogoutCleanup } from '../auth-core/cleanup'
 import { RoboSystemsAuthClient } from '../auth-core/client'
+import { CURRENT_APP, isLoginHome } from '../auth-core/config'
 import { useTokenExpiryHandler } from '../auth-core/hooks'
+import { buildLoginHomeUrl, buildReturnTo } from '../auth-core/login-home'
 import { getTimeUntilExpiry, getTokenStatus } from '../auth-core/token-storage'
 import type { AuthContextType, AuthUser } from '../auth-core/types'
 
@@ -147,7 +149,7 @@ export function AuthProvider({
   }, [authClient])
 
   const logout = useCallback(
-    async (reason?: string) => {
+    async (reason?: string, options?: { redirectTo?: string }) => {
       try {
         await authClient.logout()
       } catch (error) {
@@ -182,11 +184,26 @@ export function AuthProvider({
         // authenticated tree tears down instead of AuthGuard flashing a blank
         // screen once user state clears. A forced logout (reason set, e.g.
         // session_expired) goes to the login page so it can explain why the
-        // session ended and let the user sign back in; a manual logout goes to
-        // the public homepage, since the user likely isn't trying to sign in
-        // again right away.
+        // session ended and let the user sign back in. A manual logout on a
+        // product app chains through the login home's /logout so the anchor
+        // session dies too — otherwise the next visit silently re-bridges and
+        // "log out" appears not to work. On the login home itself (and in
+        // single-app deployments, where the app is its own login home) manual
+        // logout goes to the public homepage. `options.redirectTo` overrides
+        // the destination — used by the login home's /logout route to land the
+        // user back on the app they came from.
         if (typeof window !== 'undefined') {
-          window.location.href = reason ? `/login?reason=${reason}` : '/'
+          if (options?.redirectTo) {
+            window.location.href = options.redirectTo
+          } else if (reason) {
+            window.location.href = `/login?reason=${reason}`
+          } else if (!isLoginHome()) {
+            window.location.href = buildLoginHomeUrl('logout', {
+              returnTo: buildReturnTo(CURRENT_APP),
+            })
+          } else {
+            window.location.href = '/'
+          }
         }
       }
     },
@@ -606,8 +623,11 @@ export function AuthProvider({
     }
   }
 
-  const forgotPassword = async (email: string) => {
-    return authClient.forgotPassword(email)
+  const forgotPassword = async (
+    email: string,
+    options?: { appSource?: string }
+  ) => {
+    return authClient.forgotPassword(email, options)
   }
 
   const resetPassword = async (token: string, newPassword: string) => {
@@ -655,8 +675,11 @@ export function AuthProvider({
     return result
   }
 
-  const resendVerificationEmail = async (email: string) => {
-    return authClient.resendVerificationEmail(email)
+  const resendVerificationEmail = async (
+    email: string,
+    options?: { appSource?: string }
+  ) => {
+    return authClient.resendVerificationEmail(email, options)
   }
 
   const value: AuthContextType = {

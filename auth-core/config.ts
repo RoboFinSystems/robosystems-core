@@ -63,3 +63,15 @@ export const APP_CONFIGS: Record<string, AppConfig> = {
 export const getAppConfig = (appName: string): AppConfig => {
   return APP_CONFIGS[appName] || APP_CONFIGS.robosystems
 }
+
+/**
+ * The app hosting the interactive auth surface ("login home"). Product apps
+ * redirect login/register there; single-app deployments designate their own
+ * app key so the architecture degrades to local auth by config.
+ */
+export const LOGIN_HOME_APP: AppName =
+  (process.env.NEXT_PUBLIC_LOGIN_HOME_APP as AppName) || 'robosystems'
+
+export const getLoginHomeUrl = (): string => getAppConfig(LOGIN_HOME_APP).url
+
+export const isLoginHome = (): boolean => CURRENT_APP === LOGIN_HOME_APP

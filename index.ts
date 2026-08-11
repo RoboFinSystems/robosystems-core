@@ -29,6 +29,7 @@ export {
   AppSwitcher,
   AuthGuard,
   AuthProvider,
+  LoginRedirector,
   SignInForm,
   SignUpForm,
   useAuth,
@@ -336,3 +337,20 @@ export type { APIKey, AppName, AuthContextType, AuthUser } from './auth-core'
 
 // App identity
 export { CURRENT_APP } from './auth-core/config'
+
+// Centralized login home
+export {
+  getLoginHomeUrl,
+  isLoginHome,
+  LOGIN_HOME_APP,
+} from './auth-core/config'
+export {
+  buildLoginHomeUrl,
+  buildReturnTo,
+  isSafeRelativePath,
+  parseReturnTo,
+} from './auth-core/login-home'
+export type {
+  LoginHomeUrlOptions,
+  ParsedReturnTo,
+} from './auth-core/login-home'

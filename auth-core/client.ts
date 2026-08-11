@@ -55,6 +55,20 @@ const setSDKClientConfig: any =
 const CACHE_TTL_MS = 30 * 1000 // 30 seconds - optimized for performance
 const ERROR_CACHE_TTL_MS = 5 * 1000 // 5 seconds - allow reasonable retry delay
 
+/**
+ * Identifies which product app an auth request originates from, for email
+ * branding. Under centralized login every interactive auth request comes
+ * from the login home, so Referer-based detection on the backend collapses
+ * to one app — the originating app (from `return_to`) rides this header
+ * instead.
+ */
+const APP_SOURCE_HEADER = 'X-App-Source'
+
+const appSourceHeaders = (
+  appSource: string | undefined
+): Record<string, string> | undefined =>
+  appSource ? { [APP_SOURCE_HEADER]: appSource } : undefined
+
 // Custom error class for token expiry
 export class TokenExpiredError extends Error {
   constructor(message: string = 'Token expired') {
@@ -275,7 +289,8 @@ export class RoboSystemsAuthClient {
     password: string,
     name?: string,
     captchaToken?: string,
-    inviteToken?: string
+    inviteToken?: string,
+    options?: { appSource?: string }
   ): Promise<AuthResponse> {
     const response = await registerUser({
       client: this.client,
@@ -286,6 +301,7 @@ export class RoboSystemsAuthClient {
         captcha_token: captchaToken || undefined,
         invite_token: inviteToken || undefined,
       },
+      headers: appSourceHeaders(options?.appSource),
     })
 
     // Check for error responses (4xx/5xx)
@@ -639,12 +655,14 @@ export class RoboSystemsAuthClient {
    * Send password reset email
    */
   async forgotPassword(
-    email: string
+    email: string,
+    options?: { appSource?: string }
   ): Promise<{ success: boolean; message?: string }> {
     try {
       await forgotPassword({
         client: this.client,
         body: { email } as any,
+        headers: appSourceHeaders(options?.appSource),
       })
 
       return {
@@ -790,7 +808,10 @@ export class RoboSystemsAuthClient {
   /**
    * Resend verification email
    */
-  async resendVerificationEmail(email: string): Promise<{
+  async resendVerificationEmail(
+    email: string,
+    options?: { appSource?: string }
+  ): Promise<{
     success: boolean
     message?: string
   }> {
@@ -798,6 +819,7 @@ export class RoboSystemsAuthClient {
       await (resendVerificationEmail as any)({
         client: this.client,
         body: { email },
+        headers: appSourceHeaders(options?.appSource),
       })
 
       return {
