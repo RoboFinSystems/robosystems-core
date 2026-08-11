@@ -169,9 +169,14 @@ export function AuthProvider({
           new Promise((resolve) => setTimeout(resolve, 2000)),
         ])
 
-        // Clear auth client cache and local user/session state
+        // Clear auth client cache and local storage state. Deliberately NO
+        // setUser(null) here: the hard navigation below tears the tree down
+        // anyway, and nulling the user first wakes AuthGuard, whose
+        // client-side redirect (→ /login → LoginRedirector → login home)
+        // can outrace the queued /logout navigation — the anchor session
+        // then survives and silently signs the user back in, undoing the
+        // logout (observed E2E under centralized login).
         authClient.clearAuthCache()
-        setUser(null)
         setSessionWarning({ show: false, timeLeft: 0 })
 
         // Perform comprehensive cleanup of all user-specific data
@@ -181,8 +186,8 @@ export function AuthProvider({
 
         // Always hard-redirect out of the authenticated area. A full-page
         // navigation (not a client-side router.push) guarantees the
-        // authenticated tree tears down instead of AuthGuard flashing a blank
-        // screen once user state clears. A forced logout (reason set, e.g.
+        // authenticated tree tears down without AuthGuard racing it (see
+        // above). A forced logout (reason set, e.g.
         // session_expired) goes to the login page so it can explain why the
         // session ended and let the user sign back in. A manual logout on a
         // product app chains through the login home's /logout so the anchor

@@ -215,6 +215,12 @@ describe('AuthProvider - Simplified Tests', () => {
         )
       })
       expect(mockAuthClient.logout).toHaveBeenCalled()
+
+      // The user state must NOT be nulled before the hard navigation: a
+      // nulled user wakes AuthGuard, whose client-side redirect can outrace
+      // the /logout navigation — the anchor session then survives and
+      // silently signs the user back in, undoing the logout.
+      expect(screen.getByTestId('is-authenticated')).toHaveTextContent('true')
     } finally {
       window.location = originalLocation as any
     }
