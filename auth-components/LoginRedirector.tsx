@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { CURRENT_APP } from '../auth-core/config'
+import { CURRENT_APP, isLoginHome } from '../auth-core/config'
 import {
   buildLoginHomeUrl,
   buildReturnTo,
@@ -37,6 +37,7 @@ export function LoginRedirector({
 }: LoginRedirectorProps) {
   const { handleSSOLogin } = useSSO(apiUrl)
   const [bridgeFailed, setBridgeFailed] = useState(false)
+  const [misconfigured, setMisconfigured] = useState(false)
   const startedRef = useRef(false)
 
   useEffect(() => {
@@ -66,6 +67,19 @@ export function LoginRedirector({
       return
     }
 
+    // Never self-redirect: mounted on the app that IS the login home
+    // (misconfiguration — the login home renders real auth forms, not this
+    // redirector), buildLoginHomeUrl() resolves to this same app and
+    // window.location.replace() would loop. Fail safe with a static state,
+    // mirroring AuthProvider.logout's isLoginHome() guard.
+    if (isLoginHome()) {
+      console.error(
+        '[LoginRedirector] rendered on the login home app — refusing to self-redirect. Check NEXT_PUBLIC_LOGIN_HOME_APP / the centralized-login flag.'
+      )
+      setMisconfigured(true)
+      return
+    }
+
     const localReturnTo = params.get('return_to')
     const path =
       localReturnTo && isSafeRelativePath(localReturnTo)
@@ -83,6 +97,20 @@ export function LoginRedirector({
       })
     )
   }, [handleSSOLogin, mode, homePath])
+
+  if (misconfigured) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 px-6 text-center">
+        <p className="text-lg font-semibold text-gray-900 dark:text-white">
+          Sign-in is temporarily unavailable
+        </p>
+        <p className="max-w-md text-sm text-gray-600 dark:text-gray-400">
+          This page is misconfigured. Please contact support if the problem
+          persists.
+        </p>
+      </div>
+    )
+  }
 
   if (bridgeFailed) {
     const retryUrl = buildLoginHomeUrl(mode, {
