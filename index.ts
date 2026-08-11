@@ -333,7 +333,13 @@ if (process.env.NODE_ENV !== 'test') {
 export { client }
 
 // For backward compatibility, also export the main auth types directly
-export type { APIKey, AppName, AuthContextType, AuthUser } from './auth-core'
+export type {
+  APIKey,
+  AppName,
+  AuthContextType,
+  AuthProviders,
+  AuthUser,
+} from './auth-core'
 
 // App identity
 export { CURRENT_APP } from './auth-core/config'
