@@ -252,6 +252,41 @@ describe('Auth Components - Simple Tests', () => {
       expect(mockPush).toHaveBeenCalledWith('/login')
     })
 
+    it('should carry the intended destination as return_to', () => {
+      window.history.replaceState({}, '', '/graphs/abc?tab=1')
+      const mockPush = vi.fn()
+      mockUseRouter.mockReturnValue({
+        push: mockPush,
+      } as any)
+
+      mockUseAuth.mockReturnValue({
+        user: null,
+        isLoading: false,
+        isAuthenticated: false,
+        sessionWarning: { show: false, timeLeft: 0 },
+        login: vi.fn(),
+        register: vi.fn(),
+        logout: vi.fn(),
+        refreshSession: vi.fn(),
+        forgotPassword: vi.fn(),
+        resetPassword: vi.fn(),
+        validateResetToken: vi.fn(),
+        verifyEmail: vi.fn(),
+        resendVerificationEmail: vi.fn(),
+      })
+
+      render(
+        <AuthGuard>
+          <div data-testid="protected-content">Protected Content</div>
+        </AuthGuard>
+      )
+
+      expect(mockPush).toHaveBeenCalledWith(
+        `/login?return_to=${encodeURIComponent('/graphs/abc?tab=1')}`
+      )
+      window.history.replaceState({}, '', '/')
+    })
+
     it('should not render anything when not authenticated and not loading', () => {
       mockUseAuth.mockReturnValue({
         user: null,

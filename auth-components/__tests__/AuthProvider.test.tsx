@@ -26,6 +26,19 @@ vi.mock('../../auth-core/client', async () => {
 const MockRoboSystemsAuthClient =
   RoboSystemsAuthClient as unknown as MockedClass<typeof RoboSystemsAuthClient>
 
+// Mock app-identity config: run these tests as a product app (roboledger)
+// that is NOT the login home, so the logout chain branch is exercised.
+vi.mock('../../auth-core/config', () => ({
+  CURRENT_APP: 'roboledger',
+  isLoginHome: () => false,
+  getLoginHomeUrl: () => 'https://robosystems.ai',
+  getAppConfig: () => ({ url: 'https://robosystems.ai', name: 'robosystems' }),
+  APP_CONFIGS: {
+    robosystems: { url: 'https://robosystems.ai', name: 'robosystems' },
+    roboledger: { url: 'https://roboledger.ai', name: 'roboledger' },
+  },
+}))
+
 // Mock sessionStorage and window methods
 const mockSessionStorage = {
   getItem: vi.fn(),
@@ -164,6 +177,47 @@ describe('AuthProvider - Simplified Tests', () => {
         'password'
       )
     })
+  })
+
+  it('should chain manual logout through the login home on a product app', async () => {
+    mockAuthClient.getCurrentUser.mockResolvedValueOnce(mockUser)
+    mockAuthClient.logout.mockResolvedValueOnce(undefined)
+
+    const originalLocation = window.location
+    delete (window as any).location
+    window.location = {
+      ...originalLocation,
+      href: 'https://roboledger.ai/home',
+    } as any
+
+    try {
+      await act(async () => {
+        render(
+          <AuthProvider>
+            <TestComponent />
+          </AuthProvider>
+        )
+      })
+
+      await waitFor(() => {
+        expect(screen.getByTestId('is-authenticated')).toHaveTextContent('true')
+      })
+
+      await act(async () => {
+        fireEvent.click(screen.getByTestId('logout-btn'))
+        // Cover the bounded wait on the cookie-clearing server actions
+        await vi.advanceTimersByTimeAsync(2500)
+      })
+
+      await waitFor(() => {
+        expect(window.location.href).toBe(
+          'https://robosystems.ai/logout?return_to=roboledger'
+        )
+      })
+      expect(mockAuthClient.logout).toHaveBeenCalled()
+    } finally {
+      window.location = originalLocation as any
+    }
   })
 
   it('should track user activity', async () => {
