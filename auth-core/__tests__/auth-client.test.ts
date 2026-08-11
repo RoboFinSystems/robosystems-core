@@ -1,8 +1,11 @@
 import {
   client,
+  forgotPassword,
   getCurrentAuthUser,
   loginUser,
   logoutUser,
+  registerUser,
+  resendVerificationEmail,
 } from '@robosystems/client'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { RoboSystemsAuthClient } from '../client'
@@ -11,6 +14,9 @@ const mockedClient = vi.mocked(client)
 const mockedGetCurrentAuthUser = vi.mocked(getCurrentAuthUser)
 const mockedLoginUser = vi.mocked(loginUser)
 const mockedLogoutUser = vi.mocked(logoutUser)
+const mockedRegisterUser = vi.mocked(registerUser)
+const mockedForgotPassword = vi.mocked(forgotPassword)
+const mockedResendVerificationEmail = vi.mocked(resendVerificationEmail)
 
 describe('Auth System Core Tests', () => {
   describe('RoboSystemsAuthClient', () => {
@@ -230,6 +236,75 @@ describe('Auth System Core Tests', () => {
 
       // Should only make one API call
       expect(mockedGetCurrentAuthUser).toHaveBeenCalledTimes(1)
+    })
+  })
+
+  describe('X-App-Source header (originating app for email branding)', () => {
+    let authClient: RoboSystemsAuthClient
+
+    beforeEach(() => {
+      authClient = new RoboSystemsAuthClient('https://api.test.com')
+      vi.clearAllMocks()
+    })
+
+    it('register sends X-App-Source when appSource is given', async () => {
+      mockedRegisterUser.mockResolvedValueOnce({
+        data: {
+          user: { id: 'user-1', email: 'a@b.co', name: 'A' },
+          message: 'ok',
+        },
+      } as any)
+
+      await authClient.register('a@b.co', 'pw', 'A', undefined, undefined, {
+        appSource: 'roboledger',
+      })
+
+      expect(mockedRegisterUser).toHaveBeenCalledWith(
+        expect.objectContaining({
+          headers: { 'X-App-Source': 'roboledger' },
+        })
+      )
+    })
+
+    it('register omits the header when appSource is absent', async () => {
+      mockedRegisterUser.mockResolvedValueOnce({
+        data: {
+          user: { id: 'user-1', email: 'a@b.co', name: 'A' },
+          message: 'ok',
+        },
+      } as any)
+
+      await authClient.register('a@b.co', 'pw', 'A')
+
+      expect(mockedRegisterUser).toHaveBeenCalledWith(
+        expect.objectContaining({ headers: undefined })
+      )
+    })
+
+    it('forgotPassword sends X-App-Source when appSource is given', async () => {
+      mockedForgotPassword.mockResolvedValueOnce({ data: {} } as any)
+
+      await authClient.forgotPassword('a@b.co', { appSource: 'roboinvestor' })
+
+      expect(mockedForgotPassword).toHaveBeenCalledWith(
+        expect.objectContaining({
+          headers: { 'X-App-Source': 'roboinvestor' },
+        })
+      )
+    })
+
+    it('resendVerificationEmail sends X-App-Source when appSource is given', async () => {
+      mockedResendVerificationEmail.mockResolvedValueOnce({ data: {} } as any)
+
+      await authClient.resendVerificationEmail('a@b.co', {
+        appSource: 'roboledger',
+      })
+
+      expect(mockedResendVerificationEmail).toHaveBeenCalledWith(
+        expect.objectContaining({
+          headers: { 'X-App-Source': 'roboledger' },
+        })
+      )
     })
   })
 })

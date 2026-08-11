@@ -623,8 +623,11 @@ export function AuthProvider({
     }
   }
 
-  const forgotPassword = async (email: string) => {
-    return authClient.forgotPassword(email)
+  const forgotPassword = async (
+    email: string,
+    options?: { appSource?: string }
+  ) => {
+    return authClient.forgotPassword(email, options)
   }
 
   const resetPassword = async (token: string, newPassword: string) => {
@@ -672,8 +675,11 @@ export function AuthProvider({
     return result
   }
 
-  const resendVerificationEmail = async (email: string) => {
-    return authClient.resendVerificationEmail(email)
+  const resendVerificationEmail = async (
+    email: string,
+    options?: { appSource?: string }
+  ) => {
+    return authClient.resendVerificationEmail(email, options)
   }
 
   const value: AuthContextType = {

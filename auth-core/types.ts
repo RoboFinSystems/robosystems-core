@@ -85,7 +85,8 @@ export interface AuthContextType {
   refreshUser: () => Promise<AuthUser | null>
   refreshSession: (force?: boolean) => Promise<void>
   forgotPassword: (
-    email: string
+    email: string,
+    options?: { appSource?: string }
   ) => Promise<{ success: boolean; message?: string }>
   resetPassword: (
     token: string,
@@ -98,7 +99,8 @@ export interface AuthContextType {
     token: string
   ) => Promise<{ success: boolean; message?: string; user?: AuthUser }>
   resendVerificationEmail: (
-    email: string
+    email: string,
+    options?: { appSource?: string }
   ) => Promise<{ success: boolean; message?: string }>
 }
 
