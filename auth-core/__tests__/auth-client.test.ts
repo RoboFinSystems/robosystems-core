@@ -1,6 +1,7 @@
 import {
   client,
   forgotPassword,
+  getAuthProviders,
   getCurrentAuthUser,
   loginUser,
   logoutUser,
@@ -17,6 +18,7 @@ const mockedLogoutUser = vi.mocked(logoutUser)
 const mockedRegisterUser = vi.mocked(registerUser)
 const mockedForgotPassword = vi.mocked(forgotPassword)
 const mockedResendVerificationEmail = vi.mocked(resendVerificationEmail)
+const mockedGetAuthProviders = vi.mocked(getAuthProviders)
 
 describe('Auth System Core Tests', () => {
   describe('RoboSystemsAuthClient', () => {
@@ -305,6 +307,37 @@ describe('Auth System Core Tests', () => {
           headers: { 'X-App-Source': 'roboledger' },
         })
       )
+    })
+  })
+
+  describe('getAuthProviders (deployment auth posture)', () => {
+    let authClient: RoboSystemsAuthClient
+
+    beforeEach(() => {
+      authClient = new RoboSystemsAuthClient('https://api.test.com')
+      vi.clearAllMocks()
+    })
+
+    it('returns the posture on success', async () => {
+      const posture = {
+        password_auth: true,
+        oidc: { enabled: true, provider_label: 'Okta' },
+        registration: false,
+        passkeys: false,
+      }
+      mockedGetAuthProviders.mockResolvedValueOnce({ data: posture } as never)
+
+      expect(await authClient.getAuthProviders()).toEqual(posture)
+    })
+
+    it('returns null on failure or malformed payload (fail-open rendering hint)', async () => {
+      mockedGetAuthProviders.mockRejectedValueOnce(new Error('network down'))
+      expect(await authClient.getAuthProviders()).toBeNull()
+
+      mockedGetAuthProviders.mockResolvedValueOnce({
+        data: { unexpected: 'shape' },
+      } as never)
+      expect(await authClient.getAuthProviders()).toBeNull()
     })
   })
 })

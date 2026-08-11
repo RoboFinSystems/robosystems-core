@@ -5,6 +5,7 @@ import {
   createUserApiKey,
   forgotPassword,
   generateSsoToken,
+  getAuthProviders,
   getCurrentAuthUser,
   getInvitationPreview,
   getPasswordPolicy,
@@ -24,6 +25,7 @@ import * as sdkClientsModule from '@robosystems/client/clients'
 import { getToken, getValidToken } from './token-storage'
 import type {
   APIKey,
+  AuthProviders,
   AuthResponse,
   AuthUser,
   CreateAPIKeyRequest,
@@ -639,6 +641,26 @@ export class RoboSystemsAuthClient {
   async checkAuthentication(): Promise<AuthUser | null> {
     try {
       return await this.getCurrentUser()
+    } catch {
+      return null
+    }
+  }
+
+  /**
+   * Fetch the deployment's auth posture (which sign-in methods to render).
+   *
+   * A rendering hint, not a security boundary — the backend enforces every
+   * flag regardless of what the page shows. Any failure returns null and
+   * the caller renders the default password posture.
+   */
+  async getAuthProviders(): Promise<AuthProviders | null> {
+    try {
+      const response = await getAuthProviders({ client: this.client })
+      const data = response.data as AuthProviders | undefined
+      if (!data || typeof data.password_auth !== 'boolean') {
+        return null
+      }
+      return data
     } catch {
       return null
     }

@@ -16,6 +16,24 @@ export interface AuthResponse {
   refresh_threshold?: number // Recommended refresh threshold in seconds before expiry
 }
 
+/**
+ * Deployment auth posture from `GET /v1/auth/providers`.
+ *
+ * A rendering hint, not a security boundary — the backend enforces every
+ * flag regardless of what the login surface shows. One byte-identical
+ * frontend build renders password-primary (managed), OIDC-primary
+ * (tenant), or closed-registration postures from this payload.
+ */
+export interface AuthProviders {
+  password_auth: boolean
+  oidc: {
+    enabled: boolean
+    provider_label?: string | null
+  }
+  registration: boolean
+  passkeys: boolean
+}
+
 export interface LoginRequest {
   email: string
   password: string
