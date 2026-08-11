@@ -33,6 +33,11 @@ describe('isSafeRelativePath', () => {
     expect(isSafeRelativePath('javascript:alert(1)')).toBe(false)
     expect(isSafeRelativePath('relative-no-slash')).toBe(false)
     expect(isSafeRelativePath('')).toBe(false)
+    // Browsers strip ASCII tab/newline before URL parsing, so these
+    // would normalize to scheme-relative URLs
+    expect(isSafeRelativePath('/\t/evil.com')).toBe(false)
+    expect(isSafeRelativePath('/\n/evil.com')).toBe(false)
+    expect(isSafeRelativePath('/\r/evil.com')).toBe(false)
   })
 })
 

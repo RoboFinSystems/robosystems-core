@@ -21,11 +21,16 @@ export interface ParsedReturnTo {
 
 /**
  * True when `path` is a same-app relative path. Rejects scheme-relative
- * URLs ("//host"), absolute URLs, and backslashes (browsers normalize
- * "/\host" to "//host").
+ * URLs ("//host"), absolute URLs, backslashes (browsers normalize
+ * "/\host" to "//host"), and ASCII tab/newline characters (browsers
+ * strip those before URL parsing, so "/<TAB>/host" would normalize
+ * to "//host").
  */
 export function isSafeRelativePath(path: string): boolean {
-  return path.startsWith('/') && !path.startsWith('//') && !path.includes('\\')
+  if (!path.startsWith('/') || path.startsWith('//')) {
+    return false
+  }
+  return !/[\\\t\n\r]/.test(path)
 }
 
 /** Build a `return_to` value. An unsafe path degrades to app-only. */
