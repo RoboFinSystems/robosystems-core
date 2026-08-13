@@ -747,16 +747,26 @@ export class RoboSystemsAuthClient {
   }
 
   /**
-   * Begin enrollment. Authenticated settings flow omits `mfaToken`; the
-   * forced-enrollment lane passes the token from an
-   * `mfa_enrollment_required` login.
+   * Begin enrollment. The settings lane must carry a fresh re-auth proof —
+   * `password`, or a reauth-ceremony `assertion` when adding a passkey
+   * beside an existing one; a session alone is refused by the backend. The
+   * forced-enrollment lane passes only the `mfaToken` from an
+   * `mfa_enrollment_required` login, which is its own freshness proof.
    */
-  async getPasskeyRegistrationOptions(
+  async getPasskeyRegistrationOptions(proof?: {
     mfaToken?: string
-  ): Promise<Record<string, unknown>> {
+    password?: string
+    assertion?: Record<string, unknown>
+  }): Promise<Record<string, unknown>> {
     const response = await getPasskeyRegistrationOptions({
       client: this.client,
-      body: { mfa_token: mfaToken },
+      // The proof fields land in client 1.11's generated request model;
+      // until the regen they ride as extra JSON properties, hence the cast.
+      body: {
+        mfa_token: proof?.mfaToken,
+        password: proof?.password,
+        assertion: proof?.assertion,
+      } as never,
     })
     return (response.data as { options: Record<string, unknown> }).options
   }

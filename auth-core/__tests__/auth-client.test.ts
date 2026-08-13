@@ -6,6 +6,7 @@ import {
   getMfaOptions,
   getMfaStatus,
   getPasskeyLoginOptions,
+  getPasskeyRegistrationOptions,
   loginUser,
   logoutUser,
   registerUser,
@@ -31,6 +32,9 @@ const mockedGetPasskeyLoginOptions = vi.mocked(getPasskeyLoginOptions)
 const mockedVerifyMfa = vi.mocked(verifyMfa)
 const mockedVerifyPasskeyLogin = vi.mocked(verifyPasskeyLogin)
 const mockedVerifyPasskeyRegistration = vi.mocked(verifyPasskeyRegistration)
+const mockedGetPasskeyRegistrationOptions = vi.mocked(
+  getPasskeyRegistrationOptions
+)
 
 describe('Auth System Core Tests', () => {
   describe('RoboSystemsAuthClient', () => {
@@ -410,6 +414,43 @@ describe('Passkey MFA client surface', () => {
     expect(result.success).toBe(true)
     expect(result.token).toBe('jwt-legacy')
     expect(localStorage.getItem('robosystems_jwt_token')).toBe('jwt-legacy')
+  })
+
+  it('settings-lane enrollment options carry the re-auth proof', async () => {
+    mockedGetPasskeyRegistrationOptions.mockResolvedValueOnce({
+      data: { options: { challenge: 'reg-1' } },
+    } as any)
+
+    const options = await authClient.getPasskeyRegistrationOptions({
+      password: 'hunter2!',
+    })
+
+    expect(options).toEqual({ challenge: 'reg-1' })
+    expect(mockedGetPasskeyRegistrationOptions).toHaveBeenCalledWith({
+      client: expect.any(Object),
+      body: {
+        mfa_token: undefined,
+        password: 'hunter2!',
+        assertion: undefined,
+      },
+    })
+  })
+
+  it('forced-lane enrollment options carry only the enroll token', async () => {
+    mockedGetPasskeyRegistrationOptions.mockResolvedValueOnce({
+      data: { options: { challenge: 'reg-2' } },
+    } as any)
+
+    await authClient.getPasskeyRegistrationOptions({ mfaToken: 'enroll-tok' })
+
+    expect(mockedGetPasskeyRegistrationOptions).toHaveBeenCalledWith({
+      client: expect.any(Object),
+      body: {
+        mfa_token: 'enroll-tok',
+        password: undefined,
+        assertion: undefined,
+      },
+    })
   })
 
   it('getMfaOptions unwraps the options payload', async () => {
