@@ -337,8 +337,10 @@ export type {
   APIKey,
   AppName,
   AuthContextType,
+  AuthFlowStatus,
   AuthProviders,
   AuthUser,
+  PasskeyEnrollmentResult,
 } from './auth-core'
 
 // App identity

@@ -3,12 +3,18 @@ import {
   forgotPassword,
   getAuthProviders,
   getCurrentAuthUser,
+  getMfaOptions,
+  getMfaStatus,
+  getPasskeyLoginOptions,
   loginUser,
   logoutUser,
   registerUser,
   resendVerificationEmail,
+  verifyMfa,
+  verifyPasskeyLogin,
+  verifyPasskeyRegistration,
 } from '@robosystems/client'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { RoboSystemsAuthClient } from '../client'
 
 const mockedClient = vi.mocked(client)
@@ -19,6 +25,12 @@ const mockedRegisterUser = vi.mocked(registerUser)
 const mockedForgotPassword = vi.mocked(forgotPassword)
 const mockedResendVerificationEmail = vi.mocked(resendVerificationEmail)
 const mockedGetAuthProviders = vi.mocked(getAuthProviders)
+const mockedGetMfaOptions = vi.mocked(getMfaOptions)
+const mockedGetMfaStatus = vi.mocked(getMfaStatus)
+const mockedGetPasskeyLoginOptions = vi.mocked(getPasskeyLoginOptions)
+const mockedVerifyMfa = vi.mocked(verifyMfa)
+const mockedVerifyPasskeyLogin = vi.mocked(verifyPasskeyLogin)
+const mockedVerifyPasskeyRegistration = vi.mocked(verifyPasskeyRegistration)
 
 describe('Auth System Core Tests', () => {
   describe('RoboSystemsAuthClient', () => {
@@ -339,5 +351,179 @@ describe('Auth System Core Tests', () => {
       } as never)
       expect(await authClient.getAuthProviders()).toBeNull()
     })
+  })
+})
+
+describe('Passkey MFA client surface', () => {
+  let authClient: RoboSystemsAuthClient
+  const sessionPayload = {
+    user: { id: 'user-123', email: 'test@example.com', name: 'Test User' },
+    message: 'Login successful',
+    status: 'authenticated',
+    token: 'jwt-abc',
+    expires_in: 1800,
+    refresh_threshold: 300,
+  }
+
+  beforeEach(() => {
+    authClient = new RoboSystemsAuthClient('https://api.test.com')
+    vi.clearAllMocks()
+    localStorage.clear()
+  })
+
+  afterEach(() => {
+    // Stored session tokens must not leak into suites that read auth state.
+    localStorage.clear()
+  })
+
+  it('login passes an mfa_required status through without storing a token', async () => {
+    mockedLoginUser.mockResolvedValueOnce({
+      data: {
+        user: { id: 'user-123', email: 'test@example.com' },
+        message: 'Additional verification required',
+        status: 'mfa_required',
+        mfa_token: 'mfa-tok-1',
+        token: null,
+      },
+    } as any)
+
+    const result = await authClient.login('test@example.com', 'password')
+
+    expect(result.success).toBe(false)
+    expect(result.status).toBe('mfa_required')
+    expect(result.mfaToken).toBe('mfa-tok-1')
+    expect(result.token).toBeFalsy()
+    expect(localStorage.getItem('robosystems_jwt_token')).toBeNull()
+  })
+
+  it('login treats a status-less response as authenticated (pre-MFA backend)', async () => {
+    mockedLoginUser.mockResolvedValueOnce({
+      data: {
+        user: { id: 'user-123', email: 'test@example.com' },
+        message: 'Login successful',
+        token: 'jwt-legacy',
+      },
+    } as any)
+
+    const result = await authClient.login('test@example.com', 'password')
+
+    expect(result.success).toBe(true)
+    expect(result.token).toBe('jwt-legacy')
+    expect(localStorage.getItem('robosystems_jwt_token')).toBe('jwt-legacy')
+  })
+
+  it('getMfaOptions unwraps the options payload', async () => {
+    mockedGetMfaOptions.mockResolvedValueOnce({
+      data: { options: { challenge: 'abc', rpId: 'robosystems.ai' } },
+    } as any)
+
+    const options = await authClient.getMfaOptions('mfa-tok-1')
+
+    expect(options).toEqual({ challenge: 'abc', rpId: 'robosystems.ai' })
+    expect(mockedGetMfaOptions).toHaveBeenCalledWith({
+      client: expect.any(Object),
+      body: { mfa_token: 'mfa-tok-1' },
+    })
+  })
+
+  it('verifyMfa with an assertion stores the minted session token', async () => {
+    mockedVerifyMfa.mockResolvedValueOnce({ data: sessionPayload } as any)
+
+    const result = await authClient.verifyMfa('mfa-tok-1', {
+      assertion: { id: 'cred-1' },
+    })
+
+    expect(result.success).toBe(true)
+    expect(result.token).toBe('jwt-abc')
+    expect(localStorage.getItem('robosystems_jwt_token')).toBe('jwt-abc')
+    expect(mockedVerifyMfa).toHaveBeenCalledWith({
+      client: expect.any(Object),
+      body: {
+        mfa_token: 'mfa-tok-1',
+        assertion: { id: 'cred-1' },
+        recovery_code: undefined,
+      },
+    })
+  })
+
+  it('verifyMfa with a recovery code sends only the code', async () => {
+    mockedVerifyMfa.mockResolvedValueOnce({ data: sessionPayload } as any)
+
+    await authClient.verifyMfa('mfa-tok-1', { recoveryCode: 'AAAAA-BBBBB' })
+
+    expect(mockedVerifyMfa).toHaveBeenCalledWith({
+      client: expect.any(Object),
+      body: {
+        mfa_token: 'mfa-tok-1',
+        assertion: undefined,
+        recovery_code: 'AAAAA-BBBBB',
+      },
+    })
+  })
+
+  it('completePasskeyLogin stores the minted session token', async () => {
+    mockedGetPasskeyLoginOptions.mockResolvedValueOnce({
+      data: { options: { challenge: 'pwl' } },
+    } as any)
+    mockedVerifyPasskeyLogin.mockResolvedValueOnce({
+      data: sessionPayload,
+    } as any)
+
+    const options = await authClient.getPasskeyLoginOptions()
+    expect(options).toEqual({ challenge: 'pwl' })
+
+    const result = await authClient.completePasskeyLogin({ id: 'cred-1' })
+    expect(result.success).toBe(true)
+    expect(localStorage.getItem('robosystems_jwt_token')).toBe('jwt-abc')
+  })
+
+  it('completePasskeyEnrollment maps recovery codes and stores the forced-lane session', async () => {
+    mockedVerifyPasskeyRegistration.mockResolvedValueOnce({
+      data: {
+        passkey: { id: 'upk_1', name: 'MacBook' },
+        recovery_codes: ['AAAAA-AAAAA', 'BBBBB-BBBBB'],
+        auth: sessionPayload,
+      },
+    } as any)
+
+    const result = await authClient.completePasskeyEnrollment(
+      { id: 'cred-1' },
+      { name: 'MacBook', mfaToken: 'enroll-tok-1' }
+    )
+
+    expect(result.passkey).toEqual({ id: 'upk_1', name: 'MacBook' })
+    expect(result.recoveryCodes).toEqual(['AAAAA-AAAAA', 'BBBBB-BBBBB'])
+    expect(result.auth?.token).toBe('jwt-abc')
+    expect(localStorage.getItem('robosystems_jwt_token')).toBe('jwt-abc')
+  })
+
+  it('completePasskeyEnrollment in the settings lane stores nothing', async () => {
+    mockedVerifyPasskeyRegistration.mockResolvedValueOnce({
+      data: { passkey: { id: 'upk_2' }, recovery_codes: null, auth: null },
+    } as any)
+
+    const result = await authClient.completePasskeyEnrollment({ id: 'cred-2' })
+
+    expect(result.recoveryCodes).toBeUndefined()
+    expect(result.auth).toBeUndefined()
+    expect(localStorage.getItem('robosystems_jwt_token')).toBeNull()
+  })
+
+  it('getMfaStatus maps the posture and fails open to null', async () => {
+    mockedGetMfaStatus.mockResolvedValueOnce({
+      data: {
+        passkey_count: 2,
+        recovery_codes_remaining: 7,
+        enforcement_applies: true,
+      },
+    } as any)
+    expect(await authClient.getMfaStatus()).toEqual({
+      passkeyCount: 2,
+      recoveryCodesRemaining: 7,
+      enforcementApplies: true,
+    })
+
+    mockedGetMfaStatus.mockRejectedValueOnce(new Error('boom'))
+    expect(await authClient.getMfaStatus()).toBeNull()
   })
 })

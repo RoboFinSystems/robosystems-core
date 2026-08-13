@@ -3,16 +3,24 @@ import {
   client,
   completeSsoAuth,
   createUserApiKey,
+  deleteUserPasskey,
   forgotPassword,
   generateSsoToken,
   getAuthProviders,
   getCurrentAuthUser,
   getInvitationPreview,
+  getMfaOptions,
+  getMfaStatus,
+  getPasskeyLoginOptions,
+  getPasskeyReauthOptions,
+  getPasskeyRegistrationOptions,
   getPasswordPolicy,
   listUserApiKeys,
+  listUserPasskeys,
   loginUser,
   logoutUser,
   refreshAuthSession,
+  regenerateMfaRecoveryCodes,
   registerUser,
   resendVerificationEmail,
   resetPassword,
@@ -20,6 +28,9 @@ import {
   ssoTokenExchange,
   validateResetToken,
   verifyEmail,
+  verifyMfa,
+  verifyPasskeyLogin,
+  verifyPasskeyRegistration,
 } from '@robosystems/client'
 import * as sdkClientsModule from '@robosystems/client/clients'
 import { getToken, getValidToken } from './token-storage'
@@ -29,6 +40,7 @@ import type {
   AuthResponse,
   AuthUser,
   CreateAPIKeyRequest,
+  PasskeyEnrollmentResult,
   SDKApiKeyResponse,
   SDKApiKeysListResponse,
   SDKAuthResponse,
@@ -257,7 +269,24 @@ export class RoboSystemsAuthClient {
       body: { email, password },
     })
 
-    const sdkResponse = this.validateSDKAuthResponse(response.data)
+    return this.finalizeAuthResponse(response.data)
+  }
+
+  /**
+   * Validate an auth-shaped SDK response, store the session token when one
+   * is present, and map to the public shape. Shared by every entrance that
+   * can mint a session: password login, MFA verify, passwordless login,
+   * and forced-enrollment completion.
+   *
+   * An MFA-step response (`status` of `mfa_required` /
+   * `mfa_enrollment_required`) carries no token — `success` is false and
+   * `mfaToken` authorizes the next step. Pre-MFA backends send no `status`
+   * at all, which reads as authenticated.
+   */
+  private async finalizeAuthResponse(data: unknown): Promise<AuthResponse> {
+    const sdkResponse = this.validateSDKAuthResponse(data)
+    const status = sdkResponse.status
+    const authenticated = !status || status === 'authenticated'
 
     // Store JWT token with expiry information if present in response
     if (sdkResponse.token) {
@@ -278,11 +307,13 @@ export class RoboSystemsAuthClient {
 
     return {
       user: sdkResponse.user,
-      success: true,
+      success: authenticated,
+      status,
+      mfaToken: sdkResponse.mfa_token ?? undefined,
       message: sdkResponse.message,
       token: sdkResponse.token,
-      expires_in: sdkResponse.expires_in,
-      refresh_threshold: sdkResponse.refresh_threshold,
+      expires_in: sdkResponse.expires_in ?? undefined,
+      refresh_threshold: sdkResponse.refresh_threshold ?? undefined,
     }
   }
 
@@ -664,6 +695,169 @@ export class RoboSystemsAuthClient {
     } catch {
       return null
     }
+  }
+
+  // ---- Passkey MFA -------------------------------------------------------
+  // WebAuthn options and credential payloads are opaque JSON between the
+  // backend RP library and the browser's navigator.credentials — core
+  // carries them verbatim and never imports a WebAuthn library. Methods
+  // that can mint a session route through finalizeAuthResponse so token
+  // storage stays in one place.
+
+  /** Second-factor step: exchange an mfa_required token for assertion options. */
+  async getMfaOptions(mfaToken: string): Promise<Record<string, unknown>> {
+    const response = await getMfaOptions({
+      client: this.client,
+      body: { mfa_token: mfaToken },
+    })
+    return (response.data as { options: Record<string, unknown> }).options
+  }
+
+  /** Second-factor step: complete with an assertion or a recovery code. */
+  async verifyMfa(
+    mfaToken: string,
+    input: { assertion?: Record<string, unknown>; recoveryCode?: string }
+  ): Promise<AuthResponse> {
+    const response = await verifyMfa({
+      client: this.client,
+      body: {
+        mfa_token: mfaToken,
+        assertion: input.assertion,
+        recovery_code: input.recoveryCode,
+      },
+    })
+    return this.finalizeAuthResponse(response.data)
+  }
+
+  /** Passwordless login: usernameless assertion options. */
+  async getPasskeyLoginOptions(): Promise<Record<string, unknown>> {
+    const response = await getPasskeyLoginOptions({ client: this.client })
+    return (response.data as { options: Record<string, unknown> }).options
+  }
+
+  /** Passwordless login: assertion → session. */
+  async completePasskeyLogin(
+    assertion: Record<string, unknown>
+  ): Promise<AuthResponse> {
+    const response = await verifyPasskeyLogin({
+      client: this.client,
+      body: { assertion },
+    })
+    return this.finalizeAuthResponse(response.data)
+  }
+
+  /**
+   * Begin enrollment. Authenticated settings flow omits `mfaToken`; the
+   * forced-enrollment lane passes the token from an
+   * `mfa_enrollment_required` login.
+   */
+  async getPasskeyRegistrationOptions(
+    mfaToken?: string
+  ): Promise<Record<string, unknown>> {
+    const response = await getPasskeyRegistrationOptions({
+      client: this.client,
+      body: { mfa_token: mfaToken },
+    })
+    return (response.data as { options: Record<string, unknown> }).options
+  }
+
+  /**
+   * Finish enrollment. First passkey returns recovery codes (once); in the
+   * forced-enrollment lane the result carries the completed login and the
+   * session token is stored.
+   */
+  async completePasskeyEnrollment(
+    credential: Record<string, unknown>,
+    options?: { name?: string; mfaToken?: string }
+  ): Promise<PasskeyEnrollmentResult> {
+    const response = await verifyPasskeyRegistration({
+      client: this.client,
+      body: {
+        credential,
+        name: options?.name,
+        mfa_token: options?.mfaToken,
+      },
+    })
+    const data = response.data as {
+      passkey: Record<string, unknown>
+      recovery_codes?: string[] | null
+      auth?: Record<string, unknown> | null
+    }
+    let auth: AuthResponse | undefined
+    if (data.auth) {
+      auth = await this.finalizeAuthResponse(data.auth)
+    }
+    return {
+      passkey: data.passkey,
+      recoveryCodes: data.recovery_codes ?? undefined,
+      auth,
+    }
+  }
+
+  /** Enrolled passkeys for the settings surface. */
+  async listPasskeys(): Promise<Record<string, unknown>[]> {
+    const response = await listUserPasskeys({ client: this.client })
+    return (
+      (response.data as { passkeys: Record<string, unknown>[] })?.passkeys ?? []
+    )
+  }
+
+  /** Fresh-assertion options for destructive lifecycle actions. */
+  async getPasskeyReauthOptions(): Promise<Record<string, unknown>> {
+    const response = await getPasskeyReauthOptions({ client: this.client })
+    return (response.data as { options: Record<string, unknown> }).options
+  }
+
+  /** Remove a passkey; exactly one re-auth proof must be supplied. */
+  async deletePasskey(
+    passkeyId: string,
+    proof: { password?: string; assertion?: Record<string, unknown> }
+  ): Promise<void> {
+    await deleteUserPasskey({
+      client: this.client,
+      path: { passkey_id: passkeyId },
+      body: { password: proof.password, assertion: proof.assertion },
+    })
+  }
+
+  /** MFA posture for the settings surface; null on any failure. */
+  async getMfaStatus(): Promise<{
+    passkeyCount: number
+    recoveryCodesRemaining: number
+    enforcementApplies: boolean
+  } | null> {
+    try {
+      const response = await getMfaStatus({ client: this.client })
+      const data = response.data as
+        | {
+            passkey_count: number
+            recovery_codes_remaining: number
+            enforcement_applies: boolean
+          }
+        | undefined
+      if (!data || typeof data.passkey_count !== 'number') {
+        return null
+      }
+      return {
+        passkeyCount: data.passkey_count,
+        recoveryCodesRemaining: data.recovery_codes_remaining,
+        enforcementApplies: data.enforcement_applies,
+      }
+    } catch {
+      return null
+    }
+  }
+
+  /** Replace the recovery-code set; codes are shown exactly once. */
+  async regenerateRecoveryCodes(proof: {
+    password?: string
+    assertion?: Record<string, unknown>
+  }): Promise<string[]> {
+    const response = await regenerateMfaRecoveryCodes({
+      client: this.client,
+      body: { password: proof.password, assertion: proof.assertion },
+    })
+    return (response.data as { codes: string[] }).codes
   }
 
   // Clear request deduplication cache (useful after login/logout)
