@@ -760,13 +760,11 @@ export class RoboSystemsAuthClient {
   }): Promise<Record<string, unknown>> {
     const response = await getPasskeyRegistrationOptions({
       client: this.client,
-      // The proof fields land in client 1.11's generated request model;
-      // until the regen they ride as extra JSON properties, hence the cast.
       body: {
         mfa_token: proof?.mfaToken,
         password: proof?.password,
         assertion: proof?.assertion,
-      } as never,
+      },
     })
     return (response.data as { options: Record<string, unknown> }).options
   }
