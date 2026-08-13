@@ -7,13 +7,30 @@ export interface AuthUser {
   updatedAt: string
 }
 
+/**
+ * Login flow state. `authenticated` is the terminal state (token present);
+ * the two MFA states mean no session exists yet and `mfaToken` authorizes
+ * the next step (the second-factor handshake or forced enrollment).
+ */
+export type AuthFlowStatus =
+  'authenticated' | 'mfa_required' | 'mfa_enrollment_required'
+
 export interface AuthResponse {
   user: AuthUser
   success: boolean
   message?: string
+  status?: AuthFlowStatus // Absent on pre-MFA backends; treat as authenticated
+  mfaToken?: string // Present only when status is not 'authenticated'
   token?: string // JWT token for Bearer authentication
   expires_in?: number // Token expiry time in seconds from now
   refresh_threshold?: number // Recommended refresh threshold in seconds before expiry
+}
+
+/** Enrollment result from completing a passkey registration ceremony. */
+export interface PasskeyEnrollmentResult {
+  passkey: Record<string, unknown>
+  recoveryCodes?: string[] // Present exactly once, at first enrollment
+  auth?: AuthResponse // Present in the forced-enrollment lane (login completed)
 }
 
 /**
@@ -137,6 +154,8 @@ export interface UseUserHook {
 export interface SDKAuthResponse {
   user: AuthUser
   message?: string
+  status?: AuthFlowStatus // Login flow discriminator (default authenticated)
+  mfa_token?: string | null // MFA step token when status is not authenticated
   token?: string // JWT token from backend
   expires_in?: number | null // Token expiry time in seconds from now
   refresh_threshold?: number | null // Recommended refresh threshold in seconds before expiry
