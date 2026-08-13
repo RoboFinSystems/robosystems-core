@@ -34,7 +34,7 @@
     "test:all": "npm run format:check && npm run lint && npm run typecheck && npm run test && npm run build"
   },
   "peerDependencies": {
-    "@robosystems/client": ">=1.9 <2",
+    "@robosystems/client": ">=1.10 <2",
     "flowbite-react": "^0.12.5",
     "next": ">=15 <17",
     "react": ">=18 <20",
