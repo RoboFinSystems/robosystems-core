@@ -13,6 +13,20 @@ const debugLog = (message: string, error?: unknown) => {
   }
 }
 
+export interface SSORedirectUrlOptions {
+  /**
+   * Mirror the target app / return URL into this tab's sessionStorage as a
+   * same-domain fallback for `handleSSOLogin`. Default true.
+   *
+   * Pass false when the URL is being handed to a *different* tab: the hints
+   * are unreadable there (separate tab, separate origin) and would linger in
+   * this tab, where a later same-tab SSO completion with no `returnUrl`
+   * param would pick up the stale path and redirect somewhere the user
+   * never asked to go.
+   */
+  persistSessionHints?: boolean
+}
+
 export class SSOManager {
   private authClient: RoboSystemsAuthClient
 
@@ -43,8 +57,10 @@ export class SSOManager {
    */
   async getSSORedirectUrl(
     targetApp: string,
-    returnUrl?: string
+    returnUrl?: string,
+    options: SSORedirectUrlOptions = {}
   ): Promise<string> {
+    const { persistSessionHints = true } = options
     const ssoData = await this.generateSSOToken()
     const appConfig = APP_CONFIGS[targetApp]
 
@@ -69,14 +85,16 @@ export class SSOManager {
 
     // Store only non-sensitive metadata in sessionStorage as backup for same-domain cases
     // Note: We avoid storing the session_id in sessionStorage for security
-    try {
-      sessionStorage.setItem('sso_target_app', targetApp)
-      if (returnUrl) {
-        sessionStorage.setItem('sso_return_url', returnUrl)
+    if (persistSessionHints) {
+      try {
+        sessionStorage.setItem('sso_target_app', targetApp)
+        if (returnUrl) {
+          sessionStorage.setItem('sso_return_url', returnUrl)
+        }
+      } catch (error) {
+        // Storage error - continue without backup storage
+        debugLog('sessionStorage write failed during SSO URL generation', error)
       }
-    } catch (error) {
-      // Storage error - continue without backup storage
-      debugLog('sessionStorage write failed during SSO URL generation', error)
     }
 
     return url.toString()
@@ -312,6 +330,11 @@ export function useSSO(apiUrl: string) {
     () => ({
       checkSSOAuthentication: () => ssoManager.checkSSOAuthentication(),
       handleSSOLogin: () => ssoManager.handleSSOLogin(),
+      getSSORedirectUrl: (
+        targetApp: string,
+        returnUrl?: string,
+        options?: SSORedirectUrlOptions
+      ) => ssoManager.getSSORedirectUrl(targetApp, returnUrl, options),
       navigateToApp: (targetApp: string, returnUrl?: string) =>
         ssoManager.navigateToApp(targetApp, returnUrl),
       getAvailableApps: () => ssoManager.getAvailableApps(),

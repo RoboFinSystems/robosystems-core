@@ -273,6 +273,30 @@ describe('SSOManager', () => {
         expect.anything()
       )
     })
+
+    it('should skip sessionStorage hints when persistSessionHints is false', async () => {
+      const mockAuthClient = createMockAuthClient()
+      mockAuthClient.generateSSOToken.mockResolvedValue({
+        token: 'sso-token-123',
+        expires_at: '2024-01-01T01:00:00Z',
+        apps: ['app1'],
+      })
+      mockAuthClient.ssoExchange.mockResolvedValue({
+        session_id: 'session-123',
+      })
+      ;(ssoManager as any).authClient = mockAuthClient
+
+      const result = await ssoManager.getSSORedirectUrl('app1', '/settings', {
+        persistSessionHints: false,
+      })
+
+      // The URL still carries everything the destination needs; only this
+      // tab's unreadable backup copy is skipped.
+      expect(result).toBe(
+        'https://app1.example.com/login?session_id=session-123&returnUrl=%2Fsettings'
+      )
+      expect(mockSessionStorage.setItem).not.toHaveBeenCalled()
+    })
   })
 
   describe('handleSSOLogin', () => {

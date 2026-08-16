@@ -17,6 +17,7 @@ import { HiCog, HiOfficeBuilding } from 'react-icons/hi'
 import { twMerge } from 'tailwind-merge'
 import { useOrg, useSidebarContext } from '../../contexts'
 import { customTheme } from '../../theme'
+import { useAccountSettingsLink } from './account-settings'
 
 export interface SidebarItemData {
   href?: string
@@ -337,6 +338,45 @@ function OrgSection({
   )
 }
 
+/**
+ * The account-settings cog. A plain link on the login home; on the product
+ * apps an SSO handoff into a new tab, so this app keeps its place.
+ */
+function SettingsButton() {
+  const settings = useAccountSettingsLink()
+
+  if (!settings.isCrossApp) {
+    return (
+      <Tooltip content={settings.description} theme={customTheme.tooltip}>
+        <Button
+          as={Link}
+          href={settings.href}
+          color="ghost"
+          className="rounded-lg p-2 hover:bg-gray-100 dark:hover:bg-gray-700"
+        >
+          <HiCog className="text-lg text-gray-500 dark:text-gray-400" />
+        </Button>
+      </Tooltip>
+    )
+  }
+
+  return (
+    <Tooltip content={settings.description} theme={customTheme.tooltip}>
+      <Button
+        onClick={() => {
+          void settings.open()
+        }}
+        disabled={settings.isOpening}
+        color="ghost"
+        aria-label={settings.description}
+        className="rounded-lg p-2 hover:bg-gray-100 disabled:opacity-50 dark:hover:bg-gray-700"
+      >
+        <HiCog className="text-lg text-gray-500 dark:text-gray-400" />
+      </Button>
+    </Tooltip>
+  )
+}
+
 interface BottomMenuProps {
   isCollapsed: boolean
   features: {
@@ -364,16 +404,7 @@ function BottomMenu({
       }`}
     >
       {/* Settings button (always present) */}
-      <Tooltip content="Settings" theme={customTheme.tooltip}>
-        <Button
-          as={Link}
-          href="/settings"
-          color="ghost"
-          className="rounded-lg p-2 hover:bg-gray-100 dark:hover:bg-gray-700"
-        >
-          <HiCog className="text-lg text-gray-500 dark:text-gray-400" />
-        </Button>
-      </Tooltip>
+      <SettingsButton />
 
       {/* Custom bottom menu actions */}
       {bottomMenuActions.map((action, index) => (
