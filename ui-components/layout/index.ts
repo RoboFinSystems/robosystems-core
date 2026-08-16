@@ -1,3 +1,8 @@
+export {
+  ACCOUNT_SETTINGS_PATH,
+  useAccountSettingsLink,
+  type AccountSettingsLink,
+} from './account-settings'
 export { CoreNavbar } from './CoreNavbar'
 export { CoreSidebar, type SidebarItemData } from './CoreSidebar'
 export {

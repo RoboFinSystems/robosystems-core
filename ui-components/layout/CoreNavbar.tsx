@@ -12,7 +12,7 @@ import {
 } from 'flowbite-react'
 import Link from 'next/link'
 import React from 'react'
-import { HiMenuAlt1, HiUserCircle, HiX } from 'react-icons/hi'
+import { HiExternalLink, HiMenuAlt1, HiUserCircle, HiX } from 'react-icons/hi'
 import { AppSwitcher } from '../../auth-components'
 import { useAuth } from '../../auth-components/AuthProvider'
 import { useSidebarContext } from '../../contexts'
@@ -20,6 +20,7 @@ import { useMediaQuery, useUser } from '../../hooks'
 import { customTheme } from '../../theme'
 import type { User } from '../../types'
 import { LogoBadge } from '../Logo'
+import { useAccountSettingsLink } from './account-settings'
 import { ThemeToggle } from './ThemeToggle'
 
 export interface CoreNavbarProps {
@@ -149,7 +150,11 @@ export function CoreNavbar({
                 {showAppSwitcherFirst && renderAppSwitcher()}
                 {renderThemeToggle()}
                 {!showAppSwitcherFirst && renderAppSwitcher()}
-                <UserDropdown user={user} onLogout={handleLogout} />
+                <UserDropdown
+                  user={user}
+                  apiUrl={apiUrl}
+                  onLogout={handleLogout}
+                />
               </div>
             </div>
           </div>
@@ -161,10 +166,13 @@ export function CoreNavbar({
 
 interface UserDropdownProps {
   user: User | null
+  apiUrl: string
   onLogout: () => void
 }
 
-function UserDropdown({ user, onLogout }: UserDropdownProps) {
+function UserDropdown({ user, apiUrl, onLogout }: UserDropdownProps) {
+  const settings = useAccountSettingsLink(apiUrl)
+
   return (
     <div className="relative">
       <Dropdown
@@ -197,14 +205,34 @@ function UserDropdown({ user, onLogout }: UserDropdownProps) {
             </div>
           )}
         </DropdownHeader>
-        <DropdownItem
-          theme={customTheme.dropdown.floating.item}
-          as={Link}
-          href="/settings"
-          className="flex w-full items-center space-x-3 p-3"
-        >
-          User Settings
-        </DropdownItem>
+        {settings.isCrossApp ? (
+          <DropdownItem
+            theme={customTheme.dropdown.floating.item}
+            onClick={() => {
+              void settings.open()
+            }}
+            title={settings.description}
+            className="flex w-full items-center justify-between p-3"
+          >
+            <span>User Settings</span>
+            <HiExternalLink
+              aria-hidden="true"
+              className="ml-3 h-4 w-4 shrink-0 text-gray-400 dark:text-gray-500"
+            />
+            <span className="sr-only">
+              {` (opens ${settings.hostAppName} in a new tab)`}
+            </span>
+          </DropdownItem>
+        ) : (
+          <DropdownItem
+            theme={customTheme.dropdown.floating.item}
+            as={Link}
+            href={settings.href}
+            className="flex w-full items-center space-x-3 p-3"
+          >
+            User Settings
+          </DropdownItem>
+        )}
         <DropdownDivider
           theme={{ divider: customTheme.dropdown.floating.divider }}
         />

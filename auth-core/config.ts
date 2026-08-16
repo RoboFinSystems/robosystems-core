@@ -74,4 +74,8 @@ export const LOGIN_HOME_APP: AppName =
 
 export const getLoginHomeUrl = (): string => getAppConfig(LOGIN_HOME_APP).url
 
+/** Product-facing name of the login home, for "managed on X" copy. */
+export const getLoginHomeName = (): string =>
+  getAppConfig(LOGIN_HOME_APP).displayName
+
 export const isLoginHome = (): boolean => CURRENT_APP === LOGIN_HOME_APP
