@@ -48,6 +48,26 @@ export function loginErrorMessage(error: unknown): string {
 }
 
 /**
+ * Message for a login that verified the password but did not mint a session.
+ *
+ * The backend interposes a passkey step between password check and session
+ * (`mfa_required` for an enrolled user, `mfa_enrollment_required` for a
+ * privileged one under enforcement). This form implements no such step, so
+ * the flow ends here — and it must end *visibly*. Navigating on a sessionless
+ * response drops the user on a protected route that bounces them straight
+ * back to the login page, an unexplained loop.
+ *
+ * Deployments that enable passkeys need a login surface that carries the
+ * ceremony through; see the platform app's `MfaChallenge`.
+ */
+export function mfaUnsupportedMessage(status?: string): string {
+  if (status === 'mfa_enrollment_required') {
+    return 'This account must enroll a passkey before signing in, which this sign-in page cannot complete.'
+  }
+  return 'This account requires passkey verification to sign in, which this sign-in page cannot complete.'
+}
+
+/**
  * Messages for the `?reason=` a redirect into the login page can carry. The
  * producer is `AuthProvider`'s `logout(reason)`, which sends the user to
  * `/login?reason=<reason>`; without this the redirect arrives unexplained.
@@ -167,6 +187,22 @@ export function SignInForm({
 
     try {
       const result = await authClient.login(formData.email, formData.password)
+
+      // No session was minted — the backend is waiting on a passkey step this
+      // form cannot run. Stop here rather than redirecting into a route that
+      // will bounce straight back. `success` is false only for the MFA
+      // statuses; pre-MFA backends send no `status` and read as authenticated.
+      if (!result.success) {
+        if (process.env.NODE_ENV === 'development') {
+          console.error(
+            `[SignInForm] login returned "${result.status}" — this component does not implement the passkey step. ` +
+              'Use a sign-in surface that completes the MFA ceremony.'
+          )
+        }
+        setError(mfaUnsupportedMessage(result.status))
+        setLoading(false)
+        return
+      }
 
       // Call onSuccess callback if provided
       if (onSuccess) {
