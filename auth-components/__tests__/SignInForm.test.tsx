@@ -4,7 +4,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { RoboSystemsAuthClient } from '../../auth-core/client'
 import { useSSO } from '../../auth-core/sso'
 import type { AuthUser } from '../../auth-core/types'
-import { SignInForm, loginErrorMessage } from '../SignInForm'
+import {
+  SignInForm,
+  loginErrorMessage,
+  mfaUnsupportedMessage,
+} from '../SignInForm'
 
 vi.mock('next/image', () => ({
   __esModule: true,
@@ -600,6 +604,113 @@ describe('SignInForm', () => {
         ).not.toBeInTheDocument()
       })
     })
+  })
+
+  // A password-verified login that mints no session (the backend is waiting on
+  // a passkey step this form does not implement) must surface an error rather
+  // than redirect — a redirect lands on a protected route that bounces the
+  // user right back here, looping with nothing on screen to explain it.
+  describe('Sessionless MFA response', () => {
+    const fillAndSubmit = async () => {
+      await waitFor(() => {
+        expect(screen.queryByTestId('spinner')).not.toBeInTheDocument()
+      })
+      fireEvent.change(screen.getByLabelText(/email/i), {
+        target: { value: 'test@example.com' },
+      })
+      fireEvent.change(screen.getByLabelText(/password/i), {
+        target: { value: 'password123' },
+      })
+      fireEvent.click(screen.getByRole('button', { name: /sign in/i }))
+    }
+
+    it('shows an error and does not call onSuccess on mfa_required', async () => {
+      const mockOnSuccess = vi.fn()
+      mockAuthClient.login.mockResolvedValue({
+        user: mockUser,
+        success: false,
+        status: 'mfa_required',
+        mfaToken: 'mfa-token-123',
+      })
+
+      render(<SignInForm {...defaultProps} onSuccess={mockOnSuccess} />)
+      await fillAndSubmit()
+
+      await waitFor(() => {
+        expect(
+          screen.getByText(/requires passkey verification/i)
+        ).toBeInTheDocument()
+      })
+      expect(mockOnSuccess).not.toHaveBeenCalled()
+    })
+
+    it('distinguishes forced enrollment from a plain challenge', async () => {
+      mockAuthClient.login.mockResolvedValue({
+        user: mockUser,
+        success: false,
+        status: 'mfa_enrollment_required',
+        mfaToken: 'mfa-token-123',
+      })
+
+      render(<SignInForm {...defaultProps} />)
+      await fillAndSubmit()
+
+      await waitFor(() => {
+        expect(screen.getByText(/must enroll a passkey/i)).toBeInTheDocument()
+      })
+    })
+
+    it('re-enables the form so the user can try another account', async () => {
+      mockAuthClient.login.mockResolvedValue({
+        user: mockUser,
+        success: false,
+        status: 'mfa_required',
+      })
+
+      render(<SignInForm {...defaultProps} />)
+      await fillAndSubmit()
+
+      await waitFor(() => {
+        expect(
+          screen.getByRole('button', { name: /sign in/i })
+        ).not.toBeDisabled()
+      })
+    })
+
+    // Pre-MFA backends send no `status` at all; the client reads that as
+    // authenticated, and the guard must not trip on it.
+    it('lets a statusless success through', async () => {
+      const mockOnSuccess = vi.fn()
+      mockAuthClient.login.mockResolvedValue({
+        user: mockUser,
+        success: true,
+        message: 'Login successful',
+      })
+
+      render(<SignInForm {...defaultProps} onSuccess={mockOnSuccess} />)
+      await fillAndSubmit()
+
+      await waitFor(() => {
+        expect(mockOnSuccess).toHaveBeenCalledWith(mockUser)
+      })
+    })
+  })
+})
+
+describe('mfaUnsupportedMessage', () => {
+  it('names enrollment when the backend forces it', () => {
+    expect(mfaUnsupportedMessage('mfa_enrollment_required')).toMatch(
+      /must enroll a passkey/i
+    )
+  })
+
+  it('defaults to the verification challenge', () => {
+    expect(mfaUnsupportedMessage('mfa_required')).toMatch(
+      /requires passkey verification/i
+    )
+    expect(mfaUnsupportedMessage(undefined)).toMatch(
+      /requires passkey verification/i
+    )
   })
 })
 
