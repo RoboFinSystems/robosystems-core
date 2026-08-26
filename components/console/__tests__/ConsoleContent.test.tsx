@@ -259,11 +259,7 @@ describe('ConsoleContent', () => {
       })
     })
 
-    it('should handle /mcp command with a graph-scoped connector URL', async () => {
-      mockCreateUserApiKey.mockResolvedValue({
-        data: { key: 'rfsc_test_key' },
-      } as any)
-
+    it('/mcp leads with sign-in and mints nothing', async () => {
       render(<ConsoleContent config={TEST_CONFIG} />)
 
       const input = screen.getByPlaceholderText(
@@ -273,41 +269,62 @@ describe('ConsoleContent', () => {
       fireEvent.keyDown(input, { key: 'Enter' })
 
       // The message animates in at a rate proportional to its length, so wait
-      // on its closing line to be sure the whole body has rendered before
-      // asserting on what it does not contain. The connector-URL message is
-      // long; slow CI runners need well over the local ~2.5s render time.
+      // on its closing line before asserting on the whole body.
       await waitFor(
         () => {
-          expect(
-            screen.getByText(/treat it like a password/)
-          ).toBeInTheDocument()
+          expect(screen.getByText(/robosystems-mcp-client/)).toBeInTheDocument()
         },
         { timeout: 15000 }
       )
 
-      // The key is minted graph-scoped — that is what makes the URL carriage
-      // acceptable (an account-wide key is rejected in a URL server-side).
+      const output = screen.getByText(/robosystems-mcp-client/)
+      // The per-graph URL, credential-free — OAuth on it preselects the graph
+      // at consent — plus the graph-agnostic address. No key is minted for a
+      // user who is going to sign in, and nothing ever rides in the URL.
+      expect(output.textContent).toContain(
+        'https://api.robosystems.ai/v1/graphs/test-graph-id/mcp'
+      )
+      expect(output.textContent).toContain('https://api.robosystems.ai/v1/mcp')
+      expect(output.textContent).toContain('/mcp key')
+      expect(output.textContent).not.toContain('?token=')
+      expect(mockCreateUserApiKey).not.toHaveBeenCalled()
+    })
+
+    it('/mcp key mints a graph-scoped key and puts it in a header', async () => {
+      mockCreateUserApiKey.mockResolvedValue({
+        data: { key: 'rfsc_test_key' },
+      } as any)
+
+      render(<ConsoleContent config={TEST_CONFIG} />)
+
+      const input = screen.getByPlaceholderText(
+        'Type a question, /query <cypher>, or /help...'
+      )
+      fireEvent.change(input, { target: { value: '/mcp key' } })
+      fireEvent.keyDown(input, { key: 'Enter' })
+
+      await waitFor(
+        () => {
+          expect(screen.getByText(/Shown once/)).toBeInTheDocument()
+        },
+        { timeout: 15000 }
+      )
+
+      // Graph-scoped: valid only for this graph, rejected on account surfaces.
       expect(mockCreateUserApiKey).toHaveBeenCalledWith(
         expect.objectContaining({
           body: expect.objectContaining({ graph_id: 'test-graph-id' }),
         })
       )
 
-      const output = screen.getByText(/treat it like a password/)
-      // claude.ai / Desktop get the pasteable token URL; header-capable
-      // clients get the bare endpoint + X-API-Key. The connector name
-      // carries the graph id so multi-graph users get distinct connectors.
-      expect(output.textContent).toContain(
-        'https://api.robosystems.ai/v1/graphs/test-graph-id/mcp?token=rfsc_test_key'
-      )
+      const output = screen.getByText(/Shown once/)
+      // Header carriage only — the ?token= connector URL is retired.
       expect(output.textContent).toContain('X-API-Key: rfsc_test_key')
-      expect(output.textContent).toContain('test-server-test-graph-id')
-      expect(output.textContent).toContain('Settings → Connectors')
-      // The npx stdio recipe is retired from user-facing surfaces.
-      expect(output.textContent).not.toContain('mcpServers')
-      expect(output.textContent).not.toContain('npx')
-    }, 20000)
-
+      expect(output.textContent).toContain(
+        'https://api.robosystems.ai/v1/graphs/test-graph-id/mcp'
+      )
+      expect(output.textContent).not.toContain('?token=')
+    })
     it('should handle /examples command with config-driven label', async () => {
       render(<ConsoleContent config={TEST_CONFIG} />)
 

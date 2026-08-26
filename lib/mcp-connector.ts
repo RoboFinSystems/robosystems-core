@@ -1,7 +1,5 @@
 export interface McpConnectorUrl {
-  /** Pasteable connector URL with the graph-scoped key embedded as `?token=` */
-  url: string
-  /** Bare MCP endpoint URL (no credential) — for header-capable clients */
+  /** Bare per-graph MCP endpoint URL (no credential) */
   endpoint: string
   /** The plaintext graph-scoped API key (returned once at mint) */
   apiKey: string
@@ -13,18 +11,16 @@ export interface McpConnectorUrl {
 const DEFAULT_API_URL = 'https://api.robosystems.ai'
 
 /**
- * Mint a graph-scoped API key and assemble the MCP connector URL for it.
+ * Mint a graph-scoped API key for the per-graph MCP endpoint.
  *
- * The URL is for clients that cannot send custom headers (claude.ai /
- * Claude Desktop custom connectors): the scoped key travels as a `token`
- * query parameter, which the server honors only on the MCP endpoint and
- * only for keys scoped to that URL's graph — account-wide keys are
- * rejected there. The key works for exactly this graph (and its
- * subgraphs), is rejected on every account-level surface, and can be
- * revoked from Settings → API Keys like any other key.
- *
- * Header-capable clients (Claude Code, Cursor, VS Code) should use the
- * bare `endpoint` with the key in an `X-API-Key` header instead.
+ * For clients that cannot sign in (scripts, CI, editors without OAuth):
+ * the key goes in an `X-API-Key` header on `endpoint`. It works for
+ * exactly this graph (and its subgraphs), is rejected on every
+ * account-level surface, and can be revoked from Settings → API Keys like
+ * any other key. Credentials never travel in the URL — the `?token=`
+ * connector URL was the bridge to OAuth and the server no longer honors
+ * it. OAuth-capable clients need no key at all: they add `endpoint` (or
+ * the graph-agnostic `/v1/mcp`) and sign in.
  */
 export async function createMcpConnectorUrl(
   graphId: string,
@@ -47,7 +43,6 @@ export async function createMcpConnectorUrl(
 
   const endpoint = `${apiUrl}/v1/graphs/${graphId}/mcp`
   return {
-    url: `${endpoint}?token=${response.data.key}`,
     endpoint,
     apiKey: response.data.key,
     keyName,

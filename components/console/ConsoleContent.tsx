@@ -115,7 +115,8 @@ export function ConsoleContent({ config }: { config: ConsoleConfig }) {
       (config.enableRecall
         ? `  /recall     - Recall semantic memories\n`
         : '') +
-      `  /mcp        - Show MCP connection setup\n` +
+      `  /mcp        - Connect an MCP client (sign in — no key)\n` +
+      `  /mcp key    - Mint a graph-scoped API key for header-only clients\n` +
       `  /help       - Show this help message\n` +
       `  /clear      - Clear console history\n` +
       `  /examples   - Show example queries`
@@ -498,38 +499,62 @@ export function ConsoleContent({ config }: { config: ConsoleConfig }) {
     }
   }
 
-  const showMcpSetup = async () => {
-    addSystemMessage('Creating graph-scoped connector key...', true)
-
+  const showMcpSetup = async (mode: string) => {
     const apiUrl =
       process.env.NEXT_PUBLIC_ROBOSYSTEMS_API_URL ||
       'https://api.robosystems.ai'
     const { mcp } = config
     const contextId = graphId || mcp.contextIdFallback
+    const endpoint = `${apiUrl}/v1/graphs/${contextId}/mcp`
+    const connectorName = `${mcp.serverName}-${contextId}`
+    const exampleLines = mcp.exampleQuestions
+      .map((q) => `  • "${q}"`)
+      .join('\n')
 
+    // The graph id lives in the URL path and never becomes a tool argument,
+    // so one connection is anchored to exactly one graph. OAuth on the
+    // per-graph URL shows this graph preselected on the consent screen; no
+    // key is minted unless asked for, so a sign-in user never leaves an
+    // unused credential behind in Settings → API Keys.
+    if (mode !== 'key') {
+      addSystemMessage(
+        `MCP — connect ${contextId}\n` +
+          `═══════════════════════════════════════════════════════════════\n\n` +
+          `Sign in to connect (recommended). Paste the URL; the client sends\n` +
+          `you to sign in, and this graph is already selected on the consent\n` +
+          `screen. Nothing to copy, store, or rotate.\n\n` +
+          `Claude (claude.ai / Desktop)\n` +
+          `  Settings → Connectors → Add custom connector\n` +
+          `  ${endpoint}\n\n` +
+          `Claude Code (then /mcp to sign in)\n` +
+          `  claude mcp add --transport http ${connectorName} ${endpoint}\n\n` +
+          `Cursor / VS Code (mcp.json)\n` +
+          `  "${connectorName}": { "url": "${endpoint}" }\n\n` +
+          `Any graph from one address: ${apiUrl}/v1/mcp — pick the graph at\n` +
+          `sign-in.\n\n` +
+          `Scripts, CI, or a client that can't sign in? Type /mcp key to mint\n` +
+          `an API key scoped to this graph, with the header snippets filled in.\n\n` +
+          `Once connected, ask questions like:\n` +
+          `${exampleLines}\n\n` +
+          `Clients without HTTP transport support can use the stdio bridge\n` +
+          `in proxy mode: https://github.com/RoboFinSystems/robosystems-mcp-client`,
+        true
+      )
+      return
+    }
+
+    addSystemMessage('Creating graph-scoped API key...', true)
     try {
       const { createMcpConnectorUrl } = await import('../../lib/mcp-connector')
-
-      // The graph id lives in the URL path and never becomes a tool argument,
-      // so one connector is anchored to exactly one graph. Multi-graph users
-      // add one connector per graph, which is why the name carries the id.
-      // The key is graph-scoped: valid only for this graph, revocable in
-      // Settings → API Keys, and rejected on every account-level surface.
+      // Graph-scoped: valid only for this graph and its subgraphs, rejected on
+      // every account-level surface, revocable in Settings → API Keys.
       const connector = await createMcpConnectorUrl(contextId, { apiUrl })
-      const connectorName = `${mcp.serverName}-${contextId}`
-      const exampleLines = mcp.exampleQuestions
-        .map((q) => `  • "${q}"`)
-        .join('\n')
 
       addSystemMessage(
-        `MCP Setup Instructions:\n` +
+        `API key for ${contextId}\n` +
           `═══════════════════════════════════════════════════════════════\n\n` +
-          `Graph-scoped API key created — it works only for ${contextId}\n` +
-          `and can be revoked anytime in Settings → API Keys.\n\n` +
-          `Claude (claude.ai / Desktop)\n` +
-          `  Settings → Connectors → Add custom connector, then paste this\n` +
-          `  URL (the key rides inside it — no header field needed):\n` +
-          `  ${connector.url}\n\n` +
+          `Scoped to this graph only; revoke it anytime in Settings → API Keys.\n` +
+          `It goes in the X-API-Key header — never in the URL.\n\n` +
           `Claude Code\n` +
           `  claude mcp add --transport http ${connectorName} \\\n` +
           `    ${connector.endpoint} \\\n` +
@@ -539,18 +564,14 @@ export function ConsoleContent({ config }: { config: ConsoleConfig }) {
           `    "url": "${connector.endpoint}",\n` +
           `    "headers": { "X-API-Key": "${connector.apiKey}" }\n` +
           `  }\n\n` +
-          `Once connected, ask Claude questions like:\n` +
-          `${exampleLines}\n\n` +
-          `Clients without HTTP transport support can use the stdio bridge\n` +
-          `in proxy mode: https://github.com/RoboFinSystems/robosystems-mcp-client\n\n` +
-          `The connector URL contains the key — treat it like a password.`,
+          `Treat the key like a password. Shown once.`,
         true
       )
     } catch (error: any) {
       addErrorMessage(
-        `Failed to create connector key: ${error.message || 'Unknown error'}\n\n` +
-          `You can create an API key in Settings and connect with:\n` +
-          `  URL:    ${apiUrl}/v1/graphs/${contextId}/mcp\n` +
+        `Failed to create API key: ${error.message || 'Unknown error'}\n\n` +
+          `You can create a key in Settings and connect with:\n` +
+          `  URL:    ${endpoint}\n` +
           `  Header: X-API-Key: <your key>`
       )
     }
@@ -720,7 +741,7 @@ export function ConsoleContent({ config }: { config: ConsoleConfig }) {
           return
         }
         case '/mcp':
-          await showMcpSetup()
+          await showMcpSetup(command.slice(cmd.length).trim().toLowerCase())
           return
         default:
           addErrorMessage(
