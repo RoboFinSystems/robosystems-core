@@ -14,7 +14,7 @@ describe('createMcpConnectorUrl', () => {
     mockCreateUserApiKey.mockReset()
   })
 
-  it('mints a graph-scoped key and assembles the token URL', async () => {
+  it('mints a graph-scoped key and returns the bare endpoint', async () => {
     mockCreateUserApiKey.mockResolvedValue({
       data: { key: 'rfsc_abc123' },
     } as any)
@@ -26,11 +26,10 @@ describe('createMcpConnectorUrl', () => {
     expect(mockCreateUserApiKey).toHaveBeenCalledWith({
       body: expect.objectContaining({ graph_id: 'kg123' }),
     })
-    expect(result.url).toBe(
-      'https://api.example.com/v1/graphs/kg123/mcp?token=rfsc_abc123'
-    )
     expect(result.endpoint).toBe('https://api.example.com/v1/graphs/kg123/mcp')
     expect(result.apiKey).toBe('rfsc_abc123')
+    // The key never rides in a URL — the ?token= carriage is retired.
+    expect(JSON.stringify(result)).not.toContain('?token=')
     expect(result.graphId).toBe('kg123')
     expect(result.keyName).toContain('kg123')
   })
