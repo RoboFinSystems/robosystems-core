@@ -310,11 +310,10 @@ describe('SSOManager', () => {
       originalLocation = window.location
       delete (window as any).location
       window.location = {
-        href: 'https://app1.example.com/login?session_id=session-123&returnUrl=https%3A%2F%2Fexample.com%2Fdashboard',
+        href: 'https://app1.example.com/login?session_id=session-123&returnUrl=%2Fdashboard',
         origin: 'https://app1.example.com',
         pathname: '/login',
-        search:
-          '?session_id=session-123&returnUrl=https%3A%2F%2Fexample.com%2Fdashboard',
+        search: '?session_id=session-123&returnUrl=%2Fdashboard',
         hash: '',
       } as any
 
@@ -378,7 +377,7 @@ describe('SSOManager', () => {
 
       // Should navigate after delay
       vi.advanceTimersByTime(100)
-      expect(window.location.href).toBe('https://example.com/dashboard')
+      expect(window.location.href).toBe('/dashboard')
     })
 
     it('should handle sessionStorage fallback for return URL', async () => {
@@ -391,16 +390,60 @@ describe('SSOManager', () => {
         user: mockUser,
       } as any)
       ;(ssoManager as any).authClient = mockAuthClient
-      mockSessionStorage.getItem = vi
-        .fn()
-        .mockReturnValue('https://example.com/fallback')
+      mockSessionStorage.getItem = vi.fn().mockReturnValue('/fallback')
 
       const result = await ssoManager.handleSSOLogin()
 
       expect(result).toEqual(mockUser)
       expect(mockSessionStorage.getItem).toHaveBeenCalledWith('sso_return_url')
       vi.advanceTimersByTime(100)
-      expect(window.location.href).toBe('https://example.com/fallback')
+      expect(window.location.href).toBe('/fallback')
+    })
+
+    // A crafted SSO link controls `returnUrl` outright, so anything that isn't
+    // a same-origin path has to be dropped rather than navigated to.
+    it.each([
+      ['an absolute URL', 'https%3A%2F%2Fevil.example.com%2Fsteal'],
+      ['a protocol-relative URL', '%2F%2Fevil.example.com%2Fsteal'],
+      ['a backslash-escaped host', '%2F%5Cevil.example.com%2Fsteal'],
+      ['a javascript: payload', 'javascript%3Aalert(document.domain)'],
+    ])('should not navigate to %s in returnUrl', async (_label, encoded) => {
+      window.location.search = `?session_id=session-123&returnUrl=${encoded}`
+      syncLocationHref()
+      const hrefBeforeLogin = window.location.href
+
+      const mockAuthClient = createMockAuthClient()
+      mockAuthClient.ssoComplete.mockResolvedValue({
+        user: mockUser,
+      } as any)
+      ;(ssoManager as any).authClient = mockAuthClient
+
+      const result = await ssoManager.handleSSOLogin()
+
+      expect(result).toEqual(mockUser)
+      vi.advanceTimersByTime(100)
+      expect(window.location.href).toBe(hrefBeforeLogin)
+    })
+
+    it('should not navigate to a hostile sessionStorage fallback', async () => {
+      window.location.search = '?session_id=session-123'
+      syncLocationHref()
+      const hrefBeforeLogin = window.location.href
+
+      const mockAuthClient = createMockAuthClient()
+      mockAuthClient.ssoComplete.mockResolvedValue({
+        user: mockUser,
+      } as any)
+      ;(ssoManager as any).authClient = mockAuthClient
+      mockSessionStorage.getItem = vi
+        .fn()
+        .mockReturnValue('https://evil.example.com/steal')
+
+      const result = await ssoManager.handleSSOLogin()
+
+      expect(result).toEqual(mockUser)
+      vi.advanceTimersByTime(100)
+      expect(window.location.href).toBe(hrefBeforeLogin)
     })
 
     it('should handle sessionStorage read errors gracefully', async () => {

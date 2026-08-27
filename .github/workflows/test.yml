@@ -12,6 +12,8 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
 
     # Matrix spans the engines.node range this package promises (>=22.0.0):
     # 22 is the supported floor, 24 is the LTS the consuming apps now run on.
