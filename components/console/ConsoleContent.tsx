@@ -245,6 +245,9 @@ export function ConsoleContent({ config }: { config: ConsoleConfig }) {
       }
 
       setTerminalMessages([])
+      // A follow-up on the new graph must not resolve against the previous
+      // graph's answers.
+      conversationRef.current = []
       setCurrentQueryStartTime(null)
       addSystemMessage(
         `═══════════════════════════════════════════════════════════════\n` +
@@ -396,7 +399,7 @@ export function ConsoleContent({ config }: { config: ConsoleConfig }) {
     try {
       const { clients } = await import('@robosystems/client/clients')
 
-      const history = conversationRef.current.slice(-6)
+      const history = conversationRef.current
       const result = await clients.operator.executeQuery(
         graphId,
         {

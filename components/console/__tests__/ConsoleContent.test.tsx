@@ -574,6 +574,56 @@ describe('ConsoleContent', () => {
       })
     })
 
+    it('drops the conversation history when the graph changes', async () => {
+      mockOperatorExecuteQuery.mockResolvedValue({
+        content: 'Forty-two nodes.',
+        operator_used: 'cypher',
+        mode_used: 'standard',
+      })
+
+      const { rerender } = render(<ConsoleContent config={TEST_CONFIG} />)
+
+      const input = screen.getByPlaceholderText(
+        'Type a question, /query <cypher>, or /help...'
+      )
+      fireEvent.change(input, { target: { value: 'How many nodes?' } })
+      fireEvent.keyDown(input, { key: 'Enter' })
+      await waitFor(() => {
+        expect(screen.getByText(/Forty-two nodes/)).toBeInTheDocument()
+      })
+
+      // Switch the selected graph: the console resets, and so must the
+      // history — a follow-up here must not resolve against the old graph.
+      mockUseGraphContext.mockReturnValue(
+        createGraphContext({
+          state: {
+            graphs: [{ graphId: 'test-graph-id' }, { graphId: 'other-graph' }],
+            isLoading: false,
+            currentGraphId: 'other-graph',
+          },
+        })
+      )
+      rerender(<ConsoleContent config={TEST_CONFIG} />)
+      await waitFor(() => {
+        expect(screen.getByText(/context changed/)).toBeInTheDocument()
+      })
+
+      const freshInput = screen.getByPlaceholderText(
+        'Type a question, /query <cypher>, or /help...'
+      )
+      fireEvent.change(freshInput, { target: { value: 'And here?' } })
+      fireEvent.keyDown(freshInput, { key: 'Enter' })
+      await waitFor(() => {
+        expect(mockOperatorExecuteQuery).toHaveBeenCalledTimes(2)
+      })
+
+      expect(mockOperatorExecuteQuery.mock.calls[1][0]).toBe('other-graph')
+      expect(mockOperatorExecuteQuery.mock.calls[1][1]).toEqual({
+        message: 'And here?',
+        mode: 'standard',
+      })
+    })
+
     it('renders an operator failure envelope as an error, not an answer', async () => {
       // The API reports pre-flight and runtime operator failures as HTTP 200
       // with error_details set; the console must not present the
