@@ -80,6 +80,12 @@ export function ConsoleContent({ config }: { config: ConsoleConfig }) {
   const [historyIndex, setHistoryIndex] = useState(-1)
   const terminalEndRef = useRef<HTMLDivElement>(null)
   const terminalScrollRef = useRef<HTMLDivElement>(null)
+  // Prior operator exchanges, sent as `history` so a follow-up like "and for
+  // June?" resolves against the previous answer. Bounded to the last three
+  // exchanges — the backend seeds only its last five turns anyway.
+  const conversationRef = useRef<
+    Array<{ role: 'user' | 'assistant'; content: string }>
+  >([])
   const [currentQueryStartTime, setCurrentQueryStartTime] = useState<
     number | null
   >(null)
@@ -390,11 +396,15 @@ export function ConsoleContent({ config }: { config: ConsoleConfig }) {
     try {
       const { clients } = await import('@robosystems/client/clients')
 
+      const history = conversationRef.current.slice(-6)
       const result = await clients.operator.executeQuery(
         graphId,
         {
           message: userQuery,
-          mode: 'quick',
+          // `standard` gives the operator loop six tool turns; `quick` (three)
+          // was exhausted by schema + examples before the first query ran.
+          mode: 'standard',
+          ...(history.length > 0 ? { history } : {}),
         },
         {
           mode: 'auto',
@@ -409,6 +419,25 @@ export function ConsoleContent({ config }: { config: ConsoleConfig }) {
       )
 
       setOperatorProgress({ isRunning: false, message: '' })
+
+      // The API reports operator failures (credit pre-flight, timeouts,
+      // unbilled calls) as HTTP 200 with `error_details` set and an
+      // explanatory `content`. Render those as errors, not as answers.
+      const errorDetails = (
+        result as { error_details?: Record<string, unknown> | null }
+      ).error_details
+      if (errorDetails) {
+        const detail = [
+          errorDetails.message,
+          errorDetails.error,
+          errorDetails.detail,
+        ].find((v) => typeof v === 'string' && v.length > 0) as
+          string | undefined
+        addErrorMessage(
+          `Operator error: ${detail || result.content || 'The operator could not complete this request.'}`
+        )
+        return
+      }
 
       const duration = Date.now() - startTime
       const metadata = (result.metadata || {}) as Record<string, any>
@@ -474,6 +503,13 @@ export function ConsoleContent({ config }: { config: ConsoleConfig }) {
       // plain footer, matching the direct-query result style.
       if (narrative) {
         addResultMessage(narrative, rows, cypher, { markdown: true, footer })
+        // Record the exchange for follow-ups. Only a narrative answer is
+        // worth carrying; the answer is clipped so history stays cheap.
+        conversationRef.current = [
+          ...conversationRef.current,
+          { role: 'user' as const, content: userQuery },
+          { role: 'assistant' as const, content: narrative.slice(0, 2000) },
+        ].slice(-6)
       } else {
         addResultMessage(footer, rows, cypher)
       }
@@ -728,6 +764,7 @@ export function ConsoleContent({ config }: { config: ConsoleConfig }) {
           return
         case '/clear':
           setTerminalMessages([])
+          conversationRef.current = []
           addSystemMessage('Console cleared.', true)
           return
         case '/examples': {
