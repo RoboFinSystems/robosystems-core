@@ -528,11 +528,130 @@ describe('ConsoleContent', () => {
           'test-graph-id',
           {
             message: 'Show me all nodes',
-            mode: 'quick',
+            mode: 'standard',
           },
           expect.any(Object)
         )
       })
+    })
+
+    it('carries prior exchanges as history on follow-up questions', async () => {
+      mockOperatorExecuteQuery.mockResolvedValue({
+        content: 'Forty-two nodes.',
+        operator_used: 'cypher',
+        mode_used: 'standard',
+      })
+
+      render(<ConsoleContent config={TEST_CONFIG} />)
+
+      const input = screen.getByPlaceholderText(
+        'Type a question, /query <cypher>, or /help...'
+      )
+      fireEvent.change(input, { target: { value: 'How many nodes?' } })
+      fireEvent.keyDown(input, { key: 'Enter' })
+      await waitFor(() => {
+        expect(screen.getByText(/Forty-two nodes/)).toBeInTheDocument()
+      })
+
+      fireEvent.change(input, { target: { value: 'And relationships?' } })
+      fireEvent.keyDown(input, { key: 'Enter' })
+      await waitFor(() => {
+        expect(mockOperatorExecuteQuery).toHaveBeenCalledTimes(2)
+      })
+
+      // The first question carried no history; the second carries the
+      // first exchange so the operator can resolve the follow-up.
+      expect(mockOperatorExecuteQuery.mock.calls[0][1]).not.toHaveProperty(
+        'history'
+      )
+      expect(mockOperatorExecuteQuery.mock.calls[1][1]).toEqual({
+        message: 'And relationships?',
+        mode: 'standard',
+        history: [
+          { role: 'user', content: 'How many nodes?' },
+          { role: 'assistant', content: 'Forty-two nodes.' },
+        ],
+      })
+    })
+
+    it('drops the conversation history when the graph changes', async () => {
+      mockOperatorExecuteQuery.mockResolvedValue({
+        content: 'Forty-two nodes.',
+        operator_used: 'cypher',
+        mode_used: 'standard',
+      })
+
+      const { rerender } = render(<ConsoleContent config={TEST_CONFIG} />)
+
+      const input = screen.getByPlaceholderText(
+        'Type a question, /query <cypher>, or /help...'
+      )
+      fireEvent.change(input, { target: { value: 'How many nodes?' } })
+      fireEvent.keyDown(input, { key: 'Enter' })
+      await waitFor(() => {
+        expect(screen.getByText(/Forty-two nodes/)).toBeInTheDocument()
+      })
+
+      // Switch the selected graph: the console resets, and so must the
+      // history — a follow-up here must not resolve against the old graph.
+      mockUseGraphContext.mockReturnValue(
+        createGraphContext({
+          state: {
+            graphs: [{ graphId: 'test-graph-id' }, { graphId: 'other-graph' }],
+            isLoading: false,
+            currentGraphId: 'other-graph',
+          },
+        })
+      )
+      rerender(<ConsoleContent config={TEST_CONFIG} />)
+      await waitFor(() => {
+        expect(screen.getByText(/context changed/)).toBeInTheDocument()
+      })
+
+      const freshInput = screen.getByPlaceholderText(
+        'Type a question, /query <cypher>, or /help...'
+      )
+      fireEvent.change(freshInput, { target: { value: 'And here?' } })
+      fireEvent.keyDown(freshInput, { key: 'Enter' })
+      await waitFor(() => {
+        expect(mockOperatorExecuteQuery).toHaveBeenCalledTimes(2)
+      })
+
+      expect(mockOperatorExecuteQuery.mock.calls[1][0]).toBe('other-graph')
+      expect(mockOperatorExecuteQuery.mock.calls[1][1]).toEqual({
+        message: 'And here?',
+        mode: 'standard',
+      })
+    })
+
+    it('renders an operator failure envelope as an error, not an answer', async () => {
+      // The API reports pre-flight and runtime operator failures as HTTP 200
+      // with error_details set; the console must not present the
+      // explanation as a result with a "Query completed" footer.
+      mockOperatorExecuteQuery.mockResolvedValue({
+        content: 'Insufficient credits: this operation needs 14 credits.',
+        operator_used: 'cypher',
+        mode_used: 'standard',
+        error_details: {
+          code: 'INSUFFICIENT_CREDITS',
+          message: 'Insufficient credits: this operation needs 14 credits.',
+        },
+      } as any)
+
+      render(<ConsoleContent config={TEST_CONFIG} />)
+
+      const input = screen.getByPlaceholderText(
+        'Type a question, /query <cypher>, or /help...'
+      )
+      fireEvent.change(input, { target: { value: 'What is revenue?' } })
+      fireEvent.keyDown(input, { key: 'Enter' })
+
+      await waitFor(() => {
+        expect(
+          screen.getByText(/Operator error: Insufficient credits/)
+        ).toBeInTheDocument()
+      })
+      expect(screen.queryByText(/Query completed/)).not.toBeInTheDocument()
     })
 
     it('should show config-driven error when no graph is selected for cypher query', async () => {
