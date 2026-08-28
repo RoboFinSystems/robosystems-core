@@ -179,8 +179,6 @@ export {
 // Export app-components
 export {
   ApiKeyDisplay,
-  ApiKeysCard,
-  ApiKeyTable,
   BrandSpinner,
   categorizeError,
   CategoryInput,
