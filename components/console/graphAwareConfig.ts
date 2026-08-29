@@ -9,7 +9,7 @@ import type { ConsoleConfig, SampleQuery } from './types'
 /**
  * Graph-aware console configuration.
  *
- * The console's natural-language agent (the "cypher operator") and its example
+ * The console's natural-language agent (the Analyst Operator) and its example
  * queries only make sense against the schema of the *selected* graph. A shared
  * SEC repository, a RoboLedger accounting graph, a RoboInvestor portfolio
  * graph, and a generic custom graph each expose completely different nodes —
@@ -27,7 +27,7 @@ export interface GraphExampleSet {
    *  builder swaps for the graph's display name when available. */
   description: string
   /** Natural-language prompts shown in the USAGE section. Must be answerable by
-   *  the cypher operator against THIS graph's schema. */
+   *  the Analyst Operator against THIS graph's schema. */
   naturalLanguageExamples: string[]
   /** `/query <cypher>` one-liners shown in the USAGE section. */
   directQueryExamples: string[]
