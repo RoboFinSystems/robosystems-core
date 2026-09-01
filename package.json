@@ -61,7 +61,7 @@
     "@types/node": "^22",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "@vitejs/plugin-react": "^4.3.4",
+    "@vitejs/plugin-react": "^6.1.1",
     "@vitest/coverage-v8": "^4.1.9",
     "eslint": "^9.39.2",
     "eslint-config-prettier": "^10",
@@ -76,6 +76,7 @@
     "tailwindcss": "^4.3.2",
     "typescript": "^5.7.2",
     "typescript-eslint": "^8",
+    "vite": "^8.2.2",
     "vitest": "^4.1.9"
   }
 }
