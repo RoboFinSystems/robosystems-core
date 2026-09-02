@@ -123,9 +123,11 @@ jobs:
     needs: create-release
     permissions:
       contents: write
-    uses: ./.github/workflows/tag-release.yml
+    uses: RoboFinSystems/robosystems/.github/workflows/tag-release.yml@main
     with:
       branch_ref: ${{ needs.create-release.outputs.branch_name }}
+      product_name: '@robosystems/core'
+      project_kind: 'shared React library'
     secrets: inherit
 
   create-summary:
