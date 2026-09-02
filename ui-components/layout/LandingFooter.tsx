@@ -22,6 +22,12 @@ export interface LandingFooterProps {
    * (rather than shared) so each product keeps its own contact copy.
    */
   contactModal?: ComponentType<{ isOpen: boolean; onClose: () => void }>
+  /**
+   * Where the Company column's Blog link goes. Defaults to the platform blog on
+   * robosystems.ai; an app with its own blog lane (roboledger.ai/blog since
+   * 2026-09-02) passes its own path so the footer sends readers to that lane.
+   */
+  blogHref?: string
 }
 
 /** Fixed cross-app ordering for the Applications column. */
@@ -42,15 +48,29 @@ export function LandingFooter({
   tagline,
   productLinks,
   contactModal: ContactModal,
+  blogHref,
 }: LandingFooterProps) {
   const [showContact, setShowContact] = useState(false)
   const current = getAppConfig(CURRENT_APP)
   const isRoboSystems = CURRENT_APP === 'robosystems'
-  // RoboSystems serves Blog/Privacy/Terms itself; the other apps link out to it.
+  // RoboSystems serves the platform blog, Privacy and Terms itself; the other
+  // apps link out to it.
   const companyBase = isRoboSystems ? '' : getAppConfig('robosystems').url
   const companyLinkProps = isRoboSystems
     ? {}
     : { target: '_blank', rel: 'noopener noreferrer' }
+  // Research lives on roboinvestor.ai (robosystems.ai redirects there since
+  // 2026-09-02), so it resolves against that app, not the platform site.
+  const isRoboInvestor = CURRENT_APP === 'roboinvestor'
+  const researchHref = isRoboInvestor
+    ? '/research'
+    : `${getAppConfig('roboinvestor').url}/research`
+  const researchLinkProps = isRoboInvestor
+    ? {}
+    : { target: '_blank', rel: 'noopener noreferrer' }
+  const resolvedBlogHref = blogHref ?? `${companyBase}/blog`
+  // A same-site path opens in the same tab; an external site opens in a new one.
+  const blogLinkProps = resolvedBlogHref.startsWith('/') ? {} : companyLinkProps
 
   return (
     <footer className="border-t border-gray-800 bg-zinc-950">
@@ -175,8 +195,8 @@ export function LandingFooter({
             <ul className="space-y-2 text-sm">
               <li>
                 <Link
-                  href={`${companyBase}/research`}
-                  {...companyLinkProps}
+                  href={researchHref}
+                  {...researchLinkProps}
                   className={linkClass}
                 >
                   Research
@@ -196,8 +216,8 @@ export function LandingFooter({
               </li>
               <li>
                 <Link
-                  href={`${companyBase}/blog`}
-                  {...companyLinkProps}
+                  href={resolvedBlogHref}
+                  {...blogLinkProps}
                   className={linkClass}
                 >
                   Blog
