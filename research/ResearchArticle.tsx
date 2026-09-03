@@ -5,8 +5,10 @@ import { CoverageHistory } from './CoverageHistory'
 import type { CoverageItem } from './types'
 
 /**
- * The full coverage report: native video, the Q&A podcast (surfaced as a prominent
- * "Listen" card right under the video), then the brief rendered from markdown (its own
+ * The full coverage report: native video, the Q&A podcast (a "Listen" card right under
+ * the video, rendered from the CDN MP3 only: the YouTube podcast uploads were removed,
+ * and the catalog's `podcast_youtube_url` is never embedded), then the brief rendered
+ * from markdown (its own
  * leading H1 is stripped — we render the title above it), and the continuing-coverage
  * history. Works in a server component (SSR'd for SEO) or a client one.
  * Theme-aware: readable in both light and dark. The prose body sets an explicit
@@ -24,7 +26,6 @@ export function ResearchArticle({
 }) {
   const body = (briefMarkdown || '').replace(/^#\s.*(\r?\n)+/, '')
   const ytId = youtubeId(item.youtube_url)
-  const podcastYtId = youtubeId(item.podcast_youtube_url)
   return (
     <article className="mx-auto max-w-3xl">
       <div className="mb-3 flex flex-wrap items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
@@ -61,51 +62,19 @@ export function ResearchArticle({
         )
       )}
 
-      {(item.assets.podcast_mp3 || podcastYtId) && (
+      {item.assets.podcast_mp3 && (
         <section className="mb-8">
-          {item.assets.podcast_mp3 ? (
-            <div className="rounded-xl border border-cyan-500/30 bg-cyan-50/60 p-4 dark:bg-gray-900/50">
-              <div className="mb-2 flex items-center justify-between gap-3">
-                <p className="text-sm font-semibold text-cyan-600 dark:text-cyan-400">
-                  🎙 Listen — Q&amp;A podcast
-                </p>
-                {podcastYtId && (
-                  <a
-                    href={item.podcast_youtube_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="shrink-0 text-xs text-cyan-600 hover:underline dark:text-cyan-400"
-                  >
-                    Watch on YouTube ↗
-                  </a>
-                )}
-              </div>
-              {}
-              <audio
-                controls
-                preload="none"
-                src={item.assets.podcast_mp3}
-                className="w-full"
-              />
-            </div>
-          ) : (
-            // no MP3 yet — fall back to the YouTube video player
-            <>
-              <h2 className="mb-3 text-xl font-bold text-gray-900 dark:text-white">
-                Listen — Q&amp;A podcast
-              </h2>
-              <div className="aspect-video w-full overflow-hidden rounded-xl bg-black">
-                <iframe
-                  className="h-full w-full"
-                  src={`https://www.youtube.com/embed/${podcastYtId}`}
-                  title={`${item.title} — Q&A podcast`}
-                  loading="lazy"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                  allowFullScreen
-                />
-              </div>
-            </>
-          )}
+          <div className="rounded-xl border border-cyan-500/30 bg-cyan-50/60 p-4 dark:bg-gray-900/50">
+            <p className="mb-2 text-sm font-semibold text-cyan-600 dark:text-cyan-400">
+              🎙 Listen — Q&amp;A podcast
+            </p>
+            <audio
+              controls
+              preload="none"
+              src={item.assets.podcast_mp3}
+              className="w-full"
+            />
+          </div>
         </section>
       )}
 

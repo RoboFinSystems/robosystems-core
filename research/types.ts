@@ -34,6 +34,8 @@ export interface CoverageItem {
   // YouTube URLs captured by `just sync-youtube` — prefer these over the S3 MP4 (free egress).
   youtube_url?: string
   short_youtube_url?: string
+  // Retired: the podcast YouTube uploads were removed. Kept as catalog data; never
+  // rendered. The podcast plays from `assets.podcast_mp3` on the CDN or not at all.
   podcast_youtube_url?: string
   assets: CoverageAssets
   history: CoverageVersion[]
