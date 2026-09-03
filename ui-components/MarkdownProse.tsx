@@ -16,7 +16,8 @@ export interface MarkdownProseProps {
  * search results). Theme-aware via `dark:prose-dark` — the consuming apps
  * define the `typography.dark` variant in their Tailwind configs; do NOT
  * switch to `dark:prose-invert`, which doesn't resolve under their
- * Tailwind v4 + typography-plugin setup (see research/ResearchArticle.tsx).
+ * Tailwind v4 + typography-plugin setup (first hit in the research article,
+ * now roboinvestor-app's src/components/research/ResearchArticle.tsx).
  * Works in server and client components alike.
  */
 export function MarkdownProse({
