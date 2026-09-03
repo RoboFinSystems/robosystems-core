@@ -32,6 +32,15 @@ jobs:
         with:
           node-version: ${{ matrix.node-version }}
 
+      # Node 22 bundles npm 10.9, whose resolver can crash on a fresh dependency
+      # graph ("Cannot read properties of null (reading 'edgesOut')" in
+      # #loadPeerSet, 2026-09-03). This lane verifies our code on the engines
+      # floor, not npm 10; with no lockfile, every run resolves from the live
+      # registry, so a current npm keeps the lane about Node rather than npm.
+      - name: Use a current npm on the Node 22 lane
+        if: matrix.node-version == '22'
+        run: npm install -g npm@11
+
       - name: Install dependencies
         run: npm install
 
