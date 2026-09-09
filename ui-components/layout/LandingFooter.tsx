@@ -203,15 +203,15 @@ export function LandingFooter({
                 </Link>
               </li>
               <li>
-                {/* Standalone public tool on its own subdomain — always an
-                    external link (absolute URL, new tab) from every app. */}
+                {/* The xbrlkit viewer — a standalone public tool on its own domain,
+                    always an external link (absolute URL, new tab) from every app. */}
                 <Link
-                  href="https://holon.robosystems.ai"
+                  href="https://xbrlkit.com"
                   target="_blank"
                   rel="noopener noreferrer"
                   className={linkClass}
                 >
-                  Holon Viewer
+                  xbrlkit viewer
                 </Link>
               </li>
               <li>
