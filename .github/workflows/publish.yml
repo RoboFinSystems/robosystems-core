@@ -52,7 +52,11 @@ jobs:
 
       - name: Install dependencies
         if: steps.check-published.outputs.already_published == 'false'
-        run: npm install
+        # npm ci installs exactly what the lockfile says. `npm install` re-resolved
+        # peers on every run, so an upstream publish could break CI between a
+        # PR's green run and its merge (2026-09-09: react-dom 19.3.0 arrived
+        # two minutes before react 19.3.0 did).
+        run: npm ci
 
       - name: Build
         if: steps.check-published.outputs.already_published == 'false'
