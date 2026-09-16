@@ -28,6 +28,12 @@ export {
 export { GraphSelectorCore, type GraphSelectorProps } from './GraphSelectorCore'
 export { PageLayout } from './PageLayout'
 export {
+  ReportChat,
+  anchoredMessage,
+  errorDetail,
+  type ReportChatProps,
+} from './report-chat'
+export {
   ActiveSubscriptions,
   BrowseRepositories,
   type ActiveSubscriptionsProps,

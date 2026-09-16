@@ -121,6 +121,7 @@ export {
   getGraphExampleKind,
   useGraphAwareConsoleConfig,
 } from './components/console'
+// Export the report chat (the operator, anchored on the report on screen)
 export type {
   ConsoleBranding,
   ConsoleCommandContext,
@@ -133,6 +134,12 @@ export type {
   GraphExampleSet,
   SampleQuery,
 } from './components/console'
+export {
+  anchoredMessage,
+  errorDetail,
+  ReportChat,
+  type ReportChatProps,
+} from './components/report-chat'
 
 export {
   ActiveSubscriptions,
