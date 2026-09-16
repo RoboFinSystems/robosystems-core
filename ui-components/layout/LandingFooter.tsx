@@ -203,15 +203,17 @@ export function LandingFooter({
                 </Link>
               </li>
               <li>
-                {/* The xbrlkit viewer — a standalone public tool on its own domain,
-                    always an external link (absolute URL, new tab) from every app. */}
+                {/* xbrlkit — the report viewer and its MCP connect page, a standalone
+                    public site on its own domain, always an external link (absolute
+                    URL, new tab) from every app. Named the way the site names itself:
+                    "viewer" left its wordmark when /mcp made it a second function. */}
                 <Link
                   href="https://xbrlkit.com"
                   target="_blank"
                   rel="noopener noreferrer"
                   className={linkClass}
                 >
-                  xbrlkit viewer
+                  xbrlkit
                 </Link>
               </li>
               <li>
