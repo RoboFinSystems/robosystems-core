@@ -28,6 +28,12 @@ export interface CoreNavbarProps {
   currentApp: 'roboledger' | 'roboinvestor' | 'robosystems'
   apiUrl?: string
   homeHref?: string
+  /**
+   * Where the user menu's Documentation item points. Defaults to this app's own
+   * `/docs`; an app without docs of its own passes an absolute URL. `null` drops
+   * the item.
+   */
+  docsHref?: string | null
   logoAltText?: string
   additionalComponents?: React.ReactNode
   className?: string
@@ -42,6 +48,7 @@ export function CoreNavbar({
   apiUrl = process.env.NEXT_PUBLIC_ROBOSYSTEMS_API_URL ||
     'http://localhost:8000',
   homeHref = '/home',
+  docsHref = '/docs',
   logoAltText,
   additionalComponents,
   className = '',
@@ -153,6 +160,7 @@ export function CoreNavbar({
                 <UserDropdown
                   user={user}
                   apiUrl={apiUrl}
+                  docsHref={docsHref}
                   onLogout={handleLogout}
                 />
               </div>
@@ -167,10 +175,11 @@ export function CoreNavbar({
 interface UserDropdownProps {
   user: User | null
   apiUrl: string
+  docsHref: string | null
   onLogout: () => void
 }
 
-function UserDropdown({ user, apiUrl, onLogout }: UserDropdownProps) {
+function UserDropdown({ user, apiUrl, docsHref, onLogout }: UserDropdownProps) {
   const settings = useAccountSettingsLink(apiUrl)
 
   return (
@@ -231,6 +240,27 @@ function UserDropdown({ user, apiUrl, onLogout }: UserDropdownProps) {
             className="flex w-full items-center space-x-3 p-3"
           >
             User Settings
+          </DropdownItem>
+        )}
+        {docsHref && (
+          // The docs wear the public site's chrome, so they open in a new tab and
+          // the app keeps its place. This is the app's only global route to them:
+          // a signed-in visitor to / is sent to /home and never sees the public
+          // header's links.
+          <DropdownItem
+            theme={customTheme.dropdown.floating.item}
+            as={Link}
+            href={docsHref}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex w-full items-center justify-between p-3"
+          >
+            <span>Documentation</span>
+            <HiExternalLink
+              aria-hidden="true"
+              className="ml-3 h-4 w-4 shrink-0 text-gray-400 dark:text-gray-500"
+            />
+            <span className="sr-only"> (opens in a new tab)</span>
           </DropdownItem>
         )}
         <DropdownDivider
