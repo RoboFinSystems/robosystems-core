@@ -207,6 +207,19 @@ function MobileSidebar({
   )
 }
 
+// SidebarItem renders an <a> for an href and forwards these, but its props are typed
+// as a div's, so they are spread rather than written as attributes. A link that opens a
+// new tab gets noopener and noreferrer, so the page it opens can't reach back into the
+// app's window through window.opener.
+function newTabProps(target?: HTMLAttributeAnchorTarget) {
+  return target
+    ? {
+        target,
+        rel: target === '_blank' ? 'noopener noreferrer' : undefined,
+      }
+    : {}
+}
+
 function CustomSidebarItem({
   href,
   target,
@@ -223,6 +236,7 @@ function CustomSidebarItem({
       return (
         <SidebarItem
           href={href || '#'}
+          {...newTabProps(target)}
           icon={Icon}
           active={pathname === href}
           theme={customTheme.sidebar.item}
@@ -271,6 +285,7 @@ function CustomSidebarItem({
             <SidebarItem
               key={item.label}
               href={item.href || '#'}
+              {...newTabProps(item.target)}
               active={pathname === item.href}
               theme={customTheme.sidebar.item}
               className={
