@@ -39,8 +39,9 @@ const headingClass =
 
 /**
  * The shared marketing-site footer for all three apps. The brand column, social
- * row, the Applications cross-links, the Company column and copyright are
- * derived from CURRENT_APP + APP_CONFIGS so each app reskins automatically;
+ * row, the Applications cross-links (the three apps, then xbrlkit), the Company
+ * column and copyright are derived from CURRENT_APP + APP_CONFIGS so each app
+ * reskins automatically;
  * only the tagline and Product links vary and are passed in. Contact stays
  * per-app via the `contactModal` prop.
  */
@@ -187,6 +188,22 @@ export function LandingFooter({
                   </li>
                 )
               })}
+              <li>
+                {/* xbrlkit, the free report viewer with its MCP server, is an
+                    application in its own right, listed after the three apps. It
+                    is a standalone site on its own domain, not an app config, so it
+                    is always an external link (absolute URL, new tab) from every
+                    app. Named the way the site names itself: "viewer" left its
+                    wordmark when /mcp made it a second function. */}
+                <Link
+                  href="https://xbrlkit.com"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={linkClass}
+                >
+                  xbrlkit
+                </Link>
+              </li>
             </ul>
           </div>
 
@@ -200,20 +217,6 @@ export function LandingFooter({
                   className={linkClass}
                 >
                   Research
-                </Link>
-              </li>
-              <li>
-                {/* xbrlkit — the report viewer and its MCP connect page, a standalone
-                    public site on its own domain, always an external link (absolute
-                    URL, new tab) from every app. Named the way the site names itself:
-                    "viewer" left its wordmark when /mcp made it a second function. */}
-                <Link
-                  href="https://xbrlkit.com"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className={linkClass}
-                >
-                  xbrlkit
                 </Link>
               </li>
               <li>
