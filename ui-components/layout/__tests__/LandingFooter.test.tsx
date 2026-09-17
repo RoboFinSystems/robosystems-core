@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { LandingFooterProps } from '../LandingFooter'
 
@@ -60,5 +60,43 @@ describe('LandingFooter company links', () => {
     await renderAs('robosystems')
     expect(link('Blog')).toHaveAttribute('href', '/blog')
     expect(link('Blog')).not.toHaveAttribute('target')
+  })
+})
+
+describe('LandingFooter applications', () => {
+  afterEach(() => {
+    vi.doUnmock('../../../auth-core/config')
+  })
+
+  // A footer column is the list that follows its heading.
+  const column = (heading: string) =>
+    screen.getByRole('heading', { name: heading })
+      .nextElementSibling as HTMLElement
+
+  it('lists xbrlkit after the three apps, as an external link', async () => {
+    await renderAs('robosystems')
+    const apps = within(column('Applications'))
+      .getAllByRole('link')
+      .map((a) => a.textContent)
+    expect(apps).toEqual([
+      'RoboSystems',
+      'RoboLedger',
+      'RoboInvestor',
+      'xbrlkit',
+    ])
+
+    const xbrlkit = within(column('Applications')).getByRole('link', {
+      name: 'xbrlkit',
+    })
+    expect(xbrlkit).toHaveAttribute('href', 'https://xbrlkit.com')
+    expect(xbrlkit).toHaveAttribute('target', '_blank')
+    expect(xbrlkit).toHaveAttribute('rel', 'noopener noreferrer')
+  })
+
+  it('no longer lists xbrlkit under Company', async () => {
+    await renderAs('roboledger')
+    expect(
+      within(column('Company')).queryByRole('link', { name: 'xbrlkit' })
+    ).toBeNull()
   })
 })
