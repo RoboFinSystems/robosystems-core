@@ -35,7 +35,7 @@ import { useToast } from '@robosystems/core/hooks/use-toast'
 
 - [RoboSystems Platform](https://robosystems.ai)
 - [GitHub Repository](https://github.com/RoboFinSystems/robosystems-core)
-- [API Documentation](https://api.robosystems.ai/docs)
+- [API Reference](https://robosystems.ai/docs/api)
 
 ## Support
 
