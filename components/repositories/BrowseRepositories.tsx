@@ -250,13 +250,13 @@ export function BrowseRepositories({
 
       {/* Header */}
       {showHeader && (
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <div className="from-primary-500 to-secondary-600 rounded-lg bg-gradient-to-br p-3">
-              <HiGlobeAlt className="h-8 w-8 text-white" />
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex min-w-0 items-center gap-3 sm:gap-4">
+            <div className="from-primary-500 to-secondary-600 shrink-0 rounded-lg bg-gradient-to-br p-2.5 sm:p-3">
+              <HiGlobeAlt className="h-6 w-6 text-white sm:h-8 sm:w-8" />
             </div>
-            <div>
-              <h1 className="font-heading text-3xl font-bold text-zinc-900 dark:text-zinc-100">
+            <div className="min-w-0">
+              <h1 className="font-heading text-2xl font-bold break-words text-zinc-900 sm:text-3xl dark:text-zinc-100">
                 Browse Repositories
               </h1>
               <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">

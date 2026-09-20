@@ -804,20 +804,22 @@ export function ConsoleContent({ config }: { config: ConsoleConfig }) {
   const { header } = config
 
   return (
-    <div className="mx-auto max-w-7xl space-y-6 p-6">
-      {/* Header */}
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex items-center gap-4">
+    <div className="mx-auto max-w-7xl space-y-6 p-4 sm:p-6">
+      {/* Header — the same shape as `PageHeader`, and it gives ground the same
+          way: the status readout drops below the title on a narrow screen
+          rather than competing with it for one line. */}
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+        <div className="flex min-w-0 items-center gap-3 sm:gap-4">
           <div
-            className={`rounded-lg bg-gradient-to-br ${header.gradientFrom} ${header.gradientTo} p-3`}
+            className={`shrink-0 rounded-lg bg-gradient-to-br ${header.gradientFrom} ${header.gradientTo} p-2.5 sm:p-3`}
           >
-            <HiTerminal className="h-8 w-8 text-white" />
+            <HiTerminal className="h-6 w-6 text-white sm:h-8 sm:w-8" />
           </div>
-          <div>
-            <h1 className="font-heading text-3xl font-bold text-gray-900 dark:text-white">
+          <div className="min-w-0">
+            <h1 className="font-heading text-2xl font-bold break-words text-gray-900 sm:text-3xl dark:text-white">
               {header.title}
             </h1>
-            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+            <p className="mt-1 text-sm break-words text-gray-500 dark:text-gray-400">
               {header.subtitle}
             </p>
           </div>
