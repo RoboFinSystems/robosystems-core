@@ -15,7 +15,7 @@ export function PageLayout({
   return (
     <div
       className={twMerge(
-        'space-y-6 p-6',
+        'space-y-6 p-4 sm:p-6',
         variant === 'constrained' && 'mx-auto max-w-7xl',
         className
       )}

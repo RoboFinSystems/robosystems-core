@@ -115,11 +115,11 @@ export function CoreNavbar({
       className={`fixed top-0 z-30 w-full border-b border-gray-200 p-0 ${borderColorClass} bg-white sm:p-0 dark:bg-black ${className}`}
     >
       <div className="w-full p-3 pr-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex min-w-0 items-center">
             <button
               onClick={handleToggleSidebar}
-              className="mr-3 cursor-pointer rounded-sm p-2 text-gray-600 hover:bg-zinc-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-zinc-700 dark:hover:text-white"
+              className="mr-1 shrink-0 cursor-pointer rounded-sm p-2 text-gray-600 hover:bg-zinc-100 hover:text-gray-900 sm:mr-3 dark:text-gray-400 dark:hover:bg-zinc-700 dark:hover:text-white"
             >
               <span className="sr-only">Toggle sidebar</span>
               {/* mobile */}
@@ -135,18 +135,27 @@ export function CoreNavbar({
                 <HiMenuAlt1 className="h-6 w-6" />
               </div>
             </button>
-            <NavbarBrand as={Link} href={homeHref} className="mr-14">
+            {/* The `mr-14` gutter is a desktop luxury: below `lg` the brand,
+                the sidebar toggle and the right-hand controls together exceed a
+                phone's width, and a fixed 56px margin is what used to push the
+                user menu clean off the viewport. `min-w-0` + `truncate` let the
+                wordmark give ground instead of the controls. */}
+            <NavbarBrand as={Link} href={homeHref} className="min-w-0 lg:mr-14">
               <LogoBadge
                 app={currentApp}
                 animate="once"
-                className="mr-2 h-10 w-10"
+                className="mr-1.5 h-8 w-8 shrink-0 sm:mr-2 sm:h-10 sm:w-10"
               />
-              <span className="font-heading mt-2 ml-1 self-center text-2xl font-semibold whitespace-nowrap text-gray-900 dark:text-white">
+              {/* `font-heading` is Orbitron, which is wide enough that the
+                  wordmark needs every pixel the badge and its margins can give
+                  back to clear a 390px viewport without ellipsis. `truncate` is
+                  the safety valve below that, where no size fits. */}
+              <span className="font-heading mt-1 self-center truncate text-base font-semibold text-gray-900 sm:mt-2 sm:ml-1 sm:text-2xl dark:text-white">
                 {appName}
               </span>
             </NavbarBrand>
           </div>
-          <div className="flex items-center lg:gap-3">
+          <div className="flex shrink-0 items-center lg:gap-3">
             <div className="flex items-center">
               {additionalComponents && (
                 <div className="mr-2 hidden md:block">
