@@ -61,6 +61,21 @@ describe('LandingFooter company links', () => {
     expect(link('Blog')).toHaveAttribute('href', '/blog')
     expect(link('Blog')).not.toHaveAttribute('target')
   })
+
+  it('sends About to robosystems.ai from another app, in a new tab', async () => {
+    await renderAs('roboledger')
+    expect(link('About')).toHaveAttribute(
+      'href',
+      'https://robosystems.ai/about'
+    )
+    expect(link('About')).toHaveAttribute('target', '_blank')
+  })
+
+  it('serves About itself on robosystems', async () => {
+    await renderAs('robosystems')
+    expect(link('About')).toHaveAttribute('href', '/about')
+    expect(link('About')).not.toHaveAttribute('target')
+  })
 })
 
 describe('LandingFooter applications', () => {
