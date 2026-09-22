@@ -288,6 +288,20 @@ export function LandingFooter({
 
         <div className="mt-8 border-t border-gray-800 pt-8 text-center text-sm text-gray-400">
           <p>&copy; {new Date().getFullYear()} RFS LLC. All rights reserved.</p>
+          {/* Harbinger FinLab is a separate company (the implementation and
+              training practice), so it is credited here rather than listed in
+              the Company column. */}
+          <p className="mt-2">
+            Implementation and training by{' '}
+            <Link
+              href="https://harbinger.finance"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-gray-300 transition-colors hover:text-white"
+            >
+              Harbinger FinLab
+            </Link>
+          </p>
         </div>
       </div>
 

@@ -100,3 +100,20 @@ describe('LandingFooter applications', () => {
     ).toBeNull()
   })
 })
+
+describe('LandingFooter Harbinger credit', () => {
+  afterEach(() => {
+    vi.doUnmock('../../../auth-core/config')
+  })
+
+  it.each(Object.keys(APPS))(
+    'credits Harbinger FinLab from %s, as an external link',
+    async (app) => {
+      await renderAs(app)
+      const harbinger = link('Harbinger FinLab')
+      expect(harbinger).toHaveAttribute('href', 'https://harbinger.finance')
+      expect(harbinger).toHaveAttribute('target', '_blank')
+      expect(harbinger).toHaveAttribute('rel', 'noopener noreferrer')
+    }
+  )
+})
