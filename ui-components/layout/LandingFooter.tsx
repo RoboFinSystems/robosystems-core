@@ -54,7 +54,7 @@ export function LandingFooter({
   const [showContact, setShowContact] = useState(false)
   const current = getAppConfig(CURRENT_APP)
   const isRoboSystems = CURRENT_APP === 'robosystems'
-  // RoboSystems serves the platform blog, Privacy and Terms itself; the other
+  // RoboSystems serves About, the platform blog, Privacy and Terms itself; the other
   // apps link out to it.
   const companyBase = isRoboSystems ? '' : getAppConfig('robosystems').url
   const companyLinkProps = isRoboSystems
@@ -210,6 +210,15 @@ export function LandingFooter({
           <div>
             <h3 className={headingClass}>Company</h3>
             <ul className="space-y-2 text-sm">
+              <li>
+                <Link
+                  href={`${companyBase}/about`}
+                  {...companyLinkProps}
+                  className={linkClass}
+                >
+                  About
+                </Link>
+              </li>
               <li>
                 <Link
                   href={researchHref}
