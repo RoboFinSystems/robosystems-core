@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { RoboSystemsAuthClient } from './client'
 import { APP_CONFIGS } from './config'
+import { isSafeRelativePath } from './login-home'
 import type { AppConfig, AuthUser } from './types'
 
 // Configuration constants
@@ -16,24 +17,14 @@ const debugLog = (message: string, error?: unknown) => {
 /**
  * Reduce a `returnUrl` to a same-origin path, or reject it.
  *
- * The value reaches us from a query parameter (or the sessionStorage mirror of
- * one), so it is attacker-controlled on any crafted SSO link: an absolute URL
- * would bounce the freshly authenticated user to another site, and a
- * `javascript:` payload would execute as this origin. Cross-app returns don't
- * need the escape hatch — `getSSORedirectUrl` hands the path to the *target*
- * app, which resolves it against its own origin — so a bare absolute path is
- * the only shape we ever legitimately produce.
+ * The value reaches us from a query parameter, so it is attacker-controlled
+ * on any crafted link. Cross-app returns don't need anything but a bare
+ * absolute path — `getSSORedirectUrl` hands the path to the *target* app,
+ * which resolves it against its own origin. The check is the package's one
+ * validator, `isSafeRelativePath` (shared with the login home).
  */
-const sanitizeReturnUrl = (returnUrl: string | null): string | null => {
-  if (!returnUrl) return null
-
-  // `//host` and `/\host` are both protocol-relative once a browser
-  // normalises them, so a leading slash alone isn't enough.
-  if (!returnUrl.startsWith('/')) return null
-  if (returnUrl.startsWith('//') || returnUrl.startsWith('/\\')) return null
-
-  return returnUrl
-}
+const sanitizeReturnUrl = (returnUrl: string | null): string | null =>
+  returnUrl && isSafeRelativePath(returnUrl) ? returnUrl : null
 
 export interface SSORedirectUrlOptions {
   /**
