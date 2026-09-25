@@ -407,6 +407,14 @@ describe('SSOManager', () => {
       ['a protocol-relative URL', '%2F%2Fevil.example.com%2Fsteal'],
       ['a backslash-escaped host', '%2F%5Cevil.example.com%2Fsteal'],
       ['a javascript: payload', 'javascript%3Aalert(document.domain)'],
+      // Browsers strip tab/CR/LF before parsing, so each of these resolves
+      // to "//evil.example.com/steal" (another host).
+      [
+        'a tab-split protocol-relative URL',
+        '%2F%09%2Fevil.example.com%2Fsteal',
+      ],
+      ['a LF-split protocol-relative URL', '%2F%0A%2Fevil.example.com%2Fsteal'],
+      ['a CR-split protocol-relative URL', '%2F%0D%2Fevil.example.com%2Fsteal'],
     ])('should not navigate to %s in returnUrl', async (_label, encoded) => {
       window.location.search = `?session_id=session-123&returnUrl=${encoded}`
       syncLocationHref()
