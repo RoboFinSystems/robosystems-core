@@ -1,6 +1,8 @@
-import { act, renderHook } from '@testing-library/react'
+import { act, render, renderHook, screen } from '@testing-library/react'
+import { useEffect } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { useToast } from '../use-toast'
+import { useApiError } from '../use-api-error'
+import { resetToastsForTests, useToast } from '../use-toast'
 
 // Mock Flowbite React components
 vi.mock('flowbite-react', () => ({
@@ -25,6 +27,7 @@ describe('useToast', () => {
   beforeEach(() => {
     vi.clearAllTimers()
     vi.useFakeTimers()
+    resetToastsForTests()
   })
 
   afterEach(() => {
@@ -174,24 +177,25 @@ describe('useToast', () => {
     clearTimeoutSpy.mockRestore()
   })
 
-  it('should cleanup all timeouts on unmount', () => {
-    const clearTimeoutSpy = vi.spyOn(global, 'clearTimeout')
-    const { result, unmount } = renderHook(() => useToast())
+  it('keeps a toast after the component that raised it unmounts', () => {
+    const Raiser = () => {
+      const { showError } = useToast()
+      useEffect(() => showError('Tier change failed', 5000), [showError])
+      return null
+    }
+    const Host = () => {
+      const { ToastContainer } = useToast()
+      return <ToastContainer />
+    }
+    render(<Host />)
+    const raiser = render(<Raiser />)
+    raiser.unmount()
 
-    // Add multiple toasts
+    expect(screen.getByText('Tier change failed')).toBeInTheDocument()
     act(() => {
-      result.current.showSuccess('Message 1', 5000)
-      result.current.showError('Message 2', 3000)
-      result.current.showInfo('Message 3', 10000)
+      vi.advanceTimersByTime(5000)
     })
-
-    // Unmount the hook
-    unmount()
-
-    // Verify clearTimeout was called for cleanup
-    expect(clearTimeoutSpy).toHaveBeenCalled()
-
-    clearTimeoutSpy.mockRestore()
+    expect(screen.queryByText('Tier change failed')).not.toBeInTheDocument()
   })
 
   it('should generate unique IDs for toasts', () => {
@@ -270,5 +274,72 @@ describe('useToast', () => {
     // Toast should still be present
     const ToastContainer = result.current.ToastContainer
     expect(ToastContainer).toBeDefined()
+  })
+})
+
+describe('the shared toast store', () => {
+  beforeEach(() => {
+    vi.useFakeTimers()
+    resetToastsForTests()
+  })
+
+  afterEach(() => {
+    act(() => {
+      vi.runOnlyPendingTimers()
+    })
+    vi.useRealTimers()
+  })
+
+  const Host = () => {
+    const { ToastContainer } = useToast()
+    return <ToastContainer />
+  }
+
+  it('shows a toast raised by a component that renders no container', () => {
+    const Silent = ({ message }: { message: string }) => {
+      const { handleApiError } = useApiError()
+      useEffect(() => {
+        handleApiError(new Error(message), 'fallback')
+      }, [handleApiError, message])
+      return null
+    }
+    render(
+      <>
+        <Host />
+        <Silent message="Only admins can change roles" />
+      </>
+    )
+
+    expect(screen.getByText('Only admins can change roles')).toBeInTheDocument()
+  })
+
+  it('shows each toast once, however many containers are mounted', () => {
+    const Raiser = () => {
+      const { showSuccess, ToastContainer } = useToast()
+      useEffect(() => showSuccess('Member added'), [showSuccess])
+      return <ToastContainer />
+    }
+    render(
+      <>
+        <Host />
+        <Raiser />
+      </>
+    )
+
+    expect(screen.getAllByText('Member added')).toHaveLength(1)
+  })
+
+  it('moves to the next container when the rendering one unmounts', () => {
+    const first = render(<Host />)
+    render(<Host />)
+    const Raiser = () => {
+      const { showInfo } = useToast()
+      useEffect(() => showInfo('Backup started'), [showInfo])
+      return null
+    }
+    render(<Raiser />)
+    first.unmount()
+
+    expect(screen.getAllByText('Backup started')).toHaveLength(1)
   })
 })
