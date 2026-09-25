@@ -370,4 +370,42 @@ describe('useGraphCreation.createGraph', () => {
     expect(outcome).toBeInstanceOf(OperationOutcomeError)
     expect((outcome as Error).message).toBe('Provisioning failed')
   })
+
+  it('surfaces a refused checkout with its validation detail', async () => {
+    net.setHandler((req) => {
+      if (req.url.includes('/billing/customer')) {
+        return json(200, {
+          has_payment_method: false,
+          invoice_billing_enabled: false,
+        })
+      }
+      if (req.url.includes('/checkout')) {
+        return json(422, {
+          detail: [
+            {
+              loc: ['body', 'resource_config', 'custom_schema'],
+              msg: 'nodes required',
+            },
+          ],
+        })
+      }
+      return json(404, { detail: 'not found' })
+    })
+    const { result } = renderHook(() => useGraphCreation())
+    let outcome: unknown
+    await act(async () => {
+      outcome = await result.current
+        .createGraph({
+          graph_type: 'generic',
+          graph_name: 'Inventory',
+          custom_schema: { name: 'inventory' },
+          org_id: 'org_1',
+        })
+        .catch((e) => e)
+    })
+    expect(net.requests('POST', '/checkout').length).toBe(1)
+    expect((outcome as Error).message).toBe(
+      'resource_config.custom_schema: nodes required'
+    )
+  })
 })

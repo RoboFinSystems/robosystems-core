@@ -9,6 +9,7 @@ import {
   getOrgBillingCustomer,
 } from '@robosystems/client'
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { toApiError } from '../lib/sdk-errors'
 import type {
   OperationProgress,
   OperationResult,
@@ -320,12 +321,7 @@ export function useGraphCreation() {
           })
 
           if (checkoutResponse.error) {
-            const errorMsg =
-              typeof checkoutResponse.error === 'object' &&
-              'detail' in checkoutResponse.error
-                ? String(checkoutResponse.error.detail)
-                : 'Failed to create checkout session'
-            throw new Error(errorMsg)
+            throw toApiError(checkoutResponse.error, checkoutResponse.response)
           }
 
           // Check if billing is disabled on the backend
@@ -560,12 +556,7 @@ export function useRepositorySubscription() {
           })
 
           if (checkoutResponse.error) {
-            const errorMsg =
-              typeof checkoutResponse.error === 'object' &&
-              'detail' in checkoutResponse.error
-                ? String(checkoutResponse.error.detail)
-                : 'Failed to create checkout session'
-            throw new Error(errorMsg)
+            throw toApiError(checkoutResponse.error, checkoutResponse.response)
           }
 
           // Check if billing is disabled on the backend
