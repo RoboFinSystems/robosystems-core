@@ -63,6 +63,29 @@ class FakeEventSource {
 
 const OP = 'op_01HBBBBBBBBBBBBBBBBBBBBBBB'
 
+/**
+ * Run `fn` while recording every setTimeout delay. A plain wrapper, not a
+ * vi.spyOn: testing-library reads a mocked setTimeout as fake timers.
+ */
+async function recordTimeouts(fn: () => Promise<void>): Promise<number[]> {
+  const delays: number[] = []
+  const real = globalThis.setTimeout
+  globalThis.setTimeout = ((
+    handler: TimerHandler,
+    ms?: number,
+    ...args: any[]
+  ) => {
+    delays.push(Number(ms ?? 0))
+    return real(handler, ms, ...args)
+  }) as typeof setTimeout
+  try {
+    await fn()
+  } finally {
+    globalThis.setTimeout = real
+  }
+  return delays
+}
+
 /** The stream for an operation, once the monitor has opened it. */
 async function streamFor(operationId = OP, index = 0) {
   let es: FakeEventSource | undefined
@@ -179,14 +202,52 @@ describe('OperationMonitor', () => {
   })
 
   it('applies no timeout unless one is asked for', async () => {
-    const monitoring = operationMonitor.monitorOperation({ operationId: OP })
-    const es = await streamFor()
-    await es.open()
-    vi.useFakeTimers()
-    vi.advanceTimersByTime(6 * 60 * 1000)
-    vi.useRealTimers()
-    es.send('operation_completed', { result: { ok: true } })
+    let monitoring: Promise<{ status: string }> = Promise.resolve({
+      status: '',
+    })
+    let es: FakeEventSource | undefined
+    const delays = await recordTimeouts(async () => {
+      monitoring = operationMonitor.monitorOperation({ operationId: OP })
+      es = await streamFor()
+      await es.open()
+    })
+    // Nothing armed that would end the watch: only the SDK's own short
+    // connect / cleanup timers.
+    expect(delays.every((ms) => ms < 60_000)).toBe(true)
+    es!.send('operation_completed', { result: { ok: true } })
     expect((await monitoring).status).toBe('completed')
+  })
+
+  it('an explicit timeout still applies', async () => {
+    const delays = await recordTimeouts(async () => {
+      const monitoring = operationMonitor.monitorOperation({
+        operationId: OP,
+        timeout: 123_456,
+      })
+      monitoring.catch(() => undefined)
+      const es = await streamFor()
+      await es.open()
+    })
+    expect(delays).toContain(123_456)
+  })
+
+  it('a stop issued before the stream opens is honoured', async () => {
+    const onComplete = vi.fn()
+    const monitoring = operationMonitor.monitorOperation({
+      operationId: OP,
+      onComplete,
+    })
+    // Immediately, while the SDK is still loading.
+    expect(operationMonitor.cancelOperation(OP)).toBe(true)
+    expect(await monitoring).toMatchObject({
+      status: 'cancelled',
+      error: MONITORING_STOPPED,
+    })
+    await new Promise((r) => setTimeout(r, 20))
+    for (const es of FakeEventSource.instances) {
+      expect(es.readyState).toBe(FakeEventSource.CLOSED)
+    }
+    expect(onComplete).not.toHaveBeenCalled()
   })
 })
 

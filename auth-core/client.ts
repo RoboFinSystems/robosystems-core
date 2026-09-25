@@ -99,20 +99,32 @@ const appSourceHeaders = (
   appSource ? { [APP_SOURCE_HEADER]: appSource } : undefined
 
 /**
- * For the enumeration-safe email endpoints (forgot password, resend
- * verification): the failures worth telling the user about — they say
- * nothing about whether the address has an account. Null for any other
- * refusal, which the caller reports as "sent".
+ * For the email endpoints (forgot password, resend verification): the
+ * failures worth telling the user about. Null for a refusal the caller
+ * reports as "sent".
+ *
+ * Forgot password is unauthenticated and must not reveal whether the address
+ * has an account, so it surfaces only what says nothing about the account:
+ * rate limiting and a request that never arrived. A 5xx is not surfaced —
+ * only the existing-account path does work that can fail. Resend requires a
+ * session, so it can also report an outage and an expired session.
  */
-const deliveryFailure = (error: unknown): string | null => {
+const deliveryFailure = (
+  error: unknown,
+  { authenticated }: { authenticated: boolean }
+): string | null => {
   if (!(error instanceof ApiError)) {
-    return 'Failed to send email. Please try again.'
+    return authenticated ? 'Failed to send email. Please try again.' : null
   }
   if (error.status === 429) {
     return 'Too many requests. Please wait a few minutes and try again.'
   }
   if (error.isNetworkError) {
     return 'Unable to reach the server. Check your connection and try again.'
+  }
+  if (!authenticated) return null
+  if (error.status === 401) {
+    return 'Your session has expired. Please sign in again.'
   }
   if (error.status >= 500) {
     return 'The server ran into a problem. Please try again in a moment.'
@@ -476,7 +488,26 @@ export class RoboSystemsAuthClient {
   }
 
   async refreshSession(): Promise<AuthResponse> {
-    const responseData = await this.refreshSessionWithRetry()
+    const sentToken = getRefreshToken()
+    let responseData: unknown
+    try {
+      responseData = await this.refreshSessionWithRetry()
+    } catch (error) {
+      // Tabs of one app share the stored token. When another tab renewed it
+      // first, this refusal is for the token it replaced: adopt the renewed
+      // one instead of ending the session.
+      const currentToken = getRefreshToken()
+      if (
+        !isTransientError(error) &&
+        currentToken !== null &&
+        currentToken !== sentToken
+      ) {
+        this.clearAuthCache()
+        const user = await this.getCurrentUser()
+        return { user, success: true, token: currentToken }
+      }
+      throw error
+    }
 
     const sdkResponse = this.validateSDKAuthResponse(responseData)
 
@@ -897,14 +928,14 @@ export class RoboSystemsAuthClient {
       })
       unwrapSdk(response)
     } catch (error) {
-      const failure = deliveryFailure(error)
+      const failure = deliveryFailure(error, { authenticated: false })
       if (failure) {
         console.error('Forgot password error:', error)
         return { success: false, message: failure }
       }
     }
 
-    // Any other refusal reads as sent: whether the address has an account
+    // Any other outcome reads as sent: whether the address has an account
     // must not be observable from this form.
     return {
       success: true,
@@ -1057,14 +1088,14 @@ export class RoboSystemsAuthClient {
       })
       unwrapSdk(response)
     } catch (error) {
-      const failure = deliveryFailure(error)
+      const failure = deliveryFailure(error, { authenticated: true })
       if (failure) {
         console.error('Resend verification email error:', error)
         return { success: false, message: failure }
       }
     }
 
-    // Any other refusal reads as sent (see forgotPassword).
+    // Any other refusal (e.g. already verified) reads as sent.
     return {
       success: true,
       message: 'Verification email sent if the account exists',

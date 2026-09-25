@@ -19,19 +19,29 @@ import {
   taskMonitor,
 } from '../taskMonitor'
 
-const OP = 'op_01HAAAAAAAAAAAAAAAAAAAAAAA'
+// A fresh operation id per test: a poller left over from an earlier test
+// must not consume this test's scripted responses.
+let OP = ''
+let opSeq = 0
 const statusIs = (status: string, extra: Record<string, unknown> = {}) =>
   json(200, { status, operation_id: OP, ...extra })
 
-/** Serve a scripted sequence of status responses (the last one repeats). */
+/**
+ * Serve a scripted sequence of status responses for this test's operation
+ * (the last one repeats). Requests for any other operation get a 404.
+ */
 const sequence = (...steps: Handler[]): Handler => {
   let i = 0
-  return (req) => steps[Math.min(i++, steps.length - 1)](req)
+  return (req) =>
+    req.url.includes(OP)
+      ? steps[Math.min(i++, steps.length - 1)](req)
+      : json(404, { detail: 'not this test' })
 }
 
 let net: FetchStub
 let monitor: TaskMonitor
 beforeEach(() => {
+  OP = `op_TEST${String(++opSeq).padStart(21, '0')}`
   net = stubFetch()
   monitor = new TaskMonitor()
   vi.spyOn(console, 'warn').mockImplementation(() => undefined)
@@ -148,6 +158,21 @@ describe('TaskMonitor.pollTask', () => {
     expect(monitor.getActiveTasks()).toEqual([])
     // Stopping is local: nothing was cancelled on the server.
     expect(net.requests('DELETE', '/v1/operations/')).toHaveLength(0)
+  })
+})
+
+describe('one poller per task', () => {
+  it('polling the same task again replaces the first poller', async () => {
+    net.setHandler(() => statusIs('in_progress'))
+    const first = monitor.pollTask({ taskId: OP, pollInterval: 5 })
+    const second = monitor.pollTask({ taskId: OP, pollInterval: 5 })
+    second.catch(() => undefined)
+    await expect(first).rejects.toThrow('Task polling was cancelled')
+    monitor.stopPolling(OP)
+    await expect(second).rejects.toThrow('Task polling was cancelled')
+    const after = net.calls.length
+    await new Promise((r) => setTimeout(r, 30))
+    expect(net.calls.length).toBe(after)
   })
 })
 

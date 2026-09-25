@@ -181,6 +181,18 @@ describe('useStreamingQuery', () => {
     expect(returned).toHaveBeenCalled()
   })
 
+  it('a cancel while the stream is still starting stops it before it runs', async () => {
+    mockStreamQuery.mockReturnValue(createAsyncIterator([[{ id: 1 }]]))
+    const { result } = renderHook(() => useStreamingQuery())
+    await act(async () => {
+      const running = result.current.executeQuery('graph-A', 'MATCH (n)')
+      result.current.cancelQuery()
+      await running
+    })
+    expect(mockStreamQuery).not.toHaveBeenCalled()
+    expect(result.current.status).toBe('cancelled')
+  })
+
   it('resets state to initial values', async () => {
     mockStreamQuery.mockReturnValue(createAsyncIterator([[{ id: 1 }]]))
 

@@ -315,12 +315,15 @@ export type {
 
 // Export operation monitoring hooks
 export {
+  OperationOutcomeError,
   useGraphCreation,
   useOperationMonitoring,
   useRepositorySubscription,
   type OperationMonitorState,
   type UseOperationMonitoringResult,
 } from './task-monitoring/operationHooks'
+export { MONITORING_STOPPED } from './task-monitoring/operationMonitor'
+export { POLLING_CANCELLED } from './task-monitoring/taskMonitor'
 
 // Configure and export client directly for convenience (since it's commonly used)
 import { client } from '@robosystems/client'

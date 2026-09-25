@@ -712,6 +712,47 @@ describe('ConsoleContent', () => {
       })
     })
 
+    it('drops an answer even after switching away and back to its graph', async () => {
+      let answer: (value: unknown) => void = () => undefined
+      mockOperatorExecuteQuery.mockImplementationOnce(
+        () => new Promise((resolve) => (answer = resolve)) as any
+      )
+      const { rerender } = render(<ConsoleContent config={TEST_CONFIG} />)
+      const input = screen.getByPlaceholderText(
+        'Type a question, /query <cypher>, or /help...'
+      )
+      fireEvent.change(input, { target: { value: 'How many nodes?' } })
+      fireEvent.keyDown(input, { key: 'Enter' })
+      await waitFor(() => {
+        expect(mockOperatorExecuteQuery).toHaveBeenCalledTimes(1)
+      })
+
+      mockUseGraphContext.mockReturnValue(onGraph('other-graph'))
+      rerender(<ConsoleContent config={TEST_CONFIG} />)
+      await waitFor(() => {
+        expect(
+          screen.getByText(/test-graph-id → other-graph/)
+        ).toBeInTheDocument()
+      })
+      mockUseGraphContext.mockReturnValue(onGraph('test-graph-id'))
+      rerender(<ConsoleContent config={TEST_CONFIG} />)
+      await waitFor(() => {
+        expect(
+          screen.getByText(/other-graph → test-graph-id/)
+        ).toBeInTheDocument()
+      })
+
+      answer({
+        content: 'An answer from before the switches.',
+        operator_used: 'cypher',
+        mode_used: 'standard',
+      })
+      await new Promise((r) => setTimeout(r, 20))
+      expect(
+        screen.queryByText(/An answer from before the switches/)
+      ).toBeNull()
+    })
+
     it('renders an operator failure envelope as an error, not an answer', async () => {
       // The API reports pre-flight and runtime operator failures as HTTP 200
       // with error_details set; the console must not present the

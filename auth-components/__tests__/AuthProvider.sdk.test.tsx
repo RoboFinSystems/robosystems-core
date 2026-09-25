@@ -121,6 +121,37 @@ describe('heartbeat: only a refusal ends the session', () => {
     expect(net.requests('POST', '/v1/auth/logout')).toHaveLength(0)
   })
 
+  it('a 401 for a token another tab has just renewed does not log out', async () => {
+    await signedIn()
+    net.setHandler((r) => {
+      if (!r.url.endsWith('/v1/auth/me')) return json(200, {})
+      if (r.headers.get('Authorization') === 'Bearer tok') {
+        // Another tab renewed while this check was in flight.
+        seedToken('tok2')
+        return json(401, { detail: 'Token has been revoked' })
+      }
+      return json(200, ME)
+    })
+    await refocusLater()
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 30))
+    })
+    expect(loc.href).toBe('https://roboledger.ai/home')
+    expect(localStorage.getItem('robosystems_jwt_token')).toBe('tok2')
+    expect(
+      net
+        .requests('GET', '/v1/auth/me')
+        .some((r) => r.headers.get('Authorization') === 'Bearer tok2')
+    ).toBe(true)
+  })
+
+  it('any other final refusal from /me (404) ends the session too', async () => {
+    await signedIn()
+    net.setHandler(() => json(404, { detail: 'User not found' }))
+    await refocusLater()
+    await waitFor(() => expect(loc.href).toBe('/login?reason=session_invalid'))
+  })
+
   it('renews a token that expired while the tab slept instead of logging out', async () => {
     await signedIn()
     // The tab slept past expiry but inside the refresh grace.

@@ -125,6 +125,12 @@ export function useOperationMonitoring(): UseOperationMonitoringResult {
 
   const startMonitoring = useCallback(
     async (operationId: string, options?: { timeout?: number }) => {
+      if (
+        currentOperationId.current &&
+        currentOperationId.current !== operationId
+      ) {
+        operationMonitor.cancelOperation(currentOperationId.current)
+      }
       currentOperationId.current = operationId
       setState({
         isLoading: true,
@@ -190,7 +196,9 @@ export function useOperationMonitoring(): UseOperationMonitoringResult {
         }))
         throw error
       } finally {
-        currentOperationId.current = null
+        // A newer run may have started meanwhile; leave its id in place.
+        if (currentOperationId.current === operationId)
+          currentOperationId.current = null
       }
     },
     []

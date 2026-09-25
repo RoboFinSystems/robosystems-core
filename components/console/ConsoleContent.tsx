@@ -75,6 +75,9 @@ export function ConsoleContent({ config }: { config: ConsoleConfig }) {
   // recorded as history) under the new graph.
   const currentGraphRef = useRef(graphId)
   currentGraphRef.current = graphId
+  // Moves on at every graph switch, so a switch away and back (A → B → A)
+  // still retires a request made before it.
+  const graphEpochRef = useRef(0)
 
   // Terminal state
   const [terminalMessages, setTerminalMessages] = useState<TerminalMessage[]>(
@@ -247,6 +250,7 @@ export function ConsoleContent({ config }: { config: ConsoleConfig }) {
     if (previousGraphId.current && previousGraphId.current !== graphId) {
       const fromGraphId = previousGraphId.current
       previousGraphId.current = graphId
+      graphEpochRef.current++
 
       // Stop any stream still running for the previous graph; its rows must
       // not land under the new graph's banner.
@@ -405,12 +409,15 @@ export function ConsoleContent({ config }: { config: ConsoleConfig }) {
     }
 
     const startTime = Date.now()
+    const requestGraphId = graphId
+    const requestEpoch = graphEpochRef.current
+    const isStale = () =>
+      currentGraphRef.current !== requestGraphId ||
+      graphEpochRef.current !== requestEpoch
 
     try {
       const { clients } = await import('@robosystems/client/clients')
 
-      const requestGraphId = graphId
-      const isStale = () => currentGraphRef.current !== requestGraphId
       const history = conversationRef.current
       const result = await clients.operator.executeQuery(
         graphId,
@@ -535,7 +542,7 @@ export function ConsoleContent({ config }: { config: ConsoleConfig }) {
         addResultMessage(footer, rows, cypher)
       }
     } catch (error: any) {
-      if (currentGraphRef.current !== graphId) return
+      if (isStale()) return
       setOperatorProgress({ isRunning: false, message: '' })
 
       const errorMessage =

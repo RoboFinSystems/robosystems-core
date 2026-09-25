@@ -61,9 +61,35 @@ export interface OperationMonitorOptions {
 export const MONITORING_STOPPED = 'Monitoring stopped'
 
 interface ActiveOperation {
-  client: { closeAll: () => void }
+  client: { closeAll: () => void } | null
+  stopped: boolean
+  /** Settles with null when monitoring is stopped locally. */
+  stoppedPromise: Promise<null>
   stop: () => void
 }
+
+function createActiveOperation(): ActiveOperation {
+  let resolveStopped: (value: null) => void = () => undefined
+  const entry: ActiveOperation = {
+    client: null,
+    stopped: false,
+    stoppedPromise: new Promise<null>((resolve) => {
+      resolveStopped = resolve
+    }),
+    stop: () => {
+      entry.stopped = true
+      resolveStopped(null)
+      entry.client?.closeAll()
+    },
+  }
+  return entry
+}
+
+const stoppedResult = (operationId: string): OperationResult => ({
+  operation_id: operationId,
+  status: 'cancelled',
+  error: MONITORING_STOPPED,
+})
 
 export class OperationMonitor {
   private static instance: OperationMonitor
@@ -88,27 +114,43 @@ export class OperationMonitor {
     onEvent,
     timeout,
   }: OperationMonitorOptions): Promise<OperationResult> {
-    // Get SDK extensions at runtime
-    const sdkExtensions = await getSDKExtensions()
-
-    // Require SDK extensions - fail fast if not available
-    if (!sdkExtensions?.OperationClient) {
-      throw new Error(
-        'SDK extensions not available. Please install @robosystems/client with extensions support.'
-      )
+    // Registered before any await, so a stop issued while the SDK loads
+    // (an immediate cancel, an unmount, a StrictMode remount) is honoured.
+    if (this.activeOperations.has(operationId)) {
+      this.cancelOperation(operationId)
     }
+    const entry = createActiveOperation()
+    this.activeOperations.set(operationId, entry)
 
-    return this.monitorWithSDKExtensions(
-      {
-        operationId,
-        onProgress,
-        onComplete,
-        onError,
-        onEvent,
-        timeout,
-      },
-      sdkExtensions
-    )
+    try {
+      // Get SDK extensions at runtime
+      const sdkExtensions = await getSDKExtensions()
+      if (entry.stopped) return stoppedResult(operationId)
+
+      // Require SDK extensions - fail fast if not available
+      if (!sdkExtensions?.OperationClient) {
+        throw new Error(
+          'SDK extensions not available. Please install @robosystems/client with extensions support.'
+        )
+      }
+
+      return await this.monitorWithSDKExtensions(
+        {
+          operationId,
+          onProgress,
+          onComplete,
+          onError,
+          onEvent,
+          timeout,
+        },
+        sdkExtensions,
+        entry
+      )
+    } finally {
+      if (this.activeOperations.get(operationId) === entry) {
+        this.activeOperations.delete(operationId)
+      }
+    }
   }
 
   /**
@@ -153,11 +195,13 @@ export class OperationMonitor {
    */
   private async monitorWithSDKExtensions(
     options: OperationMonitorOptions,
-    sdkExtensions: any
+    sdkExtensions: any,
+    entry: ActiveOperation
   ): Promise<OperationResult> {
     const { OperationClient, extractTokenFromSDKClient } = sdkExtensions
     const { getToken, getValidToken } =
       await import('../auth-core/token-storage')
+    if (entry.stopped) return stoppedResult(options.operationId)
     const config = client.getConfig()
 
     // One client per operation, tracked so `cancelOperation` can close it.
@@ -173,25 +217,8 @@ export class OperationMonitor {
       retryDelay: 1000,
     })
 
-    const previous = this.activeOperations.get(options.operationId)
-    if (previous) this.cancelOperation(options.operationId)
-
-    let stopped = false
-    let stopMonitoring: () => void = () => undefined
-    const stoppedPromise = new Promise<null>((resolve) => {
-      stopMonitoring = () => {
-        stopped = true
-        resolve(null)
-      }
-    })
-    const entry: ActiveOperation = {
-      client: operationClient,
-      stop: () => {
-        stopMonitoring()
-        operationClient.closeAll()
-      },
-    }
-    this.activeOperations.set(options.operationId, entry)
+    entry.client = operationClient
+    const stopped = () => entry.stopped
 
     try {
       const result = await Promise.race([
@@ -201,7 +228,7 @@ export class OperationMonitor {
             message?: string
             details?: { current_step?: number; total_steps?: number }
           }) => {
-            if (stopped) return
+            if (stopped()) return
             options.onProgress?.({
               percent: progress.progressPercent || 0,
               message: progress.message || '',
@@ -210,7 +237,7 @@ export class OperationMonitor {
             })
           },
           onEvent: (event: { type: string; data: any }) => {
-            if (stopped) return
+            if (stopped()) return
             options.onEvent?.({
               event: event.type,
               data: event.data,
@@ -218,16 +245,12 @@ export class OperationMonitor {
           },
           timeout: options.timeout,
         }),
-        stoppedPromise,
+        entry.stoppedPromise,
       ])
 
       if (result === null) {
         // Stopped locally: report it without firing the outcome callbacks.
-        return {
-          operation_id: options.operationId,
-          status: 'cancelled',
-          error: MONITORING_STOPPED,
-        }
+        return stoppedResult(options.operationId)
       }
 
       // Map OperationResult (success: boolean) to status string
@@ -259,9 +282,6 @@ export class OperationMonitor {
 
       return normalizedResult
     } finally {
-      if (this.activeOperations.get(options.operationId) === entry) {
-        this.activeOperations.delete(options.operationId)
-      }
       operationClient.closeAll()
     }
   }

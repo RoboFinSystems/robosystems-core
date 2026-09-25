@@ -105,10 +105,15 @@ describe('login failures map to honest messages', () => {
 })
 
 describe('email endpoints stay enumeration-safe but surface throttling', () => {
-  it('forgotPassword reads a 4xx as sent, and reports 429 and 5xx', async () => {
+  it('forgotPassword reports only throttling and an unreachable server', async () => {
     const c = new RoboSystemsAuthClient(API)
 
     net.setHandler(() => json(404, { detail: 'No such user' }))
+    expect((await c.forgotPassword('a@b.c')).success).toBe(true)
+
+    // Only the existing-account path does work that can fail, so a 5xx must
+    // read like every other outcome.
+    net.setHandler(() => json(500, { detail: 'mail provider down' }))
     expect((await c.forgotPassword('a@b.c')).success).toBe(true)
 
     net.setHandler(() => json(429, { detail: 'slow down' }))
@@ -116,15 +121,21 @@ describe('email endpoints stay enumeration-safe but surface throttling', () => {
     expect(limited.success).toBe(false)
     expect(limited.message).toMatch(/Too many requests/)
 
-    net.setHandler(() => json(502, { detail: 'bad gateway' }))
+    net.setHandler(networkDown)
     expect((await c.forgotPassword('a@b.c')).success).toBe(false)
   })
 
-  it('resendVerificationEmail behaves the same way', async () => {
+  it('resendVerificationEmail (signed in) also reports outages and an expired session', async () => {
     const c = new RoboSystemsAuthClient(API)
     net.setHandler(() => json(400, { detail: 'Already verified' }))
     expect((await c.resendVerificationEmail('a@b.c')).success).toBe(true)
     net.setHandler(() => json(429, { detail: 'slow down' }))
+    expect((await c.resendVerificationEmail('a@b.c')).success).toBe(false)
+    net.setHandler(() => json(401, { detail: 'Not authenticated' }))
+    expect((await c.resendVerificationEmail('a@b.c')).message).toMatch(
+      /session has expired/
+    )
+    net.setHandler(() => json(503, { detail: 'down' }))
     expect((await c.resendVerificationEmail('a@b.c')).success).toBe(false)
   })
 })
@@ -170,6 +181,27 @@ describe('the refresh grace window is reachable', () => {
       'Bearer expired-within-grace'
     )
     expect(localStorage.getItem('robosystems_jwt_token')).toBe('renewed')
+  })
+
+  it('a refusal for a token another tab already renewed adopts the renewal', async () => {
+    seedToken('old', -60_000)
+    net.setHandler((req) => {
+      if (req.url.endsWith('/v1/auth/refresh')) {
+        // The other tab won the race and stored its renewal first.
+        seedToken('renewed-by-other-tab')
+        return json(401, { detail: 'Token has been revoked' })
+      }
+      return req.headers.get('Authorization') === 'Bearer renewed-by-other-tab'
+        ? json(200, { id: 'u1', email: 'a@b.c' })
+        : json(401, { detail: 'Not authenticated' })
+    })
+    const c = new RoboSystemsAuthClient(API)
+    const res = await c.refreshSession()
+    expect(res.success).toBe(true)
+    expect(res.user.id).toBe('u1')
+    expect(localStorage.getItem('robosystems_jwt_token')).toBe(
+      'renewed-by-other-tab'
+    )
   })
 
   it('an expired token is not sent on data calls', async () => {

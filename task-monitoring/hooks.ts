@@ -62,6 +62,9 @@ export function useTaskMonitoring(): UseTaskMonitoringResult {
       taskId: string,
       options?: { maxAttempts?: number; pollInterval?: number }
     ) => {
+      if (currentTaskId.current && currentTaskId.current !== taskId) {
+        taskMonitor.stopPolling(currentTaskId.current)
+      }
       currentTaskId.current = taskId
       setState({
         isLoading: true,
@@ -121,7 +124,8 @@ export function useTaskMonitoring(): UseTaskMonitoringResult {
         }))
         throw error
       } finally {
-        currentTaskId.current = null
+        // A newer run may have started meanwhile; leave its id in place.
+        if (currentTaskId.current === taskId) currentTaskId.current = null
       }
     },
     []

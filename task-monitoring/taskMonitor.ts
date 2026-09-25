@@ -33,6 +33,9 @@ export class TaskMonitor {
     let attempts = 0
     let consecutiveErrors = 0
     const abortController = new AbortController()
+    // One poller per task: a second pollTask for the same id replaces (and
+    // stops) the first, which could otherwise never be stopped.
+    this.stopPolling(taskId)
     this.activeTasks.set(taskId, abortController)
 
     return new Promise((resolve, reject) => {

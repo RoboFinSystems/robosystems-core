@@ -109,8 +109,13 @@ export function useStreamingQuery(): UseStreamingQueryResult {
       query: string,
       parameters?: Record<string, any>
     ) => {
+      // The run starts now, so a cancel while the SDK loads retires it.
+      stopRun(runRef, iteratorRef)
+      const runId = runRef.current
+
       // Get SDK extensions at runtime
       const sdkExtensions = await getSDKExtensions()
+      if (runRef.current !== runId) return
 
       // Require SDK extensions - fail fast if not available
       if (!sdkExtensions?.streamQuery) {
@@ -120,6 +125,7 @@ export function useStreamingQuery(): UseStreamingQueryResult {
       }
 
       return executeQueryWithExtensions(
+        runId,
         graphId,
         query,
         sdkExtensions,
@@ -131,13 +137,12 @@ export function useStreamingQuery(): UseStreamingQueryResult {
 
   // Helper function to execute query with SDK extensions
   const executeQueryWithExtensions = async (
+    runId: number,
     graphId: string,
     query: string,
     sdkExtensions: any,
     parameters?: Record<string, any>
   ) => {
-    stopRun(runRef, iteratorRef)
-    const runId = runRef.current
     const isCurrent = () => runRef.current === runId
 
     try {

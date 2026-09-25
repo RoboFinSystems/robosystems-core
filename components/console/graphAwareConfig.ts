@@ -250,9 +250,9 @@ LIMIT 20`,
 // Data: Entity -> Portfolio -> Position -> Security, and Entity -> Security
 // (issuance). Position carries cost_basis, current_value and currency, so
 // gains and allocation are computed in Cypher. Sums count only marked
-// positions (current_value set) and never add across currencies. Security
-// has no ticker in the graph, and Trade/Benchmark/MarketData exist in the
-// schema but aren't populated yet — keep examples off them.
+// positions (current_value set) and never add across currencies.
+// Security.ticker, Trade, Benchmark and MarketData exist in the schema but
+// aren't populated yet — keep examples off them.
 
 const ROBOINVESTOR_EXAMPLE_SET: GraphExampleSet = {
   subtitle: 'AI analyst for your investment portfolios',
@@ -277,8 +277,9 @@ WHERE pos.current_value IS NOT NULL
 RETURN p.name,
        pos.currency AS currency,
        count(pos) AS marked_positions,
-       sum(pos.cost_basis) AS total_cost,
-       sum(pos.current_value) AS total_value
+       sum(pos.current_value) AS total_value,
+       count(pos.cost_basis) AS positions_with_cost,
+       sum(pos.cost_basis) AS total_cost
 ORDER BY p.name, currency`,
     },
     {

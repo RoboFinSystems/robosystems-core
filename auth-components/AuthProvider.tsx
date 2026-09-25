@@ -12,15 +12,16 @@ import {
 import { clearEntitySelection } from '../actions/entity-actions'
 import { clearGraphSelection } from '../actions/graph-actions'
 import { performLogoutCleanup } from '../auth-core/cleanup'
-import {
-  isSessionRejection,
-  isTransientError,
-  RoboSystemsAuthClient,
-} from '../auth-core/client'
+import { isTransientError, RoboSystemsAuthClient } from '../auth-core/client'
 import { CURRENT_APP, isLoginHome } from '../auth-core/config'
 import { useTokenExpiryHandler } from '../auth-core/hooks'
 import { buildLoginHomeUrl, buildReturnTo } from '../auth-core/login-home'
-import { getTimeUntilExpiry, getTokenStatus } from '../auth-core/token-storage'
+import {
+  getRefreshToken,
+  getTimeUntilExpiry,
+  getTokenStatus,
+  TOKEN_REFRESH_GRACE_MS,
+} from '../auth-core/token-storage'
 import type { AuthContextType, AuthUser } from '../auth-core/types'
 
 // Configuration constants
@@ -54,6 +55,20 @@ const logStorageError = (operation: string, error: unknown) => {
 }
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
+
+/**
+ * Whether a failure is the server's final answer about this session: any
+ * 4xx but 429 (401 and 403 in practice). Outages, rate limits, network
+ * drops and malformed bodies are transient.
+ */
+const endsSession = (error: unknown): boolean => !isTransientError(error)
+
+/**
+ * Seconds the warning dialog counts down: to the end of the refresh grace,
+ * the last moment a renewal can still succeed.
+ */
+const warningSeconds = (timeLeftMs: number) =>
+  Math.ceil((timeLeftMs + TOKEN_REFRESH_GRACE_MS) / 1000)
 
 const AuthContext = createContext<AuthContextType | null>(null)
 
@@ -109,7 +124,7 @@ export function AuthProvider({
         // Only the server refusing the session ends it. An outage, a rate
         // limit or a network drop keeps the cached user; the heartbeat
         // re-validates once the API answers again.
-        if (!isSessionRejection(error)) {
+        if (!endsSession(error)) {
           debugLog('Cached user validation deferred (transient error)', error)
           return
         }
@@ -415,6 +430,13 @@ export function AuthProvider({
     let failures = 0
     let backoffUntil = 0
     let retryTimer: ReturnType<typeof setTimeout> | null = null
+    let sentToken: string | null = null
+    let recheckNow = false
+
+    const tokenRotatedSince = (sent: string | null) => {
+      const current = getRefreshToken()
+      return current !== null && current !== sent
+    }
 
     const endSession = (reason: string) =>
       logout(reason, { skipServerLogout: true })
@@ -453,7 +475,7 @@ export function AuthProvider({
             await refreshSession(true)
           } catch (refreshError) {
             if (!isMounted) return
-            if (isSessionRejection(refreshError)) {
+            if (endsSession(refreshError)) {
               await endSession('session_expired')
             } else {
               scheduleRetry(refreshError)
@@ -470,6 +492,7 @@ export function AuthProvider({
 
         // Make real HTTP call to validate session server-side
         // This works even in background tabs (not throttled like timers)
+        sentToken = getRefreshToken()
         await authClient.getCurrentUser()
 
         if (!isMounted) return
@@ -500,13 +523,13 @@ export function AuthProvider({
             if (!isMounted) return
 
             debugLog('Heartbeat: Token refresh failed', refreshError)
-            if (isSessionRejection(refreshError)) {
+            if (endsSession(refreshError)) {
               await endSession('session_expired')
             } else if (timeLeft > 0) {
               // Show warning if refresh failed but token not expired
               setSessionWarning({
                 show: true,
-                timeLeft: Math.ceil(timeLeft / 1000),
+                timeLeft: warningSeconds(timeLeft),
               })
             }
           }
@@ -514,7 +537,12 @@ export function AuthProvider({
       } catch (error) {
         if (!isMounted) return
 
-        if (isSessionRejection(error)) {
+        if (endsSession(error) && tokenRotatedSince(sentToken)) {
+          // Another tab renewed the session while this check was in flight;
+          // the refusal was for the token it replaced. Re-check at once.
+          authClient.clearAuthCache()
+          recheckNow = true
+        } else if (endsSession(error)) {
           debugLog('Heartbeat: Server refused the session', error)
           await endSession('session_invalid')
         } else {
@@ -522,6 +550,13 @@ export function AuthProvider({
         }
       } finally {
         inFlight = false
+        if (recheckNow && isMounted) {
+          recheckNow = false
+          retryTimer = setTimeout(() => {
+            retryTimer = null
+            performHeartbeat(true)
+          }, 0)
+        }
       }
     }
 
@@ -583,7 +618,7 @@ export function AuthProvider({
 
           debugLog('Token refresh failed', error)
           const timeLeft = getTimeUntilExpiry()
-          if (isSessionRejection(error)) {
+          if (endsSession(error)) {
             // The server refused the renewal: the session is over.
             debugLog('Refresh refused, redirecting to login')
             await logout('session_expired', { skipServerLogout: true })
@@ -591,7 +626,7 @@ export function AuthProvider({
             // Show warning instead of silent logout
             setSessionWarning({
               show: true,
-              timeLeft: Math.ceil(timeLeft / 1000),
+              timeLeft: warningSeconds(timeLeft),
             })
           }
           // A transient failure past expiry is left to the heartbeat,
@@ -620,7 +655,7 @@ export function AuthProvider({
         } catch (error) {
           if (!isMounted) return
 
-          if (isSessionRejection(error)) {
+          if (endsSession(error)) {
             await logout('session_expired', { skipServerLogout: true })
             return
           }
@@ -628,7 +663,7 @@ export function AuthProvider({
           debugLog('Auto-refresh failed, showing warning modal', error)
           setSessionWarning({
             show: true,
-            timeLeft: Math.ceil(timeLeft / 1000),
+            timeLeft: warningSeconds(timeLeft),
           })
         }
       } else if (tokenStatus === 'valid') {
