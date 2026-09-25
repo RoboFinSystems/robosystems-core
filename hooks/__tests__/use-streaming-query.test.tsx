@@ -147,6 +147,52 @@ describe('useStreamingQuery', () => {
     expect(result.current.error).toBe('Query was cancelled')
   })
 
+  it('a cancelled stream stops and writes nothing more', async () => {
+    let release: () => void = () => undefined
+    const gate = new Promise<void>((r) => (release = r))
+    const returned = vi.fn()
+    async function* slowStream() {
+      try {
+        yield [{ id: 1 }]
+        await gate
+        yield [{ id: 2 }]
+      } finally {
+        returned()
+      }
+    }
+    mockStreamQuery.mockReturnValue(slowStream())
+
+    const { result } = renderHook(() => useStreamingQuery())
+    let running: Promise<void> = Promise.resolve()
+    await act(async () => {
+      running = result.current.executeQuery('graph-A', 'MATCH (n) RETURN n')
+      await new Promise((r) => setTimeout(r, 0))
+    })
+    act(() => {
+      result.current.cancelQuery()
+    })
+    await act(async () => {
+      release()
+      await running
+    })
+
+    expect(result.current.status).toBe('cancelled')
+    expect(result.current.results).toEqual([{ id: 1 }])
+    expect(returned).toHaveBeenCalled()
+  })
+
+  it('a cancel while the stream is still starting stops it before it runs', async () => {
+    mockStreamQuery.mockReturnValue(createAsyncIterator([[{ id: 1 }]]))
+    const { result } = renderHook(() => useStreamingQuery())
+    await act(async () => {
+      const running = result.current.executeQuery('graph-A', 'MATCH (n)')
+      result.current.cancelQuery()
+      await running
+    })
+    expect(mockStreamQuery).not.toHaveBeenCalled()
+    expect(result.current.status).toBe('cancelled')
+  })
+
   it('resets state to initial values', async () => {
     mockStreamQuery.mockReturnValue(createAsyncIterator([[{ id: 1 }]]))
 

@@ -9,8 +9,43 @@ import {
   getOrgBillingCustomer,
 } from '@robosystems/client'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { OperationProgress, OperationStatus } from './operationMonitor'
-import { operationMonitor } from './operationMonitor'
+import { toApiError } from '../lib/sdk-errors'
+import type {
+  OperationProgress,
+  OperationResult,
+  OperationStatus,
+} from './operationMonitor'
+import { MONITORING_STOPPED, operationMonitor } from './operationMonitor'
+
+/**
+ * Thrown by `startMonitoring` (and so by `createGraph`) when an operation
+ * ends in any state but `completed`. `status` is the terminal state;
+ * `'cancelled'` with `stopped: true` means monitoring was stopped locally
+ * and the operation may still be running.
+ */
+export class OperationOutcomeError extends Error {
+  readonly status: OperationStatus
+  readonly operationId: string
+  readonly stopped: boolean
+  constructor(result: OperationResult) {
+    const stopped = result.error === MONITORING_STOPPED
+    super(
+      stopped
+        ? STOPPED_MESSAGE
+        : result.error ||
+            (result.status === 'cancelled'
+              ? 'Operation was cancelled'
+              : 'Operation failed')
+    )
+    this.name = 'OperationOutcomeError'
+    this.status = result.status
+    this.operationId = result.operation_id
+    this.stopped = stopped
+  }
+}
+
+const STOPPED_MESSAGE =
+  'Stopped monitoring. The operation continues on the server.'
 
 export interface OperationMonitorState {
   isLoading: boolean
@@ -64,16 +99,18 @@ export function useOperationMonitoring(): UseOperationMonitoringResult {
     currentOperationId.current = null
   }, [])
 
+  // Stops watching; the server-side operation is not cancelled (graph
+  // creation, for one, cannot be cancelled mid-provision).
   const cancelOperation = useCallback(async () => {
     if (currentOperationId.current) {
       try {
-        await operationMonitor.cancelOperation(currentOperationId.current)
+        operationMonitor.cancelOperation(currentOperationId.current)
         setState((prev) => ({
           ...prev,
           isLoading: false,
           isMonitoring: false,
           status: 'cancelled',
-          error: 'Operation was cancelled',
+          error: STOPPED_MESSAGE,
           result: null,
         }))
       } catch (error) {
@@ -89,6 +126,12 @@ export function useOperationMonitoring(): UseOperationMonitoringResult {
 
   const startMonitoring = useCallback(
     async (operationId: string, options?: { timeout?: number }) => {
+      if (
+        currentOperationId.current &&
+        currentOperationId.current !== operationId
+      ) {
+        operationMonitor.cancelOperation(currentOperationId.current)
+      }
       currentOperationId.current = operationId
       setState({
         isLoading: true,
@@ -136,6 +179,9 @@ export function useOperationMonitoring(): UseOperationMonitoringResult {
           },
         })
 
+        if (result.status !== 'completed') {
+          throw new OperationOutcomeError(result)
+        }
         return result.result || result
       } catch (error) {
         const errorMessage =
@@ -146,11 +192,14 @@ export function useOperationMonitoring(): UseOperationMonitoringResult {
           isMonitoring: false,
           error: errorMessage,
           result: null,
-          status: 'failed',
+          status:
+            error instanceof OperationOutcomeError ? error.status : 'failed',
         }))
         throw error
       } finally {
-        currentOperationId.current = null
+        // A newer run may have started meanwhile; leave its id in place.
+        if (currentOperationId.current === operationId)
+          currentOperationId.current = null
       }
     },
     []
@@ -175,6 +224,23 @@ export function useOperationMonitoring(): UseOperationMonitoringResult {
 }
 
 /**
+ * The schema sent for a generic graph: the caller's, or an empty one named
+ * after the graph (a bare database the user fills in later).
+ */
+function genericSchema(graphData: {
+  graph_name: string
+  custom_schema?: Record<string, unknown>
+}): Record<string, unknown> {
+  if (graphData.custom_schema) return graphData.custom_schema
+  const name =
+    graphData.graph_name
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '_')
+      .replace(/^_+|_+$/g, '') || 'custom_graph'
+  return { name, nodes: [], relationships: [] }
+}
+
+/**
  * Hook for graph creation using the new unified endpoint
  */
 export function useGraphCreation() {
@@ -189,6 +255,11 @@ export function useGraphCreation() {
       tags?: string[]
       instance_tier?: string
       schema_extensions?: string[]
+      /**
+       * Generic graphs only: the node/relationship schema to apply. When
+       * omitted, a generic graph is created with an empty schema.
+       */
+      custom_schema?: Record<string, unknown>
       create_entity?: boolean
       // Legacy company fields (deprecated)
       company_name?: string
@@ -234,6 +305,10 @@ export function useGraphCreation() {
                 description: graphData.description,
                 tags: graphData.tags,
                 schema_extensions: graphData.schema_extensions,
+                custom_schema:
+                  graphData.graph_type === 'generic'
+                    ? genericSchema(graphData)
+                    : undefined,
                 create_entity: graphData.create_entity,
                 entity_name: graphData.entity_name,
                 entity_identifier: graphData.entity_identifier,
@@ -246,12 +321,7 @@ export function useGraphCreation() {
           })
 
           if (checkoutResponse.error) {
-            const errorMsg =
-              typeof checkoutResponse.error === 'object' &&
-              'detail' in checkoutResponse.error
-                ? String(checkoutResponse.error.detail)
-                : 'Failed to create checkout session'
-            throw new Error(errorMsg)
+            throw toApiError(checkoutResponse.error, checkoutResponse.response)
           }
 
           // Check if billing is disabled on the backend
@@ -281,11 +351,20 @@ export function useGraphCreation() {
             tags: graphData.tags,
             schema_extensions: graphData.schema_extensions || [],
           },
+          // The API files tags from the top-level field; `metadata.tags` is
+          // kept for older servers.
+          tags: graphData.tags ?? [],
           instance_tier: graphData.instance_tier || 'ladybug-standard',
           create_entity:
             graphData.graph_type === 'generic'
               ? false
               : (graphData.create_entity ?? true),
+        }
+
+        // A generic graph is defined by its schema; the API requires either
+        // a custom_schema or an initial_entity.
+        if (graphData.graph_type === 'generic') {
+          requestBody.custom_schema = genericSchema(graphData)
         }
 
         // Add initial_entity for entity or company graphs
@@ -409,8 +488,10 @@ export function useGraphCreation() {
     async (graphData: {
       graph_name: string
       description?: string
+      tags?: string[]
       instance_tier?: string
       schema_extensions?: string[]
+      custom_schema?: Record<string, unknown>
       org_id?: string
     }) => {
       return createGraph({
@@ -475,12 +556,7 @@ export function useRepositorySubscription() {
           })
 
           if (checkoutResponse.error) {
-            const errorMsg =
-              typeof checkoutResponse.error === 'object' &&
-              'detail' in checkoutResponse.error
-                ? String(checkoutResponse.error.detail)
-                : 'Failed to create checkout session'
-            throw new Error(errorMsg)
+            throw toApiError(checkoutResponse.error, checkoutResponse.response)
           }
 
           // Check if billing is disabled on the backend

@@ -10,7 +10,14 @@ export interface TaskStatusResponse {
 }
 
 export type TaskStatus =
-  'pending' | 'in_progress' | 'completed' | 'failed' | 'cancelled' | 'retrying'
+  | 'pending'
+  | 'running'
+  | 'awaiting_input'
+  | 'in_progress'
+  | 'retrying'
+  | 'completed'
+  | 'failed'
+  | 'cancelled'
 
 export interface TaskPollingOptions {
   taskId: string
@@ -19,6 +26,7 @@ export interface TaskPollingOptions {
   onError?: (error: string) => void
   pollInterval?: number // milliseconds, default 2000
   maxAttempts?: number // default 150 (5 minutes at 2s intervals)
+  maxConsecutiveErrors?: number // transient status-read failures tolerated in a row, default 5
 }
 
 export interface TaskMonitorState {

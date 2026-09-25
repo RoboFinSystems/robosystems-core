@@ -7,6 +7,7 @@ export * as AuthCore from './auth-core'
 export {
   clearToken,
   getAuthHeader,
+  getRefreshToken,
   getToken,
   getValidToken,
   handleAuthResponse,
@@ -89,6 +90,19 @@ export {
   type McpConnectorUrl,
   type SidebarCookie,
 } from './lib'
+
+// Export the SDK error seam (unwrap an SDK result or throw ApiError)
+export {
+  ApiError,
+  errorStatus,
+  extractErrorDetail,
+  isApiError,
+  isSessionRejection,
+  isTransientError,
+  toApiError,
+  unwrapSdk,
+  type SdkResult,
+} from './lib/sdk-errors'
 
 // Export utils
 export { generateEntityUri, isUUID, UUID_REGEX } from './utils'
@@ -301,12 +315,15 @@ export type {
 
 // Export operation monitoring hooks
 export {
+  OperationOutcomeError,
   useGraphCreation,
   useOperationMonitoring,
   useRepositorySubscription,
   type OperationMonitorState,
   type UseOperationMonitoringResult,
 } from './task-monitoring/operationHooks'
+export { MONITORING_STOPPED } from './task-monitoring/operationMonitor'
+export { POLLING_CANCELLED } from './task-monitoring/taskMonitor'
 
 // Configure and export client directly for convenience (since it's commonly used)
 import { client } from '@robosystems/client'

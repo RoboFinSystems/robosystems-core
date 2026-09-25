@@ -13,3 +13,15 @@ export {
 export { entityCookie, type EntityCookie } from './entity-cookie'
 
 export { createMcpConnectorUrl, type McpConnectorUrl } from './mcp-connector'
+
+export {
+  ApiError,
+  errorStatus,
+  extractErrorDetail,
+  isApiError,
+  isSessionRejection,
+  isTransientError,
+  toApiError,
+  unwrapSdk,
+  type SdkResult,
+} from './sdk-errors'

@@ -20,8 +20,8 @@ export function SessionWarningDialog() {
     const timer = setInterval(() => {
       setCountdown((prev) => {
         if (prev <= 1) {
-          // Time's up, logout
-          logout()
+          // Time's up: the session lapsed, it was not ended by the user
+          logout('session_expired')
           return 0
         }
         return prev - 1

@@ -5,6 +5,7 @@ import { RoboSystemsAuthClient } from '../auth-core/client'
 import { getAppConfig } from '../auth-core/config'
 import { useSSO } from '../auth-core/sso'
 import type { AuthUser } from '../auth-core/types'
+import { ApiError } from '../lib/sdk-errors'
 import { LogoBadge, Spinner } from '../ui-components'
 
 export interface SignInFormProps {
@@ -22,7 +23,8 @@ export interface SignInFormProps {
  * request never reached the server — `fetch` throws a `TypeError`) must NOT be
  * reported as bad credentials: that sends users to reset a password that is
  * actually correct. Reached-server auth rejection (401/403, or an empty/invalid
- * auth body) stays "Invalid email or password"; 5xx gets its own message.
+ * auth body) stays "Invalid email or password"; 429 and 5xx get their own
+ * messages.
  */
 export function loginErrorMessage(error: unknown): string {
   const err = error as {
@@ -34,12 +36,16 @@ export function loginErrorMessage(error: unknown): string {
   const message = String(err?.message ?? '')
 
   if (
+    (error instanceof ApiError && error.isNetworkError) ||
     error instanceof TypeError ||
     /failed to fetch|networkerror|load failed|fetch failed|err_(connection|network|name_not_resolved)/i.test(
       message
     )
   ) {
     return 'Unable to reach the server. Check your connection and try again.'
+  }
+  if (status === 429) {
+    return 'Too many sign-in attempts. Please wait a few minutes and try again.'
   }
   if (typeof status === 'number' && status >= 500) {
     return 'The server ran into a problem. Please try again in a moment.'

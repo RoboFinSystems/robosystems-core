@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 
 import {
   buildGraphAwareConsoleConfig,
+  EXAMPLE_SETS,
   getGraphExampleKind,
   type ConsoleBranding,
 } from '../graphAwareConfig'
@@ -107,6 +108,24 @@ describe('buildGraphAwareConsoleConfig', () => {
     expect(config.sampleQueries.some((q) => q.name === 'Portfolio value')).toBe(
       true
     )
+  })
+
+  it('keeps roboinvestor examples to columns the graph populates', () => {
+    const set = EXAMPLE_SETS.roboinvestor
+    const cypher = [
+      ...set.directQueryExamples,
+      ...set.sampleQueries.map((q) => q.query),
+    ]
+    // Security.ticker is materialized as NULL: a column that is always empty.
+    for (const query of cypher) {
+      expect(query).not.toMatch(/\bticker\b/)
+    }
+    // Value sums count marked positions only, and never add across currencies.
+    for (const query of set.sampleQueries.map((q) => q.query)) {
+      if (!/sum\(pos\.current_value\)/.test(query)) continue
+      expect(query).toContain('pos.current_value IS NOT NULL')
+      expect(query).toContain('pos.currency')
+    }
   })
 
   it('enables /recall for user graphs but not shared repositories', () => {

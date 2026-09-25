@@ -14,7 +14,7 @@ import {
   TextInput,
   ToggleSwitch,
 } from 'flowbite-react'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { HiChevronDown, HiChevronUp, HiSearch } from 'react-icons/hi'
 
 import { useIsRepository } from '../../components/RepositoryGuard'
@@ -59,6 +59,10 @@ export function SearchContent({ config }: { config: SearchConfig }) {
     null
   )
   const [sectionLoading, setSectionLoading] = useState(false)
+  // Request counters: a response is applied only if no newer search (or
+  // section read), and no graph switch, has happened since it was sent.
+  const searchSeq = useRef(0)
+  const sectionSeq = useRef(0)
 
   // Filters visibility
   const [showFilters, setShowFilters] = useState(config.showFilters ?? false)
@@ -70,17 +74,25 @@ export function SearchContent({ config }: { config: SearchConfig }) {
       setDocCount(null)
       return
     }
+    let cancelled = false
     SDK.listDocuments({ path: { graph_id: graphId } })
       .then((res) => {
-        if (res.data) {
+        if (!cancelled && res.data) {
           setDocCount(res.data.total)
         }
       })
       .catch(() => {})
+    return () => {
+      cancelled = true
+    }
   }, [graphId, isRepository])
 
   // Reset when graph changes
   useEffect(() => {
+    searchSeq.current++
+    sectionSeq.current++
+    setLoading(false)
+    setSectionLoading(false)
     setResults([])
     setTotal(0)
     setOffset(0)
@@ -94,6 +106,8 @@ export function SearchContent({ config }: { config: SearchConfig }) {
     async (newOffset = 0) => {
       if (!graphId || !query.trim()) return
 
+      const seq = ++searchSeq.current
+      sectionSeq.current++
       setLoading(true)
       setError(null)
       setExpandedDocId(null)
@@ -119,6 +133,7 @@ export function SearchContent({ config }: { config: SearchConfig }) {
           path: { graph_id: graphId },
           body: body as SDK.SearchRequest,
         })
+        if (seq !== searchSeq.current) return
 
         if (res.data) {
           const data = res.data as SearchResponse
@@ -130,18 +145,21 @@ export function SearchContent({ config }: { config: SearchConfig }) {
           setError('Search failed. Please try again.')
         }
       } catch {
+        if (seq !== searchSeq.current) return
         setError('An error occurred while searching.')
       } finally {
-        setLoading(false)
+        if (seq === searchSeq.current) setLoading(false)
       }
     },
     [graphId, query, sourceType, entity, formType, fiscalYear, semantic]
   )
 
   const handleExpand = async (docId: string) => {
+    const seq = ++sectionSeq.current
     if (expandedDocId === docId) {
       setExpandedDocId(null)
       setSectionContent(null)
+      setSectionLoading(false)
       return
     }
 
@@ -154,13 +172,15 @@ export function SearchContent({ config }: { config: SearchConfig }) {
       const res = await SDK.getDocumentSection({
         path: { graph_id: graphId, document_id: docId },
       })
+      if (seq !== sectionSeq.current) return
       if (res.data) {
         setSectionContent(res.data as DocumentSection)
       }
     } catch {
+      if (seq !== sectionSeq.current) return
       setSectionContent(null)
     } finally {
-      setSectionLoading(false)
+      if (seq === sectionSeq.current) setSectionLoading(false)
     }
   }
 

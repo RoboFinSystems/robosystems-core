@@ -12,11 +12,16 @@ import {
 import { clearEntitySelection } from '../actions/entity-actions'
 import { clearGraphSelection } from '../actions/graph-actions'
 import { performLogoutCleanup } from '../auth-core/cleanup'
-import { RoboSystemsAuthClient } from '../auth-core/client'
+import { isTransientError, RoboSystemsAuthClient } from '../auth-core/client'
 import { CURRENT_APP, isLoginHome } from '../auth-core/config'
 import { useTokenExpiryHandler } from '../auth-core/hooks'
 import { buildLoginHomeUrl, buildReturnTo } from '../auth-core/login-home'
-import { getTimeUntilExpiry, getTokenStatus } from '../auth-core/token-storage'
+import {
+  getRefreshToken,
+  getTimeUntilExpiry,
+  getTokenStatus,
+  TOKEN_REFRESH_GRACE_MS,
+} from '../auth-core/token-storage'
 import type { AuthContextType, AuthUser } from '../auth-core/types'
 
 // Configuration constants
@@ -25,6 +30,9 @@ const TOKEN_REFRESH_INTERVAL_MS = 25 * 60 * 1000 // 25 minutes (5 min before 30 
 const TOKEN_WARNING_CHECK_INTERVAL_MS = 30 * 1000 // 30 seconds - reduced for better battery life
 const ACTIVITY_THROTTLE_MS = 1000 // 1 second
 const HEARTBEAT_INTERVAL_MS = 5 * 60 * 1000 // 5 minutes - server validation heartbeat
+const HEARTBEAT_BACKOFF_BASE_MS = 30 * 1000 // first retry after a transient heartbeat failure
+const SESSION_CHECK_MAX_RETRIES = 4 // page-load /me retries on a transient failure
+const SESSION_CHECK_BACKOFF_BASE_MS = 1000
 const REFRESH_COOLDOWN_MS = 60 * 1000 // 60 seconds - prevent duplicate background refreshes
 const CACHE_VERSION = '1' // Increment to invalidate all cached auth data
 
@@ -45,6 +53,22 @@ const logStorageError = (operation: string, error: unknown) => {
     console.error(message, error)
   }
 }
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
+
+/**
+ * Whether a failure is the server's final answer about this session: any
+ * 4xx but 429 (401 and 403 in practice). Outages, rate limits, network
+ * drops and malformed bodies are transient.
+ */
+const endsSession = (error: unknown): boolean => !isTransientError(error)
+
+/**
+ * Seconds the warning dialog counts down: to the end of the refresh grace,
+ * the last moment a renewal can still succeed.
+ */
+const warningSeconds = (timeLeftMs: number) =>
+  Math.ceil((timeLeftMs + TOKEN_REFRESH_GRACE_MS) / 1000)
 
 const AuthContext = createContext<AuthContextType | null>(null)
 
@@ -96,8 +120,14 @@ export function AuthProvider({
             }
           }
         }
-      } catch {
-        // User not authenticated anymore, clear cache
+      } catch (error) {
+        // Only the server refusing the session ends it. An outage, a rate
+        // limit or a network drop keeps the cached user; the heartbeat
+        // re-validates once the API answers again.
+        if (!endsSession(error)) {
+          debugLog('Cached user validation deferred (transient error)', error)
+          return
+        }
         setUser(null)
         if (typeof window !== 'undefined') {
           try {
@@ -114,7 +144,25 @@ export function AuthProvider({
 
   const checkSession = useCallback(async () => {
     try {
-      const user = await authClient.getCurrentUser()
+      // A transient failure at page load (deploy, 5xx, 429, network) is
+      // retried with backoff instead of being read as "logged out".
+      let user: AuthUser | null = null
+      for (let attempt = 0; ; attempt++) {
+        try {
+          user = await authClient.getCurrentUser()
+          break
+        } catch (error) {
+          if (
+            !isTransientError(error) ||
+            attempt >= SESSION_CHECK_MAX_RETRIES ||
+            !mounted.current
+          ) {
+            throw error
+          }
+          authClient.clearAuthCache()
+          await sleep(SESSION_CHECK_BACKOFF_BASE_MS * 2 ** attempt)
+        }
+      }
       setUser(user)
       // Cache the user data
       if (typeof window !== 'undefined') {
@@ -149,9 +197,19 @@ export function AuthProvider({
   }, [authClient])
 
   const logout = useCallback(
-    async (reason?: string, options?: { redirectTo?: string }) => {
+    async (
+      reason?: string,
+      options?: { redirectTo?: string; skipServerLogout?: boolean }
+    ) => {
       try {
-        await authClient.logout()
+        // An automatic logout (the server already refused the session)
+        // skips the server call: there is nothing left to revoke.
+        if (!options?.skipServerLogout) {
+          await authClient.logout()
+        } else {
+          const { clearToken } = await import('../auth-core/token-storage')
+          clearToken()
+        }
       } catch (error) {
         // Logout error - continue with local logout regardless
         debugLog('Backend logout failed, continuing with local cleanup', error)
@@ -269,6 +327,9 @@ export function AuthProvider({
         const response = await authClient.refreshSession()
         if (response.success) {
           setUser(response.user)
+          // A renewed session has nothing left to warn about ("Stay Logged
+          // In" relies on this to dismiss the dialog).
+          setSessionWarning({ show: false, timeLeft: 0 })
           // Cache the refreshed user data
           if (typeof window !== 'undefined') {
             try {
@@ -354,23 +415,89 @@ export function AuthProvider({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Heartbeat - Server-side validation and background tab refresh
+  // Heartbeat - Server-side validation and background tab refresh.
+  //
+  // Only the server refusing the session (401, or 403 for a deactivated
+  // account) ends it, and then locally: the token is already dead, so there
+  // is no server logout to call. A network drop, a 5xx or a 429 keeps the
+  // session and backs off; focus events inside the backoff window are
+  // skipped so a flapping API is not hammered from every tab.
   useEffect(() => {
     if (!isAuthenticated) return
 
     let isMounted = true
+    let inFlight = false
+    let failures = 0
+    let backoffUntil = 0
+    let retryTimer: ReturnType<typeof setTimeout> | null = null
+    let sentToken: string | null = null
+    let recheckNow = false
 
-    const performHeartbeat = async () => {
-      if (!isMounted) return
+    const tokenRotatedSince = (sent: string | null) => {
+      const current = getRefreshToken()
+      return current !== null && current !== sent
+    }
 
+    const endSession = (reason: string) =>
+      logout(reason, { skipServerLogout: true })
+
+    const scheduleRetry = (error: unknown) => {
+      failures++
+      const delay = Math.min(
+        HEARTBEAT_BACKOFF_BASE_MS * 2 ** (failures - 1),
+        HEARTBEAT_INTERVAL_MS
+      )
+      debugLog(
+        `Heartbeat: transient failure, retrying in ${Math.round(delay / 1000)}s`,
+        error
+      )
+      backoffUntil = Date.now() + delay
+      if (retryTimer) clearTimeout(retryTimer)
+      retryTimer = setTimeout(() => {
+        retryTimer = null
+        performHeartbeat(true)
+      }, delay)
+    }
+
+    const performHeartbeat = async (scheduled = false) => {
+      if (!isMounted || inFlight) return
+      if (!scheduled && Date.now() < backoffUntil) return
+
+      inFlight = true
       debugLog('Heartbeat: Checking server authentication status')
 
       try {
+        // A token that expired while the tab slept cannot authenticate
+        // /me, but the refresh endpoint still renews it within its grace
+        // window — so renew first.
+        if (getTokenStatus() === 'expired') {
+          try {
+            await refreshSession(true)
+          } catch (refreshError) {
+            if (!isMounted) return
+            if (endsSession(refreshError)) {
+              await endSession('session_expired')
+            } else {
+              scheduleRetry(refreshError)
+            }
+            return
+          }
+          // A refresh already in flight elsewhere skips this one; /me would
+          // then go out unauthenticated and read as a refusal. Wait instead.
+          if (getTokenStatus() === 'expired') {
+            scheduleRetry(new Error('Session refresh still pending'))
+            return
+          }
+        }
+
         // Make real HTTP call to validate session server-side
         // This works even in background tabs (not throttled like timers)
+        sentToken = getRefreshToken()
         await authClient.getCurrentUser()
 
         if (!isMounted) return
+        failures = 0
+        backoffUntil = 0
         debugLog('Heartbeat: Server validation successful')
 
         // After successful server check, verify local token status
@@ -392,16 +519,17 @@ export function AuthProvider({
             if (!isMounted) return
 
             debugLog('Heartbeat: Token refresh successful')
-            setSessionWarning({ show: false, timeLeft: 0 })
           } catch (refreshError) {
             if (!isMounted) return
 
             debugLog('Heartbeat: Token refresh failed', refreshError)
-            // Show warning if refresh failed but token not expired
-            if (timeLeft > 0) {
+            if (endsSession(refreshError)) {
+              await endSession('session_expired')
+            } else if (timeLeft > 0) {
+              // Show warning if refresh failed but token not expired
               setSessionWarning({
                 show: true,
-                timeLeft: Math.ceil(timeLeft / 1000),
+                timeLeft: warningSeconds(timeLeft),
               })
             }
           }
@@ -409,18 +537,32 @@ export function AuthProvider({
       } catch (error) {
         if (!isMounted) return
 
-        debugLog(
-          'Heartbeat: Server validation failed - user may be logged out',
-          error
-        )
-        // Server says we're not authenticated - immediate logout
-        await logout('session_invalid')
+        if (endsSession(error) && tokenRotatedSince(sentToken)) {
+          // Another tab renewed the session while this check was in flight;
+          // the refusal was for the token it replaced. Re-check at once.
+          authClient.clearAuthCache()
+          recheckNow = true
+        } else if (endsSession(error)) {
+          debugLog('Heartbeat: Server refused the session', error)
+          await endSession('session_invalid')
+        } else {
+          scheduleRetry(error)
+        }
+      } finally {
+        inFlight = false
+        if (recheckNow && isMounted) {
+          recheckNow = false
+          retryTimer = setTimeout(() => {
+            retryTimer = null
+            performHeartbeat(true)
+          }, 0)
+        }
       }
     }
 
     // Regular heartbeat interval
     const heartbeatInterval = setInterval(
-      performHeartbeat,
+      () => performHeartbeat(),
       HEARTBEAT_INTERVAL_MS
     ) // Every 5 minutes
 
@@ -445,6 +587,7 @@ export function AuthProvider({
     return () => {
       isMounted = false
       clearInterval(heartbeatInterval)
+      if (retryTimer) clearTimeout(retryTimer)
       window.removeEventListener('focus', handleFocus)
       document.removeEventListener('visibilitychange', handleVisibilityChange)
     }
@@ -474,18 +617,20 @@ export function AuthProvider({
           if (!isMounted) return
 
           debugLog('Token refresh failed', error)
-          // Show warning instead of silent logout
           const timeLeft = getTimeUntilExpiry()
-          if (timeLeft > 0) {
+          if (endsSession(error)) {
+            // The server refused the renewal: the session is over.
+            debugLog('Refresh refused, redirecting to login')
+            await logout('session_expired', { skipServerLogout: true })
+          } else if (timeLeft > 0) {
+            // Show warning instead of silent logout
             setSessionWarning({
               show: true,
-              timeLeft: Math.ceil(timeLeft / 1000),
+              timeLeft: warningSeconds(timeLeft),
             })
-          } else {
-            // Token is actually expired, need to re-authenticate
-            debugLog('Token expired, redirecting to login')
-            await logout('session_expired')
           }
+          // A transient failure past expiry is left to the heartbeat,
+          // which retries the renewal with backoff.
         }
       }
     }, TOKEN_REFRESH_INTERVAL_MS) // Check every 25 minutes
@@ -510,18 +655,22 @@ export function AuthProvider({
         } catch (error) {
           if (!isMounted) return
 
+          if (endsSession(error)) {
+            await logout('session_expired', { skipServerLogout: true })
+            return
+          }
           // Auto-refresh failed, show warning modal
           debugLog('Auto-refresh failed, showing warning modal', error)
           setSessionWarning({
             show: true,
-            timeLeft: Math.ceil(timeLeft / 1000),
+            timeLeft: warningSeconds(timeLeft),
           })
         }
       } else if (tokenStatus === 'valid') {
         if (!isMounted) return
         setSessionWarning({ show: false, timeLeft: 0 })
       }
-    }, TOKEN_WARNING_CHECK_INTERVAL_MS) // Check every 10 seconds
+    }, TOKEN_WARNING_CHECK_INTERVAL_MS) // Check every 30 seconds
 
     return () => {
       isMounted = false

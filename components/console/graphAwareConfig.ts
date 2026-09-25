@@ -248,9 +248,11 @@ LIMIT 20`,
 
 // ── RoboInvestor entity graph (portfolios / positions / securities) ──────────
 // Data: Entity -> Portfolio -> Position -> Security, and Entity -> Security
-// (issuance). Position carries cost_basis and current_value, so gains and
-// allocation are computed in Cypher. Trade/Benchmark/MarketData exist in the
-// schema but aren't populated yet — keep examples off them.
+// (issuance). Position carries cost_basis, current_value and currency, so
+// gains and allocation are computed in Cypher. Sums count only marked
+// positions (current_value set) and never add across currencies.
+// Security.ticker, Trade, Benchmark and MarketData exist in the schema but
+// aren't populated yet — keep examples off them.
 
 const ROBOINVESTOR_EXAMPLE_SET: GraphExampleSet = {
   subtitle: 'AI analyst for your investment portfolios',
@@ -265,47 +267,55 @@ const ROBOINVESTOR_EXAMPLE_SET: GraphExampleSet = {
   directQueryExamples: [
     'MATCH (p:Portfolio) RETURN p.name, p.strategy, p.base_currency',
     'MATCH (p:Portfolio)-[:PORTFOLIO_HAS_POSITION]->(pos:Position) RETURN p.name, count(pos) AS positions ORDER BY positions DESC',
-    'MATCH (s:Security) RETURN s.ticker, s.name, s.security_type LIMIT 20',
+    'MATCH (s:Security) RETURN s.name, s.security_type, s.security_subtype LIMIT 20',
   ],
   sampleQueries: [
     {
       name: 'Portfolio value',
       query: `MATCH (p:Portfolio)-[:PORTFOLIO_HAS_POSITION]->(pos:Position)
+WHERE pos.current_value IS NOT NULL
 RETURN p.name,
-       count(pos) AS positions,
-       sum(pos.cost_basis) AS total_cost,
-       sum(pos.current_value) AS total_value
-ORDER BY total_value DESC`,
+       pos.currency AS currency,
+       count(pos) AS marked_positions,
+       sum(pos.current_value) AS total_value,
+       count(pos.cost_basis) AS positions_with_cost,
+       sum(pos.cost_basis) AS total_cost
+ORDER BY p.name, currency`,
     },
     {
       name: 'Holdings by current value',
       query: `MATCH (p:Portfolio)-[:PORTFOLIO_HAS_POSITION]->(pos:Position)-[:POSITION_IN_SECURITY]->(s:Security)
-RETURN p.name, s.ticker, s.name, pos.quantity, pos.cost_basis, pos.current_value
-ORDER BY pos.current_value DESC
+WHERE pos.current_value IS NOT NULL
+RETURN p.name, s.name, pos.quantity, pos.currency AS currency,
+       pos.cost_basis, pos.current_value
+ORDER BY currency, pos.current_value DESC
 LIMIT 25`,
     },
     {
       name: 'Unrealized gains',
       query: `MATCH (p:Portfolio)-[:PORTFOLIO_HAS_POSITION]->(pos:Position)-[:POSITION_IN_SECURITY]->(s:Security)
 WHERE pos.cost_basis IS NOT NULL AND pos.current_value IS NOT NULL
-RETURN s.ticker, s.name, pos.cost_basis, pos.current_value,
+RETURN p.name, s.name, pos.currency AS currency,
+       pos.cost_basis, pos.current_value,
        pos.current_value - pos.cost_basis AS unrealized_gain
-ORDER BY unrealized_gain DESC
+ORDER BY currency, unrealized_gain DESC
 LIMIT 20`,
     },
     {
       name: 'Allocation by security type',
       query: `MATCH (pos:Position)-[:POSITION_IN_SECURITY]->(s:Security)
-RETURN s.security_type,
-       count(pos) AS positions,
+WHERE pos.current_value IS NOT NULL
+RETURN pos.currency AS currency,
+       s.security_type,
+       count(pos) AS marked_positions,
        sum(pos.current_value) AS total_value
-ORDER BY total_value DESC`,
+ORDER BY currency, total_value DESC`,
     },
     {
       name: 'Securities issued by entity',
       query: `MATCH (e:Entity)-[:ENTITY_ISSUES_SECURITY]->(s:Security)
-RETURN e.name, s.ticker, s.name, s.security_type
-ORDER BY s.ticker
+RETURN e.name, s.name, s.security_type, s.security_subtype
+ORDER BY e.name, s.name
 LIMIT 25`,
     },
   ],
