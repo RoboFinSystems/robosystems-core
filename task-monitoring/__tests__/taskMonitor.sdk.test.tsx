@@ -98,12 +98,39 @@ describe('TaskMonitor.pollTask', () => {
     net.setHandler(() => statusIs('in_progress'))
     await expect(
       monitor.pollTask({ taskId: OP, pollInterval: 1, maxAttempts: 3 })
-    ).rejects.toThrow('Task polling timeout after 3 attempts')
+    ).rejects.toThrow(/still in progress after 3 checks/)
 
     net.setHandler(() => statusIs('weird'))
     await expect(
       monitor.pollTask({ taskId: OP, pollInterval: 1, maxAttempts: 2 })
     ).rejects.toThrow('Unknown task status: weird')
+  })
+
+  it('treats the API statuses running and awaiting_input as in progress', async () => {
+    net.setHandler(
+      sequence(
+        () => statusIs('running'),
+        () => statusIs('awaiting_input'),
+        () => statusIs('completed')
+      )
+    )
+    const onProgress = vi.fn()
+    const result = await monitor.pollTask({
+      taskId: OP,
+      pollInterval: 1,
+      onProgress,
+    })
+    expect(result.status).toBe('completed')
+    expect(onProgress).toHaveBeenCalledTimes(2)
+  })
+
+  it('says plainly that a task outlasting the poll budget is still running', async () => {
+    net.setHandler(() => statusIs('running'))
+    const err = await monitor
+      .pollTask({ taskId: OP, pollInterval: 1, maxAttempts: 2 })
+      .catch((e) => e as Error)
+    expect(err.message).not.toMatch(/Unknown task status/)
+    expect(err.message).toMatch(/still running/i)
   })
 
   it('rides out a transient 502 and a dropped connection', async () => {

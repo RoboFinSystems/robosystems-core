@@ -7,6 +7,15 @@ const DEFAULT_MAX_CONSECUTIVE_ERRORS = 5
 /** Upper bound on the backoff between status reads after a failure. */
 const MAX_ERROR_BACKOFF_MS = 30 * 1000
 
+/** Statuses of an operation that has not finished (API `OperationStatus`). */
+const NON_TERMINAL_STATUSES = new Set<string>([
+  'pending',
+  'running',
+  'awaiting_input',
+  'in_progress',
+  'retrying',
+])
+
 /** Rejection message when watching stopped locally (`stopPolling`). */
 export const POLLING_CANCELLED = 'Task polling was cancelled'
 
@@ -128,15 +137,15 @@ export class TaskMonitor {
             return
 
           default:
-            // pending / in_progress / retrying, and any unknown status
+            // Non-terminal: the API's pending / running / awaiting_input,
+            // older in_progress / retrying, and any status added later.
             onProgress?.(status)
             if (attempts >= maxAttempts) {
               fail(
                 new Error(
-                  status.status === 'pending' ||
-                    status.status === 'in_progress' ||
-                    status.status === 'retrying'
-                    ? `Task polling timeout after ${attempts} attempts`
+                  NON_TERMINAL_STATUSES.has(status.status)
+                    ? `Task is still ${status.status.replace(/_/g, ' ')} after ${attempts} checks. ` +
+                        'It continues on the server; check back later.'
                     : `Unknown task status: ${status.status}`
                 )
               )
