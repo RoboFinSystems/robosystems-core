@@ -109,6 +109,9 @@ describe('SessionWarningDialog', () => {
       await waitFor(() => {
         expect(mockLogout).toHaveBeenCalledTimes(1)
       })
+      // A lapsed session, not a manual logout: the login page explains it,
+      // and a product app does not chain through the login home's /logout.
+      expect(mockLogout).toHaveBeenCalledWith('session_expired')
     })
 
     it('should not logout if countdown is stopped before reaching 0', () => {

@@ -624,6 +624,94 @@ describe('ConsoleContent', () => {
       })
     })
 
+    const onGraph = (id: string) =>
+      createGraphContext({
+        state: {
+          graphs: [{ graphId: 'test-graph-id' }, { graphId: 'other-graph' }],
+          isLoading: false,
+          currentGraphId: id,
+        },
+      })
+
+    it('resets again when switching back to a graph it has already left', async () => {
+      const { rerender } = render(<ConsoleContent config={TEST_CONFIG} />)
+      await waitFor(() => {
+        expect(
+          screen.getAllByText(/Graph: test-graph-id/).length
+        ).toBeGreaterThan(0)
+      })
+
+      mockUseGraphContext.mockReturnValue(onGraph('other-graph'))
+      rerender(<ConsoleContent config={TEST_CONFIG} />)
+      await waitFor(() => {
+        expect(
+          screen.getByText(/context changed: test-graph-id → other-graph/)
+        ).toBeInTheDocument()
+      })
+
+      mockUseGraphContext.mockReturnValue(onGraph('test-graph-id'))
+      rerender(<ConsoleContent config={TEST_CONFIG} />)
+      await waitFor(() => {
+        expect(
+          screen.getByText(/context changed: other-graph → test-graph-id/)
+        ).toBeInTheDocument()
+      })
+      expect(screen.queryByText(/test-graph-id → other-graph/)).toBeNull()
+    })
+
+    it('drops an operator answer that lands after the graph changed', async () => {
+      let answer: (value: unknown) => void = () => undefined
+      mockOperatorExecuteQuery.mockImplementationOnce(
+        () => new Promise((resolve) => (answer = resolve)) as any
+      )
+      mockOperatorExecuteQuery.mockResolvedValue({
+        content: 'Answer for the second graph.',
+        operator_used: 'cypher',
+        mode_used: 'standard',
+      })
+
+      const { rerender } = render(<ConsoleContent config={TEST_CONFIG} />)
+      const input = screen.getByPlaceholderText(
+        'Type a question, /query <cypher>, or /help...'
+      )
+      fireEvent.change(input, { target: { value: 'How many nodes?' } })
+      fireEvent.keyDown(input, { key: 'Enter' })
+      await waitFor(() => {
+        expect(mockOperatorExecuteQuery).toHaveBeenCalledTimes(1)
+      })
+
+      // Switch graphs while the first question is still running, then let
+      // its answer arrive.
+      mockUseGraphContext.mockReturnValue(onGraph('other-graph'))
+      rerender(<ConsoleContent config={TEST_CONFIG} />)
+      await waitFor(() => {
+        expect(screen.getByText(/context changed/)).toBeInTheDocument()
+      })
+      answer({
+        content: 'Forty-two nodes on the first graph.',
+        operator_used: 'cypher',
+        mode_used: 'standard',
+      })
+      await new Promise((r) => setTimeout(r, 20))
+      expect(
+        screen.queryByText(/Forty-two nodes on the first graph/)
+      ).toBeNull()
+
+      // And it was not recorded as history for the new graph.
+      const freshInput = screen.getByPlaceholderText(
+        'Type a question, /query <cypher>, or /help...'
+      )
+      fireEvent.change(freshInput, { target: { value: 'And here?' } })
+      fireEvent.keyDown(freshInput, { key: 'Enter' })
+      await waitFor(() => {
+        expect(mockOperatorExecuteQuery).toHaveBeenCalledTimes(2)
+      })
+      expect(mockOperatorExecuteQuery.mock.calls[1][1]).toEqual({
+        message: 'And here?',
+        mode: 'standard',
+      })
+    })
+
     it('renders an operator failure envelope as an error, not an answer', async () => {
       // The API reports pre-flight and runtime operator failures as HTTP 200
       // with error_details set; the console must not present the

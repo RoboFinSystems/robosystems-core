@@ -37,16 +37,23 @@ const sanitizeReturnUrl = (returnUrl: string | null): string | null => {
 
 export interface SSORedirectUrlOptions {
   /**
-   * Mirror the target app / return URL into this tab's sessionStorage as a
-   * same-domain fallback for `handleSSOLogin`. Default true.
-   *
-   * Pass false when the URL is being handed to a *different* tab: the hints
-   * are unreadable there (separate tab, separate origin) and would linger in
-   * this tab, where a later same-tab SSO completion with no `returnUrl`
-   * param would pick up the stale path and redirect somewhere the user
-   * never asked to go.
+   * @deprecated No effect. The return path travels only in the handoff URL;
+   * a sessionStorage copy was never readable by the target app (every app is
+   * its own origin) and misrouted later handoffs into the *source* app.
    */
   persistSessionHints?: boolean
+}
+
+/** Keys an older version wrote; cleared on every handoff completion. */
+const LEGACY_SSO_HINT_KEYS = ['sso_target_app', 'sso_return_url']
+
+const clearLegacySsoHints = () => {
+  try {
+    for (const key of LEGACY_SSO_HINT_KEYS) sessionStorage.removeItem(key)
+  } catch (error) {
+    // Storage access error - continue silently
+    debugLog('sessionStorage cleanup failed', error)
+  }
 }
 
 export class SSOManager {
@@ -80,9 +87,8 @@ export class SSOManager {
   async getSSORedirectUrl(
     targetApp: string,
     returnUrl?: string,
-    options: SSORedirectUrlOptions = {}
+    _options: SSORedirectUrlOptions = {}
   ): Promise<string> {
-    const { persistSessionHints = true } = options
     const ssoData = await this.generateSSOToken()
     const appConfig = APP_CONFIGS[targetApp]
 
@@ -105,20 +111,6 @@ export class SSOManager {
       url.searchParams.set('returnUrl', returnUrl)
     }
 
-    // Store only non-sensitive metadata in sessionStorage as backup for same-domain cases
-    // Note: We avoid storing the session_id in sessionStorage for security
-    if (persistSessionHints) {
-      try {
-        sessionStorage.setItem('sso_target_app', targetApp)
-        if (returnUrl) {
-          sessionStorage.setItem('sso_return_url', returnUrl)
-        }
-      } catch (error) {
-        // Storage error - continue without backup storage
-        debugLog('sessionStorage write failed during SSO URL generation', error)
-      }
-    }
-
     return url.toString()
   }
 
@@ -129,20 +121,12 @@ export class SSOManager {
     // Check for session ID from URL parameters (cross-domain compatible)
     const urlParams = new URLSearchParams(window.location.search)
     const sessionId = urlParams.get('session_id')
+    // The return path comes only from the handoff URL. With none, the
+    // caller's own default landing applies.
     const returnUrl = urlParams.get('returnUrl')
 
-    // Check sessionStorage for return URL fallback (same-domain case)
-    // Note: We don't store session_id in sessionStorage for security
-    let sessionStorageReturn: string | null = null
-    try {
-      sessionStorageReturn = sessionStorage.getItem('sso_return_url')
-    } catch (error) {
-      // Storage access error - continue without fallback
-      debugLog('sessionStorage read failed during SSO login', error)
-    }
-
     const finalSessionId = sessionId // Only use URL parameter for session ID
-    const finalReturnUrl = sanitizeReturnUrl(returnUrl || sessionStorageReturn)
+    const finalReturnUrl = sanitizeReturnUrl(returnUrl)
 
     if (!finalSessionId) {
       return null
@@ -161,14 +145,7 @@ export class SSOManager {
         window.history.replaceState({}, '', newUrl.toString())
       }
 
-      // Clean up session storage
-      try {
-        sessionStorage.removeItem('sso_target_app')
-        sessionStorage.removeItem('sso_return_url')
-      } catch (error) {
-        // Storage access error - continue silently
-        debugLog('sessionStorage cleanup failed during SSO success', error)
-      }
+      clearLegacySsoHints()
 
       // Handle return URL if provided
       if (finalReturnUrl && finalReturnUrl !== window.location.pathname) {
@@ -188,13 +165,7 @@ export class SSOManager {
         window.history.replaceState({}, '', newUrl.toString())
       }
 
-      try {
-        sessionStorage.removeItem('sso_target_app')
-        sessionStorage.removeItem('sso_return_url')
-      } catch (error) {
-        // Storage access error - continue silently
-        debugLog('sessionStorage cleanup failed during SSO error', error)
-      }
+      clearLegacySsoHints()
 
       // Log errors for monitoring in production (sanitized)
       if (process.env.NODE_ENV === 'development') {
@@ -300,20 +271,6 @@ export class SSOManager {
       targetUrl.searchParams.set('session_id', exchangeResult.session_id)
       if (returnUrl) {
         targetUrl.searchParams.set('returnUrl', returnUrl)
-      }
-
-      // Store only non-sensitive metadata in sessionStorage as backup for same-domain cases
-      // Note: We avoid storing the session_id in sessionStorage for security
-      if (typeof window !== 'undefined') {
-        try {
-          sessionStorage.setItem('sso_target_app', targetApp)
-          if (returnUrl) {
-            sessionStorage.setItem('sso_return_url', returnUrl)
-          }
-        } catch (error) {
-          // Storage error - continue without backup storage
-          debugLog('sessionStorage write failed during SSO navigation', error)
-        }
       }
 
       // Navigate to target app

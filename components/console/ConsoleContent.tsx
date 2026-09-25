@@ -70,6 +70,11 @@ export function ConsoleContent({ config }: { config: ConsoleConfig }) {
   const { state: graphState } = useGraphContext()
   const graphId = graphState.currentGraphId
   const streamingQuery = useStreamingQuery()
+  // The graph the console is on right now, readable after an await: an
+  // answer for a graph the user has since left must not be printed (or
+  // recorded as history) under the new graph.
+  const currentGraphRef = useRef(graphId)
+  currentGraphRef.current = graphId
 
   // Terminal state
   const [terminalMessages, setTerminalMessages] = useState<TerminalMessage[]>(
@@ -240,9 +245,14 @@ export function ConsoleContent({ config }: { config: ConsoleConfig }) {
     if (!graphId) return
 
     if (previousGraphId.current && previousGraphId.current !== graphId) {
-      if (streamingQuery.isStreaming) {
-        streamingQuery.cancelQuery()
-      }
+      const fromGraphId = previousGraphId.current
+      previousGraphId.current = graphId
+
+      // Stop any stream still running for the previous graph; its rows must
+      // not land under the new graph's banner.
+      streamingQuery.cancelQuery()
+      operatorProgressMessageId.current = null
+      setOperatorProgress({ isRunning: false, message: '' })
 
       setTerminalMessages([])
       // A follow-up on the new graph must not resolve against the previous
@@ -251,7 +261,7 @@ export function ConsoleContent({ config }: { config: ConsoleConfig }) {
       setCurrentQueryStartTime(null)
       addSystemMessage(
         `═══════════════════════════════════════════════════════════════\n` +
-          `${config.welcome.contextLabel} context changed: ${previousGraphId.current} → ${graphId}\n` +
+          `${config.welcome.contextLabel} context changed: ${fromGraphId} → ${graphId}\n` +
           `═══════════════════════════════════════════════════════════════\n\n` +
           `Console has been reset for the new ${config.welcome.contextLabel.toLowerCase()} context.\n` +
           `All queries will now execute against: ${graphId}\n\n` +
@@ -399,6 +409,8 @@ export function ConsoleContent({ config }: { config: ConsoleConfig }) {
     try {
       const { clients } = await import('@robosystems/client/clients')
 
+      const requestGraphId = graphId
+      const isStale = () => currentGraphRef.current !== requestGraphId
       const history = conversationRef.current
       const result = await clients.operator.executeQuery(
         graphId,
@@ -412,6 +424,7 @@ export function ConsoleContent({ config }: { config: ConsoleConfig }) {
         {
           mode: 'auto',
           onProgress: (message: string, percentage?: number) => {
+            if (isStale()) return
             setOperatorProgress({
               isRunning: true,
               message,
@@ -420,6 +433,11 @@ export function ConsoleContent({ config }: { config: ConsoleConfig }) {
           },
         }
       )
+
+      // The user switched graphs while the operator ran: the reset already
+      // cleared the console, so drop the answer rather than print it (and
+      // record it as history) under the new graph.
+      if (isStale()) return
 
       setOperatorProgress({ isRunning: false, message: '' })
 
@@ -517,6 +535,7 @@ export function ConsoleContent({ config }: { config: ConsoleConfig }) {
         addResultMessage(footer, rows, cypher)
       }
     } catch (error: any) {
+      if (currentGraphRef.current !== graphId) return
       setOperatorProgress({ isRunning: false, message: '' })
 
       const errorMessage =

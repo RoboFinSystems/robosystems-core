@@ -68,7 +68,10 @@ export function SignUpForm({
   const [invitation, setInvitation] = useState<InvitationPreview | null>(null)
   const [inviteChecked, setInviteChecked] = useState(!inviteToken)
   const debounceRef = useRef<NodeJS.Timeout | null>(null)
-  const authClientRef = useRef(new RoboSystemsAuthClient(apiUrl))
+  // `useState`'s initializer runs once; `useRef(new …)` would construct a
+  // client on every render.
+  const [authClient] = useState(() => new RoboSystemsAuthClient(apiUrl))
+  const authClientRef = useRef(authClient)
 
   // Resolve the invitation before the form is usable. A token that no longer
   // resolves (revoked, expired, already accepted) degrades to ordinary

@@ -192,14 +192,9 @@ describe('SSOManager', () => {
       expect(result).toBe(
         'https://app1.example.com/login?session_id=session-123&returnUrl=https%3A%2F%2Fexample.com%2Fdashboard'
       )
-      expect(mockSessionStorage.setItem).toHaveBeenCalledWith(
-        'sso_target_app',
-        'app1'
-      )
-      expect(mockSessionStorage.setItem).toHaveBeenCalledWith(
-        'sso_return_url',
-        'https://example.com/dashboard'
-      )
+      // The return path travels only in the URL; no hint is left in this
+      // tab for a later handoff to misread.
+      expect(mockSessionStorage.setItem).not.toHaveBeenCalled()
     })
 
     it('should handle sessionStorage errors gracefully', async () => {
@@ -228,10 +223,7 @@ describe('SSOManager', () => {
         expect(result).toBe(
           'https://app1.example.com/login?session_id=session-123'
         )
-        expect(consoleSpy).toHaveBeenCalledWith(
-          '[SSO] sessionStorage write failed during SSO URL generation',
-          expect.any(Error)
-        )
+        expect(mockSessionStorage.setItem).not.toHaveBeenCalled()
 
         consoleSpy.mockRestore()
       })
@@ -380,10 +372,11 @@ describe('SSOManager', () => {
       expect(window.location.href).toBe('/dashboard')
     })
 
-    it('should handle sessionStorage fallback for return URL', async () => {
+    it('ignores a sessionStorage return hint left by an earlier handoff', async () => {
       // Mock URL without returnUrl param
       window.location.search = '?session_id=session-123'
       syncLocationHref()
+      const hrefBeforeLogin = window.location.href
 
       const mockAuthClient = createMockAuthClient()
       mockAuthClient.ssoComplete.mockResolvedValue({
@@ -395,9 +388,11 @@ describe('SSOManager', () => {
       const result = await ssoManager.handleSSOLogin()
 
       expect(result).toEqual(mockUser)
-      expect(mockSessionStorage.getItem).toHaveBeenCalledWith('sso_return_url')
+      expect(mockSessionStorage.getItem).not.toHaveBeenCalledWith(
+        'sso_return_url'
+      )
       vi.advanceTimersByTime(100)
-      expect(window.location.href).toBe('/fallback')
+      expect(window.location.href).toBe(hrefBeforeLogin)
     })
 
     // A crafted SSO link controls `returnUrl` outright, so anything that isn't
@@ -466,10 +461,7 @@ describe('SSOManager', () => {
         const result = await ssoManager.handleSSOLogin()
 
         expect(result).toEqual(mockUser)
-        expect(consoleSpy).toHaveBeenCalledWith(
-          '[SSO] sessionStorage read failed during SSO login',
-          expect.any(Error)
-        )
+        expect(mockSessionStorage.getItem).not.toHaveBeenCalled()
 
         consoleSpy.mockRestore()
       })
@@ -534,7 +526,7 @@ describe('SSOManager', () => {
 
         expect(result).toEqual(mockUser)
         expect(consoleSpy).toHaveBeenCalledWith(
-          '[SSO] sessionStorage cleanup failed during SSO success',
+          '[SSO] sessionStorage cleanup failed',
           expect.any(Error)
         )
 

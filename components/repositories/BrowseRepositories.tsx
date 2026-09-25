@@ -26,6 +26,7 @@ import { useGraphContext } from '../../contexts/graph-context'
 import { useOrg } from '../../contexts/org-context'
 import { useServiceOfferings } from '../../contexts/service-offerings-context'
 import { useToast } from '../../hooks/use-toast'
+import { unwrapSdk } from '../../lib/sdk-errors'
 import { useRepositorySubscription } from '../../task-monitoring/operationHooks'
 
 // Use the SDK type directly - id field contains the subscription ID
@@ -69,6 +70,9 @@ export function BrowseRepositories({
     SubscriptionInfo[]
   >([])
   const [loading, setLoading] = useState(true)
+  // A failed subscription read must not render as "no subscriptions": that
+  // offers Subscribe on repositories the org already holds.
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [subscribing, setSubscribing] = useState<string | null>(null)
   const [changingPlan, setChangingPlan] = useState(false)
   const [planChangeModal, setPlanChangeModal] = useState<{
@@ -96,16 +100,17 @@ export function BrowseRepositories({
 
     try {
       setLoading(true)
+      setLoadError(null)
 
       // Load org subscriptions and filter for repositories
-      const subscriptionsResponse = await SDK.listOrgSubscriptions({
-        path: { org_id: currentOrg.id },
-      })
+      const subscriptions = unwrapSdk(
+        await SDK.listOrgSubscriptions({
+          path: { org_id: currentOrg.id },
+        })
+      )
 
-      if (subscriptionsResponse.data) {
-        const repositorySubscriptions = (
-          subscriptionsResponse.data || []
-        ).filter(
+      if (subscriptions) {
+        const repositorySubscriptions = (subscriptions || []).filter(
           (sub: SDK.GraphSubscriptionResponse) =>
             sub.resource_type === 'repository'
         )
@@ -115,7 +120,12 @@ export function BrowseRepositories({
       }
     } catch (error) {
       console.error('Failed to load user subscriptions:', error)
-      showError('Failed to load user subscriptions')
+      const message =
+        error instanceof Error && error.message
+          ? `Failed to load subscriptions: ${error.message}`
+          : 'Failed to load subscriptions'
+      setLoadError(message)
+      showError(message)
     } finally {
       setLoading(false)
     }
@@ -235,6 +245,22 @@ export function BrowseRepositories({
     return (
       <div className="flex min-h-[400px] items-center justify-center">
         <Spinner size="xl" />
+      </div>
+    )
+  }
+
+  if (loadError) {
+    return (
+      <div className="space-y-6">
+        <ToastContainer />
+        <Card>
+          <div className="flex flex-col items-center gap-4 py-8 text-center">
+            <p className="text-zinc-700 dark:text-zinc-300">{loadError}</p>
+            <Button color="gray" onClick={() => loadData()}>
+              Try again
+            </Button>
+          </div>
+        </Card>
       </div>
     )
   }

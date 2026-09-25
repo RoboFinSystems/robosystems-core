@@ -7,6 +7,7 @@ export * as AuthCore from './auth-core'
 export {
   clearToken,
   getAuthHeader,
+  getRefreshToken,
   getToken,
   getValidToken,
   handleAuthResponse,
@@ -89,6 +90,19 @@ export {
   type McpConnectorUrl,
   type SidebarCookie,
 } from './lib'
+
+// Export the SDK error seam (unwrap an SDK result or throw ApiError)
+export {
+  ApiError,
+  errorStatus,
+  extractErrorDetail,
+  isApiError,
+  isSessionRejection,
+  isTransientError,
+  toApiError,
+  unwrapSdk,
+  type SdkResult,
+} from './lib/sdk-errors'
 
 // Export utils
 export { generateEntityUri, isUUID, UUID_REGEX } from './utils'

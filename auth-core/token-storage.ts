@@ -18,6 +18,26 @@ export interface TokenData {
 export type TokenStatus = 'valid' | 'warning' | 'expired'
 
 /**
+ * How long past its local expiry a token is kept. The API renews a
+ * recently-expired token at `/v1/auth/refresh` within this window, so the
+ * token must survive locally until then — for the refresh call only. Data
+ * calls stop sending it at expiry.
+ */
+export const TOKEN_REFRESH_GRACE_MS = 5 * 60 * 1000
+
+function readExpiry(): number | null {
+  const expiryStr = localStorage.getItem(TOKEN_EXPIRY_KEY)
+  if (!expiryStr) return null
+  const expiry = parseInt(expiryStr, 10)
+  return Number.isFinite(expiry) ? expiry : null
+}
+
+/** Past expiry *and* the refresh grace: nothing can use it any more. */
+function isPastGrace(expiry: number | null): boolean {
+  return expiry !== null && Date.now() > expiry + TOKEN_REFRESH_GRACE_MS
+}
+
+/**
  * Store JWT token in localStorage
  * @param token - The JWT token from login response
  * @param expiresIn - Optional expiry time in seconds (default 30 minutes)
@@ -62,17 +82,14 @@ export function getToken(): string | null {
 
   try {
     const token = localStorage.getItem(TOKEN_KEY)
-    const expiryStr = localStorage.getItem(TOKEN_EXPIRY_KEY)
-
     if (!token) return null
 
-    // Check if token is expired
-    if (expiryStr) {
-      const expiry = parseInt(expiryStr, 10)
-      if (Date.now() > expiry) {
-        clearToken()
-        return null
-      }
+    // An expired token is not sent on data calls, but it is kept until the
+    // refresh grace runs out so `getRefreshToken` can still renew it.
+    const expiry = readExpiry()
+    if (expiry !== null && Date.now() > expiry) {
+      if (isPastGrace(expiry)) clearToken()
+      return null
     }
 
     return token
@@ -186,21 +203,28 @@ export function handleAuthResponse(response: any): void {
  * @returns Valid token or null if expired
  */
 export async function getValidToken(): Promise<string | null> {
-  const token = getToken()
-  if (!token) return null
+  return getToken()
+}
 
-  // Just check if token is expired - let backend handle refresh
-  const expiryStr = localStorage.getItem(TOKEN_EXPIRY_KEY)
-  if (expiryStr) {
-    const expiry = parseInt(expiryStr, 10)
-    if (Date.now() > expiry) {
-      // Token is expired, clear it and let AuthProvider handle re-auth
+/**
+ * The token to present to `/v1/auth/refresh`: the stored token while it is
+ * unexpired or within the server's refresh grace after expiry, else null.
+ */
+export function getRefreshToken(): string | null {
+  if (typeof window === 'undefined') return null
+
+  try {
+    const token = localStorage.getItem(TOKEN_KEY)
+    if (!token) return null
+    if (isPastGrace(readExpiry())) {
       clearToken()
       return null
     }
+    return token
+  } catch (error) {
+    console.error('[TokenStorage] Failed to retrieve refresh token:', error)
+    return null
   }
-
-  return token
 }
 
 /**

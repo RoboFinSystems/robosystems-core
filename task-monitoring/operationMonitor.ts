@@ -49,12 +49,25 @@ export interface OperationMonitorOptions {
   onComplete?: (result: any) => void
   onError?: (error: string) => void
   onEvent?: (event: OperationEvent) => void
-  timeout?: number // milliseconds, default 5 minutes
+  /**
+   * Give up watching after this many milliseconds. No default: an operation
+   * runs as long as it runs (backups, large graph creations), and a monitor
+   * that times out reports a failure for work that is still succeeding.
+   */
+  timeout?: number
+}
+
+/** Error message on a result whose monitoring was stopped locally. */
+export const MONITORING_STOPPED = 'Monitoring stopped'
+
+interface ActiveOperation {
+  client: { closeAll: () => void }
+  stop: () => void
 }
 
 export class OperationMonitor {
   private static instance: OperationMonitor
-  private activeOperations = new Map<string, EventSource>()
+  private activeOperations = new Map<string, ActiveOperation>()
   private operationResults = new Map<string, OperationResult>()
 
   static getInstance(): OperationMonitor {
@@ -73,7 +86,7 @@ export class OperationMonitor {
     onComplete,
     onError,
     onEvent,
-    timeout = 300000, // 5 minutes default
+    timeout,
   }: OperationMonitorOptions): Promise<OperationResult> {
     // Get SDK extensions at runtime
     const sdkExtensions = await getSDKExtensions()
@@ -99,21 +112,20 @@ export class OperationMonitor {
   }
 
   /**
-   * Cancel operation monitoring (does not cancel the operation itself)
+   * Stop monitoring an operation: closes its stream and settles its
+   * `monitorOperation` promise with `status: 'cancelled'` and
+   * `error: MONITORING_STOPPED`. Does not cancel the operation itself.
    */
   cancelOperation(operationId: string): boolean {
+    const active = this.activeOperations.get(operationId)
+    if (!active) return false
+    this.activeOperations.delete(operationId)
     try {
-      const eventSource = this.activeOperations.get(operationId)
-      if (eventSource) {
-        eventSource.close()
-        this.activeOperations.delete(operationId)
-        return true
-      }
-      return false
+      active.stop()
     } catch (error) {
-      console.error('Failed to cancel operation:', error)
-      return false
+      console.error('Failed to stop operation monitoring:', error)
     }
+    return true
   }
 
   /**
@@ -133,11 +145,7 @@ export class OperationMonitor {
    * Clean up operation monitoring resources
    */
   private cleanupOperation(operationId: string): void {
-    const eventSource = this.activeOperations.get(operationId)
-    if (eventSource) {
-      eventSource.close()
-      this.activeOperations.delete(operationId)
-    }
+    this.cancelOperation(operationId)
   }
 
   /**
@@ -148,29 +156,52 @@ export class OperationMonitor {
     sdkExtensions: any
   ): Promise<OperationResult> {
     const { OperationClient, extractTokenFromSDKClient } = sdkExtensions
-    const { getToken } = await import('../auth-core/token-storage')
+    const { getToken, getValidToken } =
+      await import('../auth-core/token-storage')
     const config = client.getConfig()
 
-    const jwtToken = getToken() || extractTokenFromSDKClient()
-
-    // Create operation client with proper configuration
+    // One client per operation, tracked so `cancelOperation` can close it.
+    // The credential is resolved per connect (`tokenProvider`), so a stream
+    // that reconnects after the JWT rotates presents the current token; the
+    // static `token` only serves SDK versions that predate the provider.
     const operationClient = new OperationClient({
       baseUrl: config.baseUrl || 'http://localhost:8000',
       credentials: 'include',
-      token: jwtToken,
+      token: getToken() || extractTokenFromSDKClient?.() || undefined,
+      tokenProvider: async () => (await getValidToken()) ?? null,
       maxRetries: 3,
       retryDelay: 1000,
     })
 
+    const previous = this.activeOperations.get(options.operationId)
+    if (previous) this.cancelOperation(options.operationId)
+
+    let stopped = false
+    let stopMonitoring: () => void = () => undefined
+    const stoppedPromise = new Promise<null>((resolve) => {
+      stopMonitoring = () => {
+        stopped = true
+        resolve(null)
+      }
+    })
+    const entry: ActiveOperation = {
+      client: operationClient,
+      stop: () => {
+        stopMonitoring()
+        operationClient.closeAll()
+      },
+    }
+    this.activeOperations.set(options.operationId, entry)
+
     try {
-      const result = await operationClient.monitorOperation(
-        options.operationId,
-        {
+      const result = await Promise.race([
+        operationClient.monitorOperation(options.operationId, {
           onProgress: (progress: {
             progressPercent?: number
             message?: string
             details?: { current_step?: number; total_steps?: number }
           }) => {
+            if (stopped) return
             options.onProgress?.({
               percent: progress.progressPercent || 0,
               message: progress.message || '',
@@ -179,14 +210,25 @@ export class OperationMonitor {
             })
           },
           onEvent: (event: { type: string; data: any }) => {
+            if (stopped) return
             options.onEvent?.({
               event: event.type,
               data: event.data,
             })
           },
           timeout: options.timeout,
+        }),
+        stoppedPromise,
+      ])
+
+      if (result === null) {
+        // Stopped locally: report it without firing the outcome callbacks.
+        return {
+          operation_id: options.operationId,
+          status: 'cancelled',
+          error: MONITORING_STOPPED,
         }
-      )
+      }
 
       // Map OperationResult (success: boolean) to status string
       const status: OperationStatus = result.success
@@ -217,6 +259,9 @@ export class OperationMonitor {
 
       return normalizedResult
     } finally {
+      if (this.activeOperations.get(options.operationId) === entry) {
+        this.activeOperations.delete(options.operationId)
+      }
       operationClient.closeAll()
     }
   }
@@ -225,10 +270,9 @@ export class OperationMonitor {
    * Clean up all active operations
    */
   cleanup(): void {
-    for (const [, eventSource] of this.activeOperations.entries()) {
-      eventSource.close()
+    for (const operationId of Array.from(this.activeOperations.keys())) {
+      this.cancelOperation(operationId)
     }
-    this.activeOperations.clear()
   }
 
   /**

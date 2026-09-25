@@ -7,8 +7,10 @@ import React, {
   useCallback,
   useContext,
   useEffect,
+  useRef,
   useState,
 } from 'react'
+import { unwrapSdk } from '../lib/sdk-errors'
 
 // Generic graph state that can be extended by apps
 export interface GraphState {
@@ -64,6 +66,10 @@ export function createGraphProvider<T extends GraphState = GraphState>(
       error: null,
     })
 
+    // Latest graph list, readable synchronously from callbacks
+    const graphsRef = useRef(baseState.graphs)
+    graphsRef.current = baseState.graphs
+
     // Transform state if needed
     const state = transformState ? transformState(baseState) : (baseState as T)
 
@@ -73,9 +79,10 @@ export function createGraphProvider<T extends GraphState = GraphState>(
 
       try {
         const response = await SDK.getGraphs()
+        const data = unwrapSdk(response)
 
-        if (response.data) {
-          const graphsData = response.data as any
+        if (data) {
+          const graphsData = data as any
           let graphs = graphsData.graphs || []
 
           // Apply optional filter
@@ -91,6 +98,10 @@ export function createGraphProvider<T extends GraphState = GraphState>(
             selectedGraphId && graphIds.includes(selectedGraphId)
               ? selectedGraphId
               : null
+
+          // Visible to setCurrentGraph before the next render: a caller that
+          // awaits refreshGraphs() and then selects the new graph must find it.
+          graphsRef.current = graphs
 
           setBaseState((prev) => {
             // Determine which graph should be selected
@@ -117,6 +128,8 @@ export function createGraphProvider<T extends GraphState = GraphState>(
               isLoading: false,
             }
           })
+        } else {
+          throw new Error('Empty response from the graph list endpoint')
         }
       } catch (error) {
         console.error('Failed to load graphs:', error)
@@ -132,25 +145,26 @@ export function createGraphProvider<T extends GraphState = GraphState>(
     const setCurrentGraph = useCallback(
       async (graphId: string) => {
         try {
-          // Use functional setState to access current graphs and determine if repository
-          let isUserGraph = false
-          setBaseState((prev) => {
-            const graph = prev.graphs.find((g) => g.graphId === graphId)
-            // Only treat as a user graph if found and NOT a repository
-            isUserGraph = graph ? !graph.isRepository : false
-            return {
-              ...prev,
-              currentGraphId: graphId,
-            }
-          })
+          // Decide from the current graph list, not inside a state updater:
+          // React may defer the updater, which left the flag unset and
+          // skipped the API call.
+          const graph = graphsRef.current.find((g) => g.graphId === graphId)
+          // Only treat as a user graph if found and NOT a repository
+          const isUserGraph = graph ? !graph.isRepository : false
+          setBaseState((prev) => ({
+            ...prev,
+            currentGraphId: graphId,
+          }))
 
           // Only call selectGraph API for user graphs, not repositories
           // Repositories can be accessed but not "selected" in the backend
           // If graph is not found in local state, skip the API call (likely a repository)
           if (isUserGraph) {
-            await SDK.selectGraph({
-              path: { graph_id: graphId },
-            })
+            unwrapSdk(
+              await SDK.selectGraph({
+                path: { graph_id: graphId },
+              })
+            )
           }
         } catch (error) {
           console.error('Failed to select graph via API:', error)

@@ -2,7 +2,8 @@
 
 import * as SDK from '@robosystems/client'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { taskMonitor } from './taskMonitor'
+import { unwrapSdk } from '../lib/sdk-errors'
+import { POLLING_CANCELLED, taskMonitor } from './taskMonitor'
 import type { TaskMonitorState, TaskStatusResponse } from './types'
 
 export interface UseTaskMonitoringResult extends TaskMonitorState {
@@ -40,22 +41,19 @@ export function useTaskMonitoring(): UseTaskMonitoringResult {
 
   const cancelTask = useCallback(async () => {
     if (currentTaskId.current) {
-      try {
-        await taskMonitor.cancelTask(currentTaskId.current)
-        setState((prev) => ({
-          ...prev,
-          isLoading: false,
-          error: 'Task was cancelled',
-          result: null,
-        }))
-      } catch (error) {
-        console.error('Failed to cancel task:', error)
-        setState((prev) => ({
-          ...prev,
-          error: 'Failed to cancel task',
-          result: null,
-        }))
-      }
+      const cancelled = await taskMonitor.cancelTask(currentTaskId.current)
+      setState((prev) =>
+        cancelled
+          ? {
+              ...prev,
+              isLoading: false,
+              error: 'Task was cancelled',
+              result: null,
+            }
+          : // Refused (typically already finished): monitoring continues and
+            // reports the real outcome.
+            { ...prev, error: 'Failed to cancel task' }
+      )
     }
   }, [])
 
@@ -107,6 +105,12 @@ export function useTaskMonitoring(): UseTaskMonitoringResult {
 
         return result.details || result
       } catch (error) {
+        if (error instanceof Error && error.message === POLLING_CANCELLED) {
+          // Stopped locally (cancelTask or unmount); cancelTask reports
+          // its own outcome.
+          setState((prev) => ({ ...prev, isLoading: false }))
+          throw error
+        }
         const errorMessage =
           error instanceof Error ? error.message : 'Unknown error'
         setState((prev) => ({
@@ -123,11 +127,13 @@ export function useTaskMonitoring(): UseTaskMonitoringResult {
     []
   )
 
-  // Cleanup on unmount
+  // Unmount stops watching; the operation itself keeps running. Cancelling
+  // it on the server is an explicit user action (`cancelTask`), never a side
+  // effect of navigating away.
   useEffect(() => {
     return () => {
       if (currentTaskId.current) {
-        taskMonitor.cancelTask(currentTaskId.current)
+        taskMonitor.stopPolling(currentTaskId.current)
       }
     }
   }, [])
@@ -154,7 +160,7 @@ export function useEntityCreationTask() {
           body: entityData,
         })
 
-        const responseData = response.data as {
+        const responseData = unwrapSdk(response) as {
           operationId: string
           status: string
         }

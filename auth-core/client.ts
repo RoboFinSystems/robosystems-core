@@ -33,7 +33,13 @@ import {
   verifyPasskeyRegistration,
 } from '@robosystems/client'
 import * as sdkClientsModule from '@robosystems/client/clients'
-import { getToken, getValidToken } from './token-storage'
+import {
+  ApiError,
+  isSessionRejection,
+  isTransientError,
+  unwrapSdk,
+} from '../lib/sdk-errors'
+import { getRefreshToken, getToken, getValidToken } from './token-storage'
 import type {
   APIKey,
   AuthProviders,
@@ -78,10 +84,41 @@ const ERROR_CACHE_TTL_MS = 5 * 1000 // 5 seconds - allow reasonable retry delay
  */
 const APP_SOURCE_HEADER = 'X-App-Source'
 
+/**
+ * Marks the shared SDK client as already wrapped. Every auth client instance
+ * configures the *global* SDK client; wrapping its methods once per instance
+ * would stack a layer per construction (per render in a careless caller).
+ */
+const AUTH_WRAPPED = Symbol.for('@robosystems/core:auth-wrapped')
+
+export { isSessionRejection, isTransientError }
+
 const appSourceHeaders = (
   appSource: string | undefined
 ): Record<string, string> | undefined =>
   appSource ? { [APP_SOURCE_HEADER]: appSource } : undefined
+
+/**
+ * For the enumeration-safe email endpoints (forgot password, resend
+ * verification): the failures worth telling the user about — they say
+ * nothing about whether the address has an account. Null for any other
+ * refusal, which the caller reports as "sent".
+ */
+const deliveryFailure = (error: unknown): string | null => {
+  if (!(error instanceof ApiError)) {
+    return 'Failed to send email. Please try again.'
+  }
+  if (error.status === 429) {
+    return 'Too many requests. Please wait a few minutes and try again.'
+  }
+  if (error.isNetworkError) {
+    return 'Unable to reach the server. Check your connection and try again.'
+  }
+  if (error.status >= 500) {
+    return 'The server ran into a problem. Please try again in a moment.'
+  }
+  return null
+}
 
 // Custom error class for token expiry
 export class TokenExpiredError extends Error {
@@ -170,71 +207,35 @@ export class RoboSystemsAuthClient {
       }
     }
 
-    // Wrap the client methods to add JWT token to requests
-    const originalPost = this.client.post?.bind(this.client)
-    const originalPut = this.client.put?.bind(this.client)
-    const originalPatch = this.client.patch?.bind(this.client)
-    const originalDelete = this.client.delete?.bind(this.client)
+    // Wrap the client methods to add the JWT to every request — once per
+    // SDK client, however many auth clients are constructed.
+    const sdkClient = this.client as typeof client & {
+      [AUTH_WRAPPED]?: boolean
+    }
+    if (sdkClient[AUTH_WRAPPED]) return
+    sdkClient[AUTH_WRAPPED] = true
 
-    // Helper to add JWT token to headers and handle 401 responses
-    const wrapWithAuthAndErrorHandling = (
-      originalMethod: Function | undefined,
-      _methodName: string
-    ) => {
+    // Errors are not handled here: the SDK resolves `{ error }` on HTTP
+    // failures rather than throwing, so each caller unwraps its own result
+    // (`unwrapSdk`) and decides what a given status means.
+    const withAuthHeader = (originalMethod: Function | undefined) => {
       if (!originalMethod) return undefined
 
       return async (options: any) => {
-        try {
-          const authToken = await getAuthToken()
-          const headers: any = { ...options.headers }
-
-          if (authToken) {
-            headers['Authorization'] = `Bearer ${authToken}`
-          }
-
-          const enhancedOptions = {
-            ...options,
-            headers,
-          }
-
-          const result = await originalMethod(enhancedOptions)
-          return result
-        } catch (error: any) {
-          // Check for 401 Unauthorized errors
-          if (
-            error?.status === 401 ||
-            error?.response?.status === 401 ||
-            error?.message?.toLowerCase().includes('unauthorized') ||
-            error?.message?.toLowerCase().includes('401')
-          ) {
-            // Clear cached auth data
-            this.clearAuthCache()
-
-            // Clear token from storage
-            const { clearToken } = await import('./token-storage')
-            clearToken()
-
-            // Throw custom error that can be caught by UI
-            throw new TokenExpiredError(
-              'Your session has expired. Please log in again.'
-            )
-          }
-
-          // Re-throw other errors
-          throw error
+        const authToken = await getAuthToken()
+        const headers: any = { ...options.headers }
+        if (authToken) {
+          headers['Authorization'] = `Bearer ${authToken}`
         }
+        return originalMethod({ ...options, headers })
       }
     }
 
-    // Also wrap GET requests to add JWT token
-    const originalGet = this.client.get?.bind(this.client)
-
-    // Override all methods with auth headers and error handling
-    this.client.get = wrapWithAuthAndErrorHandling(originalGet, 'GET')
-    this.client.post = wrapWithAuthAndErrorHandling(originalPost, 'POST')
-    this.client.put = wrapWithAuthAndErrorHandling(originalPut, 'PUT')
-    this.client.patch = wrapWithAuthAndErrorHandling(originalPatch, 'PATCH')
-    this.client.delete = wrapWithAuthAndErrorHandling(originalDelete, 'DELETE')
+    this.client.get = withAuthHeader(this.client.get?.bind(this.client))
+    this.client.post = withAuthHeader(this.client.post?.bind(this.client))
+    this.client.put = withAuthHeader(this.client.put?.bind(this.client))
+    this.client.patch = withAuthHeader(this.client.patch?.bind(this.client))
+    this.client.delete = withAuthHeader(this.client.delete?.bind(this.client))
   }
 
   /**
@@ -269,7 +270,7 @@ export class RoboSystemsAuthClient {
       body: { email, password },
     })
 
-    return this.finalizeAuthResponse(response.data)
+    return this.finalizeAuthResponse(unwrapSdk(response))
   }
 
   /**
@@ -337,13 +338,7 @@ export class RoboSystemsAuthClient {
       headers: appSourceHeaders(options?.appSource),
     })
 
-    // Check for error responses (4xx/5xx)
-    if (response.error) {
-      const errorData = response.error as any
-      throw new Error(errorData?.detail || 'Registration failed')
-    }
-
-    const sdkResponse = this.validateSDKAuthResponse(response.data)
+    const sdkResponse = this.validateSDKAuthResponse(unwrapSdk(response))
 
     // Store JWT token with expiry information if present in response
     if (sdkResponse.token) {
@@ -468,7 +463,7 @@ export class RoboSystemsAuthClient {
         client: this.client,
       })
 
-      const data = this.validateSDKCurrentUserResponse(response.data)
+      const data = this.validateSDKCurrentUserResponse(unwrapSdk(response))
       const user = data.user
 
       this.lastAuthCheck = { timestamp: Date.now(), result: user }
@@ -481,10 +476,7 @@ export class RoboSystemsAuthClient {
   }
 
   async refreshSession(): Promise<AuthResponse> {
-    const response = await this.refreshSessionWithRetry()
-
-    // Check if response has data property or if it IS the data
-    const responseData = response?.data !== undefined ? response.data : response
+    const responseData = await this.refreshSessionWithRetry()
 
     const sdkResponse = this.validateSDKAuthResponse(responseData)
 
@@ -519,22 +511,33 @@ export class RoboSystemsAuthClient {
   }
 
   /**
-   * Refresh session with exponential backoff retry logic
+   * Refresh session with exponential backoff retry logic.
+   *
+   * The request presents the stored token even when it has just expired:
+   * the API renews a recently-expired token within its grace window, and
+   * the data-call path deliberately stops sending it at expiry. A refusal
+   * (401/403) is final; only network errors, 429 and 5xx are retried.
    */
-  private async refreshSessionWithRetry(): Promise<any> {
+  private async refreshSessionWithRetry(): Promise<unknown> {
     let lastError: Error | null = null
 
     for (let attempt = 0; attempt <= this.MAX_REFRESH_RETRIES; attempt++) {
       try {
-        // Attempt to refresh the session
+        const refreshToken = getRefreshToken()
         const response = await refreshAuthSession({
           client: this.client,
+          headers: refreshToken
+            ? { Authorization: `Bearer ${refreshToken}` }
+            : undefined,
         })
 
-        // Success - return the response
-        return response
+        return unwrapSdk(response)
       } catch (error) {
         lastError = error as Error
+
+        if (!isTransientError(error)) {
+          break
+        }
 
         // If this is the last attempt, throw the error
         if (attempt === this.MAX_REFRESH_RETRIES) {
@@ -572,7 +575,7 @@ export class RoboSystemsAuthClient {
       },
     })
 
-    const sdkResponse = response.data as unknown as SDKApiKeyResponse
+    const sdkResponse = unwrapSdk(response) as unknown as SDKApiKeyResponse
     return {
       id: sdkResponse.api_key.id,
       name: sdkResponse.api_key.name,
@@ -591,7 +594,7 @@ export class RoboSystemsAuthClient {
       client: this.client,
     })
 
-    const sdkResponse = response.data as unknown as SDKApiKeysListResponse
+    const sdkResponse = unwrapSdk(response) as unknown as SDKApiKeysListResponse
     return sdkResponse.api_keys.map((apiKey) => ({
       id: apiKey.id,
       name: apiKey.name,
@@ -604,10 +607,12 @@ export class RoboSystemsAuthClient {
   }
 
   async revokeAPIKey(keyId: string): Promise<void> {
-    await revokeUserApiKey({
-      client: this.client,
-      path: { api_key_id: keyId },
-    })
+    unwrapSdk(
+      await revokeUserApiKey({
+        client: this.client,
+        path: { api_key_id: keyId },
+      })
+    )
   }
 
   async generateSSOToken(): Promise<SSOTokenResponse> {
@@ -615,8 +620,7 @@ export class RoboSystemsAuthClient {
       client: this.client,
     })
 
-    const data = response.data as unknown as SSOTokenResponse
-    return data
+    return unwrapSdk(response) as unknown as SSOTokenResponse
   }
 
   async ssoExchange(
@@ -628,7 +632,7 @@ export class RoboSystemsAuthClient {
       body: { token, target_app: targetApp },
     })
 
-    const data = response.data as unknown as SDKSsoExchangeResponse
+    const data = unwrapSdk(response) as unknown as SDKSsoExchangeResponse
     return {
       session_id: data.session_id,
     }
@@ -640,7 +644,7 @@ export class RoboSystemsAuthClient {
       body: { session_id: sessionId },
     })
 
-    const sdkResponse = this.validateSDKAuthResponse(response.data)
+    const sdkResponse = this.validateSDKAuthResponse(unwrapSdk(response))
 
     // Store JWT token with expiry information if present in response
     if (sdkResponse.token) {
@@ -710,7 +714,7 @@ export class RoboSystemsAuthClient {
       client: this.client,
       body: { mfa_token: mfaToken },
     })
-    return (response.data as { options: Record<string, unknown> }).options
+    return (unwrapSdk(response) as { options: Record<string, unknown> }).options
   }
 
   /** Second-factor step: complete with an assertion or a recovery code. */
@@ -726,13 +730,13 @@ export class RoboSystemsAuthClient {
         recovery_code: input.recoveryCode,
       },
     })
-    return this.finalizeAuthResponse(response.data)
+    return this.finalizeAuthResponse(unwrapSdk(response))
   }
 
   /** Passwordless login: usernameless assertion options. */
   async getPasskeyLoginOptions(): Promise<Record<string, unknown>> {
     const response = await getPasskeyLoginOptions({ client: this.client })
-    return (response.data as { options: Record<string, unknown> }).options
+    return (unwrapSdk(response) as { options: Record<string, unknown> }).options
   }
 
   /** Passwordless login: assertion → session. */
@@ -743,7 +747,7 @@ export class RoboSystemsAuthClient {
       client: this.client,
       body: { assertion },
     })
-    return this.finalizeAuthResponse(response.data)
+    return this.finalizeAuthResponse(unwrapSdk(response))
   }
 
   /**
@@ -766,7 +770,7 @@ export class RoboSystemsAuthClient {
         assertion: proof?.assertion,
       },
     })
-    return (response.data as { options: Record<string, unknown> }).options
+    return (unwrapSdk(response) as { options: Record<string, unknown> }).options
   }
 
   /**
@@ -786,7 +790,7 @@ export class RoboSystemsAuthClient {
         mfa_token: options?.mfaToken,
       },
     })
-    const data = response.data as {
+    const data = unwrapSdk(response) as {
       passkey: Record<string, unknown>
       recovery_codes?: string[] | null
       auth?: Record<string, unknown> | null
@@ -806,14 +810,15 @@ export class RoboSystemsAuthClient {
   async listPasskeys(): Promise<Record<string, unknown>[]> {
     const response = await listUserPasskeys({ client: this.client })
     return (
-      (response.data as { passkeys: Record<string, unknown>[] })?.passkeys ?? []
+      (unwrapSdk(response) as { passkeys: Record<string, unknown>[] })
+        ?.passkeys ?? []
     )
   }
 
   /** Fresh-assertion options for destructive lifecycle actions. */
   async getPasskeyReauthOptions(): Promise<Record<string, unknown>> {
     const response = await getPasskeyReauthOptions({ client: this.client })
-    return (response.data as { options: Record<string, unknown> }).options
+    return (unwrapSdk(response) as { options: Record<string, unknown> }).options
   }
 
   /** Remove a passkey; exactly one re-auth proof must be supplied. */
@@ -821,11 +826,13 @@ export class RoboSystemsAuthClient {
     passkeyId: string,
     proof: { password?: string; assertion?: Record<string, unknown> }
   ): Promise<void> {
-    await deleteUserPasskey({
-      client: this.client,
-      path: { passkey_id: passkeyId },
-      body: { password: proof.password, assertion: proof.assertion },
-    })
+    unwrapSdk(
+      await deleteUserPasskey({
+        client: this.client,
+        path: { passkey_id: passkeyId },
+        body: { password: proof.password, assertion: proof.assertion },
+      })
+    )
   }
 
   /** MFA posture for the settings surface; null on any failure. */
@@ -865,7 +872,7 @@ export class RoboSystemsAuthClient {
       client: this.client,
       body: { password: proof.password, assertion: proof.assertion },
     })
-    return (response.data as { codes: string[] }).codes
+    return (unwrapSdk(response) as { codes: string[] }).codes
   }
 
   // Clear request deduplication cache (useful after login/logout)
@@ -883,22 +890,25 @@ export class RoboSystemsAuthClient {
     options?: { appSource?: string }
   ): Promise<{ success: boolean; message?: string }> {
     try {
-      await forgotPassword({
+      const response = await forgotPassword({
         client: this.client,
         body: { email } as any,
         headers: appSourceHeaders(options?.appSource),
       })
-
-      return {
-        success: true,
-        message: 'Password reset email sent if the account exists',
-      }
+      unwrapSdk(response)
     } catch (error) {
-      console.error('Forgot password error:', error)
-      return {
-        success: false,
-        message: 'Failed to send password reset email',
+      const failure = deliveryFailure(error)
+      if (failure) {
+        console.error('Forgot password error:', error)
+        return { success: false, message: failure }
       }
+    }
+
+    // Any other refusal reads as sent: whether the address has an account
+    // must not be observable from this form.
+    return {
+      success: true,
+      message: 'Password reset email sent if the account exists',
     }
   }
 
@@ -965,7 +975,7 @@ export class RoboSystemsAuthClient {
         query: { token },
       })
 
-      const data = response.data as any
+      const data = unwrapSdk(response) as any
       return {
         valid: data?.valid === true,
         email: data?.email,
@@ -1040,22 +1050,24 @@ export class RoboSystemsAuthClient {
     message?: string
   }> {
     try {
-      await (resendVerificationEmail as any)({
+      const response = await (resendVerificationEmail as any)({
         client: this.client,
         body: { email },
         headers: appSourceHeaders(options?.appSource),
       })
-
-      return {
-        success: true,
-        message: 'Verification email sent if the account exists',
-      }
+      unwrapSdk(response)
     } catch (error) {
-      console.error('Resend verification email error:', error)
-      return {
-        success: false,
-        message: 'Failed to send verification email',
+      const failure = deliveryFailure(error)
+      if (failure) {
+        console.error('Resend verification email error:', error)
+        return { success: false, message: failure }
       }
+    }
+
+    // Any other refusal reads as sent (see forgotPassword).
+    return {
+      success: true,
+      message: 'Verification email sent if the account exists',
     }
   }
 
@@ -1075,7 +1087,7 @@ export class RoboSystemsAuthClient {
         client: this.client,
       })
 
-      const data = response.data as any
+      const data = unwrapSdk(response) as any
       return {
         minLength: data?.min_length || 8,
         requireUppercase: data?.require_uppercase || false,
@@ -1154,7 +1166,7 @@ export class RoboSystemsAuthClient {
         body: { password, email } as any,
       })
 
-      const data = response.data as any
+      const data = unwrapSdk(response) as any
       return {
         score: data?.score || 0,
         strength: data?.strength || 'very-weak',
