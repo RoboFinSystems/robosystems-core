@@ -10,6 +10,7 @@ export {
   type FooterLink,
   type LandingFooterProps,
 } from './LandingFooter'
+export { LiveDemo, type LiveDemoProps } from './LiveDemo'
 export { PageContainer } from './PageContainer'
 export { PageHeader, type PageHeaderProps } from './PageHeader'
 export { SettingsContainer } from './SettingsContainer'
