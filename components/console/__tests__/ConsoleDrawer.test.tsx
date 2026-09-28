@@ -7,6 +7,7 @@ vi.mock('../ConsoleContent', () => ({
   ),
 }))
 
+import { openConsoleDrawer } from '../../../lib/console-drawer'
 import { ConsoleDrawer } from '../ConsoleDrawer'
 import type { ConsoleConfig } from '../types'
 
@@ -104,6 +105,38 @@ describe('ConsoleDrawer', () => {
     render(<ConsoleDrawer config={CONFIG} />)
     fireEvent.doubleClick(screen.getByRole('separator'))
     expect(screen.getByTestId('console-drawer').style.height).toBe('320px')
+  })
+
+  it('opens when any page calls openConsoleDrawer', () => {
+    render(<ConsoleDrawer config={CONFIG} />)
+    act(() => openConsoleDrawer())
+    expect(toggleButton()).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.getByTestId('console-content')).toBeInTheDocument()
+    expect(JSON.parse(window.localStorage.getItem(KEY)!).open).toBe(true)
+  })
+
+  it('honours a request made before it mounted', () => {
+    // A page's effect runs before its layout's, so /console can ask first.
+    openConsoleDrawer()
+    render(<ConsoleDrawer config={CONFIG} />)
+    expect(toggleButton()).toHaveAttribute('aria-expanded', 'true')
+  })
+
+  it('keeps the remembered height when asked to open', () => {
+    window.localStorage.setItem(
+      KEY,
+      JSON.stringify({ open: false, height: 450 })
+    )
+    openConsoleDrawer()
+    render(<ConsoleDrawer config={CONFIG} />)
+    expect(screen.getByTestId('console-drawer').style.height).toBe('450px')
+  })
+
+  it('stays open when asked again', () => {
+    render(<ConsoleDrawer config={CONFIG} />)
+    act(() => openConsoleDrawer())
+    act(() => openConsoleDrawer())
+    expect(toggleButton()).toHaveAttribute('aria-expanded', 'true')
   })
 
   it('ignores corrupt storage', () => {

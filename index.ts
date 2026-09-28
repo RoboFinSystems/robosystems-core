@@ -82,11 +82,13 @@ export {
 export {
   clientGraphCookie,
   clientSidebarCookie,
+  CONSOLE_OPEN_EVENT,
   createMcpConnectorUrl,
   emitGraphWrites,
   entityCookie,
   GRAPH_WRITES_EVENT,
   graphCookie,
+  openConsoleDrawer,
   readGraphWrites,
   sidebarCookie,
   type EntityCookie,

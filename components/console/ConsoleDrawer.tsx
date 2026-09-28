@@ -9,10 +9,14 @@ import {
   HiTerminal,
 } from 'react-icons/hi'
 
+import {
+  CONSOLE_DRAWER_STORAGE_KEY,
+  CONSOLE_OPEN_EVENT,
+} from '../../lib/console-drawer'
 import { ConsoleContent } from './ConsoleContent'
 import type { ConsoleConfig } from './types'
 
-const STORAGE_KEY = 'robosystems:console-drawer'
+const STORAGE_KEY = CONSOLE_DRAWER_STORAGE_KEY
 /** Height of the closed drawer's bar. */
 export const CONSOLE_DRAWER_BAR_HEIGHT = 32
 /** Set on <html> to the space the drawer covers; pad page content by it. */
@@ -109,6 +113,21 @@ export function ConsoleDrawer({
     },
     []
   )
+
+  // openConsoleDrawer() from any button or page.
+  useEffect(() => {
+    const onOpen = () => {
+      setState((prev) => {
+        if (prev.open) return prev
+        const merged = { ...prev, open: true }
+        writeState(merged)
+        return merged
+      })
+      setHasOpened(true)
+    }
+    window.addEventListener(CONSOLE_OPEN_EVENT, onOpen)
+    return () => window.removeEventListener(CONSOLE_OPEN_EVENT, onOpen)
+  }, [])
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
