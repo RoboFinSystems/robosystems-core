@@ -1,12 +1,22 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { HiChevronDown, HiChevronUp, HiTerminal } from 'react-icons/hi'
+import {
+  HiChevronDown,
+  HiChevronUp,
+  HiOutlineArrowsExpand,
+  HiOutlineMinus,
+  HiTerminal,
+} from 'react-icons/hi'
 
 import { ConsoleContent } from './ConsoleContent'
 import type { ConsoleConfig } from './types'
 
 const STORAGE_KEY = 'robosystems:console-drawer'
+/** Height of the closed drawer's bar. */
+export const CONSOLE_DRAWER_BAR_HEIGHT = 32
+/** Set on <html> to the space the drawer covers; pad page content by it. */
+export const CONSOLE_DRAWER_HEIGHT_VAR = '--console-drawer-height'
 const DEFAULT_HEIGHT = 320
 const MIN_HEIGHT = 160
 // Leave the page's own header in view at full stretch.
@@ -67,6 +77,8 @@ export function ConsoleDrawer({
   // Mount the console on first open, then keep it.
   const [hasOpened, setHasOpened] = useState(false)
   const dragging = useRef(false)
+  // The height to return to when a maximized drawer is restored.
+  const restoreHeight = useRef(DEFAULT_HEIGHT)
 
   useEffect(() => {
     const stored = readState()
@@ -84,6 +96,21 @@ export function ConsoleDrawer({
   }, [])
 
   useEffect(() => {
+    const covered = state.open ? state.height : CONSOLE_DRAWER_BAR_HEIGHT
+    document.documentElement.style.setProperty(
+      CONSOLE_DRAWER_HEIGHT_VAR,
+      `${covered}px`
+    )
+  }, [state.open, state.height])
+
+  useEffect(
+    () => () => {
+      document.documentElement.style.removeProperty(CONSOLE_DRAWER_HEIGHT_VAR)
+    },
+    []
+  )
+
+  useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (event.ctrlKey && event.key === '`') {
         event.preventDefault()
@@ -93,6 +120,27 @@ export function ConsoleDrawer({
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [toggle])
+
+  const setHeight = (height: number) => {
+    setState((prev) => {
+      const merged = { ...prev, height: clampHeight(height) }
+      writeState(merged)
+      return merged
+    })
+  }
+
+  const isMaximized =
+    typeof window !== 'undefined' &&
+    state.height >= clampHeight(Number.POSITIVE_INFINITY)
+
+  const toggleMaximized = () => {
+    if (isMaximized) {
+      setHeight(restoreHeight.current)
+    } else {
+      restoreHeight.current = state.height
+      setHeight(Number.POSITIVE_INFINITY)
+    }
+  }
 
   const onResizeStart = (event: React.PointerEvent) => {
     event.preventDefault()
@@ -129,26 +177,47 @@ export function ConsoleDrawer({
           aria-orientation="horizontal"
           aria-label="Resize console"
           onPointerDown={onResizeStart}
+          onDoubleClick={() => setHeight(DEFAULT_HEIGHT)}
+          title="Drag to resize; double-click to reset"
           className="h-1 shrink-0 cursor-row-resize bg-gray-800 hover:bg-cyan-700"
         />
       )}
-      <button
-        type="button"
-        onClick={toggle}
-        aria-expanded={state.open}
-        className="flex h-8 shrink-0 items-center gap-2 px-3 text-xs text-gray-400 hover:text-gray-200"
-      >
-        <HiTerminal className="h-4 w-4" />
-        <span className="font-medium tracking-wider uppercase">Console</span>
-        <span className="text-gray-600">Ctrl+`</span>
-        <span className="ml-auto">
-          {state.open ? (
-            <HiChevronDown className="h-4 w-4" />
-          ) : (
-            <HiChevronUp className="h-4 w-4" />
-          )}
-        </span>
-      </button>
+      <div className="flex h-8 shrink-0 items-center text-xs text-gray-400">
+        <button
+          type="button"
+          onClick={toggle}
+          aria-expanded={state.open}
+          className="flex h-full flex-1 items-center gap-2 px-3 hover:text-gray-200"
+        >
+          <HiTerminal className="h-4 w-4" />
+          <span className="font-medium tracking-wider uppercase">Console</span>
+          <span className="text-gray-600">Ctrl+`</span>
+          <span className="ml-auto">
+            {state.open ? (
+              <HiChevronDown className="h-4 w-4" />
+            ) : (
+              <HiChevronUp className="h-4 w-4" />
+            )}
+          </span>
+        </button>
+        {state.open && (
+          <button
+            type="button"
+            onClick={toggleMaximized}
+            aria-label={
+              isMaximized ? 'Restore console size' : 'Maximize console'
+            }
+            title={isMaximized ? 'Restore' : 'Maximize'}
+            className="flex h-full items-center px-3 hover:text-gray-200"
+          >
+            {isMaximized ? (
+              <HiOutlineMinus className="h-4 w-4" />
+            ) : (
+              <HiOutlineArrowsExpand className="h-4 w-4" />
+            )}
+          </button>
+        )}
+      </div>
       {hasOpened && (
         <div className={`min-h-0 flex-1 ${state.open ? '' : 'hidden'}`}>
           <ConsoleContent config={config} variant="panel" />
@@ -157,6 +226,3 @@ export function ConsoleDrawer({
     </div>
   )
 }
-
-/** Height of the closed drawer's bar; pad page content by this much. */
-export const CONSOLE_DRAWER_BAR_HEIGHT = 32

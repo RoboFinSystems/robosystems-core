@@ -13,7 +13,7 @@ import type { ConsoleConfig } from '../types'
 const CONFIG = {} as ConsoleConfig
 const KEY = 'robosystems:console-drawer'
 
-const toggleButton = () => screen.getByRole('button', { name: /console/i })
+const toggleButton = () => screen.getByRole('button', { name: /^console/i })
 
 describe('ConsoleDrawer', () => {
   beforeEach(() => window.localStorage.clear())
@@ -69,6 +69,41 @@ describe('ConsoleDrawer', () => {
     render(<ConsoleDrawer config={CONFIG} />)
     expect(toggleButton()).toHaveAttribute('aria-expanded', 'true')
     expect(screen.getByTestId('console-drawer').style.height).toBe('400px')
+  })
+
+  it('publishes the space it covers for page padding', () => {
+    const covered = () =>
+      document.documentElement.style.getPropertyValue('--console-drawer-height')
+    const { unmount } = render(<ConsoleDrawer config={CONFIG} />)
+    expect(covered()).toBe('32px')
+    fireEvent.click(toggleButton())
+    expect(covered()).toBe('320px')
+    unmount()
+    expect(covered()).toBe('')
+  })
+
+  it('maximizes and restores', () => {
+    render(<ConsoleDrawer config={CONFIG} />)
+    fireEvent.click(toggleButton())
+    const drawer = screen.getByTestId('console-drawer')
+    fireEvent.click(screen.getByRole('button', { name: 'Maximize console' }))
+    expect(drawer.style.height).toBe(
+      `${Math.floor(window.innerHeight * 0.8)}px`
+    )
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Restore console size' })
+    )
+    expect(drawer.style.height).toBe('320px')
+  })
+
+  it('resets its height on a double-click of the resize edge', () => {
+    window.localStorage.setItem(
+      KEY,
+      JSON.stringify({ open: true, height: 500 })
+    )
+    render(<ConsoleDrawer config={CONFIG} />)
+    fireEvent.doubleClick(screen.getByRole('separator'))
+    expect(screen.getByTestId('console-drawer').style.height).toBe('320px')
   })
 
   it('ignores corrupt storage', () => {

@@ -137,6 +137,7 @@ export { customTheme } from './theme'
 export {
   buildGraphAwareConsoleConfig,
   CONSOLE_DRAWER_BAR_HEIGHT,
+  CONSOLE_DRAWER_HEIGHT_VAR,
   ConsoleContent,
   ConsoleDrawer,
   EXAMPLE_SETS,
