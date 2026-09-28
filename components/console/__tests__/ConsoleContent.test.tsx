@@ -21,6 +21,7 @@ vi.mock('@robosystems/client/clients', () => ({
   clients: {
     operator: {
       executeQuery: vi.fn(),
+      executeOperator: vi.fn(),
     },
   },
 }))
@@ -49,6 +50,7 @@ import { ConsoleContent } from '../ConsoleContent'
 const mockUseGraphContext = vi.mocked(useGraphContext)
 const mockUseStreamingQuery = vi.mocked(useStreamingQuery)
 const mockOperatorExecuteQuery = vi.mocked(clients.operator.executeQuery)
+const mockOperatorExecuteOperator = vi.mocked(clients.operator.executeOperator)
 const mockRecallMemory = vi.mocked(SDK.recallMemory)
 const mockCreateUserApiKey = vi.mocked(createUserApiKey)
 
@@ -825,6 +827,115 @@ describe('ConsoleContent', () => {
           screen.getByText(TEST_CONFIG.noSelectionError)
         ).toBeInTheDocument()
       })
+    })
+  })
+
+  describe('/do command', () => {
+    const AUTHOR_CONFIG: ConsoleConfig = { ...TEST_CONFIG, enableAuthor: true }
+    const WRITES = [
+      {
+        operation: 'create-agent',
+        id: 'agt_1',
+        name: 'Notion Labs',
+      },
+      { operation: 'remember', id: 'mem_1', name: null },
+    ]
+
+    const typeCommand = (value: string) => {
+      const input = screen.getByPlaceholderText(
+        'Type a question, /query <cypher>, or /help...'
+      )
+      fireEvent.change(input, { target: { value } })
+      fireEvent.keyDown(input, { key: 'Enter' })
+    }
+
+    beforeEach(() => {
+      mockOperatorExecuteOperator.mockReset()
+      mockOperatorExecuteOperator.mockResolvedValue({
+        content: 'Both done.',
+        operator_used: 'Author Operator',
+        mode_used: 'standard',
+        metadata: { writes: WRITES },
+      } as any)
+    })
+
+    it('runs the author operator by name', async () => {
+      render(<ConsoleContent config={AUTHOR_CONFIG} />)
+      typeCommand('/do add Notion Labs as a vendor')
+
+      await waitFor(() => {
+        expect(mockOperatorExecuteOperator).toHaveBeenCalledWith(
+          'test-graph-id',
+          'author',
+          { message: 'add Notion Labs as a vendor', mode: 'standard' },
+          expect.any(Object)
+        )
+      })
+      expect(mockOperatorExecuteQuery).not.toHaveBeenCalled()
+    })
+
+    it('shows a receipt of the changes', async () => {
+      render(<ConsoleContent config={AUTHOR_CONFIG} />)
+      typeCommand('/do add Notion Labs as a vendor')
+
+      await waitFor(() => {
+        expect(screen.getByText('Changes made')).toBeInTheDocument()
+      })
+      expect(
+        screen.getByText(/Created counterparty: Notion Labs/)
+      ).toBeInTheDocument()
+      expect(screen.getByText(/Saved memory: mem_1/)).toBeInTheDocument()
+    })
+
+    it('tells pages on this graph what changed', async () => {
+      const received: any[] = []
+      const listener = (e: Event) => received.push((e as CustomEvent).detail)
+      window.addEventListener('robosystems:graph-writes', listener)
+      try {
+        render(<ConsoleContent config={AUTHOR_CONFIG} />)
+        typeCommand('/do add Notion Labs as a vendor')
+        await waitFor(() => expect(received).toHaveLength(1))
+        expect(received[0]).toEqual({
+          graphId: 'test-graph-id',
+          writes: WRITES,
+        })
+      } finally {
+        window.removeEventListener('robosystems:graph-writes', listener)
+      }
+    })
+
+    it('shows usage when called without a request', async () => {
+      render(<ConsoleContent config={AUTHOR_CONFIG} />)
+      typeCommand('/do')
+
+      await waitFor(() => {
+        expect(screen.getByText(/Usage: \/do <change>/)).toBeInTheDocument()
+      })
+      expect(mockOperatorExecuteOperator).not.toHaveBeenCalled()
+    })
+
+    it('is not a command when authoring is off', async () => {
+      render(<ConsoleContent config={TEST_CONFIG} />)
+      typeCommand('/do add Notion Labs as a vendor')
+
+      await waitFor(() => {
+        expect(screen.getByText(/Unknown command/)).toBeInTheDocument()
+      })
+      expect(mockOperatorExecuteOperator).not.toHaveBeenCalled()
+    })
+
+    it('never writes from a plain question', async () => {
+      mockOperatorExecuteQuery.mockResolvedValue({
+        content: 'Five vendors.',
+        operator_used: 'analyst',
+        mode_used: 'standard',
+      } as any)
+      render(<ConsoleContent config={AUTHOR_CONFIG} />)
+      typeCommand('Add Notion Labs as a vendor')
+
+      await waitFor(() => expect(mockOperatorExecuteQuery).toHaveBeenCalled())
+      expect(mockOperatorExecuteOperator).not.toHaveBeenCalled()
+      expect(screen.queryByText('Changes made')).not.toBeInTheDocument()
     })
   })
 

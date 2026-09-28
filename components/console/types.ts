@@ -1,3 +1,5 @@
+import type { GraphWrite } from '../../lib/graph-writes'
+
 export interface SampleQuery {
   name: string
   query: string
@@ -71,6 +73,9 @@ export interface ConsoleConfig {
    *  shared repositories don't support memory, so the graph-aware builder
    *  enables it only for user graphs. */
   enableRecall?: boolean
+  /** Enable `/do`, which runs the write-capable author operator. The API
+   *  gates it on the graph write role; off for shared repositories. */
+  enableAuthor?: boolean
   /** Extra slash commands beyond the built-in set */
   extraCommands?: ConsoleExtraCommand[]
 }
@@ -97,4 +102,6 @@ export interface TerminalMessage {
    * breaks survive markdown rendering.
    */
   footer?: string
+  /** Changes the author operator made, shown as a receipt below the answer. */
+  writes?: GraphWrite[]
 }

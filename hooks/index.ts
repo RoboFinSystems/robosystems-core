@@ -5,6 +5,7 @@ export {
   type OpenCrossAppOptions,
   type UseCrossAppLinkResult,
 } from './use-cross-app-link'
+export { useGraphWrites } from './use-graph-writes'
 export { useMediaQuery } from './use-media-query'
 export { useStreamingQuery } from './use-streaming-query'
 export { useToast, type ToastMessage } from './use-toast'

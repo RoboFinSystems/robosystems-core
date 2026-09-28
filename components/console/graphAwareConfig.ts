@@ -486,6 +486,8 @@ export function buildGraphAwareConsoleConfig(
       'No graph selected. Please select a graph first.',
     // Semantic memory is per-user-graph; shared repositories reject it.
     enableRecall: !isRepository,
+    // Writes need a user graph; the API also checks the write role.
+    enableAuthor: !isRepository,
   }
 }
 
