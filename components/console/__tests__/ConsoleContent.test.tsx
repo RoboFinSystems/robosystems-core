@@ -830,6 +830,16 @@ describe('ConsoleContent', () => {
     })
   })
 
+  it('drops the page header in the panel variant', () => {
+    render(<ConsoleContent config={TEST_CONFIG} variant="panel" />)
+    expect(screen.queryByText('Test Console')).not.toBeInTheDocument()
+    expect(
+      screen.getByPlaceholderText(
+        'Type a question, /query <cypher>, or /help...'
+      )
+    ).toBeInTheDocument()
+  })
+
   describe('/do command', () => {
     const AUTHOR_CONFIG: ConsoleConfig = { ...TEST_CONFIG, enableAuthor: true }
     const WRITES = [

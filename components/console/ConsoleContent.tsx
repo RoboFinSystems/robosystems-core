@@ -89,7 +89,14 @@ function copyRowsJson(rows: any[]): void {
   navigator.clipboard?.writeText(JSON.stringify(rows, null, 2))
 }
 
-export function ConsoleContent({ config }: { config: ConsoleConfig }) {
+export function ConsoleContent({
+  config,
+  variant = 'page',
+}: {
+  config: ConsoleConfig
+  /** `panel` drops the page header and fills its container (the drawer). */
+  variant?: 'page' | 'panel'
+}) {
   const { state: graphState } = useGraphContext()
   const graphId = graphState.currentGraphId
   const streamingQuery = useStreamingQuery()
@@ -887,45 +894,55 @@ export function ConsoleContent({ config }: { config: ConsoleConfig }) {
   // ── Render ──────────────────────────────────────────────────────────
 
   const { header } = config
+  const isPanel = variant === 'panel'
 
   return (
-    <div className="mx-auto max-w-7xl space-y-6 p-4 sm:p-6">
+    <div
+      className={isPanel ? 'h-full' : 'mx-auto max-w-7xl space-y-6 p-4 sm:p-6'}
+    >
       {/* Header — the same shape as `PageHeader`, and it gives ground the same
           way: the status readout drops below the title on a narrow screen
-          rather than competing with it for one line. */}
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
-        <div className="flex min-w-0 items-center gap-3 sm:gap-4">
-          <div
-            className={`shrink-0 rounded-lg bg-gradient-to-br ${header.gradientFrom} ${header.gradientTo} p-2.5 sm:p-3`}
-          >
-            <HiTerminal className="h-6 w-6 text-white sm:h-8 sm:w-8" />
+          rather than competing with it for one line. The drawer has its own
+          bar, so the panel variant has none. */}
+      {!isPanel && (
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+          <div className="flex min-w-0 items-center gap-3 sm:gap-4">
+            <div
+              className={`shrink-0 rounded-lg bg-gradient-to-br ${header.gradientFrom} ${header.gradientTo} p-2.5 sm:p-3`}
+            >
+              <HiTerminal className="h-6 w-6 text-white sm:h-8 sm:w-8" />
+            </div>
+            <div className="min-w-0">
+              <h1 className="font-heading text-2xl font-bold break-words text-gray-900 sm:text-3xl dark:text-white">
+                {header.title}
+              </h1>
+              <p className="mt-1 text-sm break-words text-gray-500 dark:text-gray-400">
+                {header.subtitle}
+              </p>
+            </div>
           </div>
-          <div className="min-w-0">
-            <h1 className="font-heading text-2xl font-bold break-words text-gray-900 sm:text-3xl dark:text-white">
-              {header.title}
-            </h1>
-            <p className="mt-1 text-sm break-words text-gray-500 dark:text-gray-400">
-              {header.subtitle}
-            </p>
-          </div>
+          {(streamingQuery.isStreaming || operatorProgress.isRunning) && (
+            <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+              <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-green-500"></span>
+              {operatorProgress.isRunning && operatorProgress.message
+                ? operatorProgress.message
+                : 'Processing...'}
+              {operatorProgress.percentage !== undefined &&
+                ` (${operatorProgress.percentage}%)`}
+            </div>
+          )}
         </div>
-        {(streamingQuery.isStreaming || operatorProgress.isRunning) && (
-          <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-            <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-green-500"></span>
-            {operatorProgress.isRunning && operatorProgress.message
-              ? operatorProgress.message
-              : 'Processing...'}
-            {operatorProgress.percentage !== undefined &&
-              ` (${operatorProgress.percentage}%)`}
-          </div>
-        )}
-      </div>
+      )}
 
       {/* Terminal Interface */}
-      <Card className="overflow-hidden bg-gray-950 !p-0 [&>div]:!p-0">
+      <Card
+        className={`overflow-hidden bg-gray-950 !p-0 [&>div]:!p-0 ${
+          isPanel ? 'h-full rounded-none border-0 [&>div]:h-full' : ''
+        }`}
+      >
         <div
           className="flex flex-col bg-gray-950"
-          style={{ height: 'calc(100vh - 280px)' }}
+          style={{ height: isPanel ? '100%' : 'calc(100vh - 280px)' }}
         >
           {/* Terminal Output - Scrollable */}
           <div
