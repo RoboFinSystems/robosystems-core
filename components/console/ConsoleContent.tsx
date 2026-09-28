@@ -8,6 +8,11 @@ import { HiTerminal } from 'react-icons/hi'
 
 import { useGraphContext } from '../../contexts'
 import { useStreamingQuery } from '../../hooks'
+import {
+  emitGraphWrites,
+  readGraphWrites,
+  type GraphWrite,
+} from '../../lib/graph-writes'
 import { ConsoleMarkdown } from './ConsoleMarkdown'
 import { ProgressiveText } from './ProgressiveText'
 import type { ConsoleConfig, TerminalMessage } from './types'
@@ -60,6 +65,24 @@ function downloadText(filename: string, text: string, mime: string): void {
   anchor.download = filename
   anchor.click()
   URL.revokeObjectURL(url)
+}
+
+const WRITE_LABELS: Record<string, string> = {
+  'create-taxonomy-block': 'Created taxonomy block',
+  'create-information-block': 'Created block',
+  'update-information-block': 'Updated block',
+  'assert-metrics': 'Asserted metrics',
+  'compute-metrics': 'Computed metrics',
+  'compute-forecast': 'Computed forecast',
+  'create-agent': 'Created counterparty',
+  'update-agent': 'Updated counterparty',
+  remember: 'Saved memory',
+}
+
+function describeWrite(write: GraphWrite): string {
+  const label = WRITE_LABELS[write.operation] ?? write.operation
+  const subject = write.name ?? write.id
+  return subject ? `${label}: ${subject}` : label
 }
 
 function copyRowsJson(rows: any[]): void {
@@ -129,6 +152,9 @@ export function ConsoleContent({ config }: { config: ConsoleConfig }) {
       (config.enableRecall
         ? `  /recall     - Recall semantic memories\n`
         : '') +
+      (config.enableAuthor
+        ? `  /do         - Make a change (a block, a counterparty, a memory)\n`
+        : '') +
       `  /mcp        - Connect an MCP client (sign in — no key)\n` +
       `  /mcp key    - Mint a graph-scoped API key for header-only clients\n` +
       `  /help       - Show this help message\n` +
@@ -184,7 +210,7 @@ export function ConsoleContent({ config }: { config: ConsoleConfig }) {
       content: string,
       data?: any,
       cypher?: string,
-      opts?: { markdown?: boolean; footer?: string }
+      opts?: { markdown?: boolean; footer?: string; writes?: GraphWrite[] }
     ) => {
       const message: TerminalMessage = {
         id: generateMessageId(),
@@ -195,6 +221,7 @@ export function ConsoleContent({ config }: { config: ConsoleConfig }) {
         cypher,
         markdown: opts?.markdown,
         footer: opts?.footer,
+        writes: opts?.writes?.length ? opts.writes : undefined,
       }
       setTerminalMessages((prev) => [...prev, message])
     },
@@ -402,7 +429,12 @@ export function ConsoleContent({ config }: { config: ConsoleConfig }) {
     }
   }
 
-  const executeOperatorQuery = async (userQuery: string) => {
+  // `operatorType` names an operator (`author` for /do); unset, the API
+  // chooses one for a question.
+  const executeOperatorQuery = async (
+    userQuery: string,
+    operatorType?: string
+  ) => {
     if (!graphId) {
       addErrorMessage(config.noSelectionError)
       return
@@ -419,27 +451,32 @@ export function ConsoleContent({ config }: { config: ConsoleConfig }) {
       const { clients } = await import('@robosystems/client/clients')
 
       const history = conversationRef.current
-      const result = await clients.operator.executeQuery(
-        graphId,
-        {
-          message: userQuery,
-          // `standard` gives the operator loop six tool turns; `quick` (three)
-          // was exhausted by schema + examples before the first query ran.
-          mode: 'standard',
-          ...(history.length > 0 ? { history } : {}),
+      const request = {
+        message: userQuery,
+        // `standard` gives the operator loop six tool turns; `quick` (three)
+        // was exhausted by schema + examples before the first query ran.
+        mode: 'standard' as const,
+        ...(history.length > 0 ? { history } : {}),
+      }
+      const options = {
+        mode: 'auto' as const,
+        onProgress: (message: string, percentage?: number) => {
+          if (isStale()) return
+          setOperatorProgress({
+            isRunning: true,
+            message,
+            percentage,
+          })
         },
-        {
-          mode: 'auto',
-          onProgress: (message: string, percentage?: number) => {
-            if (isStale()) return
-            setOperatorProgress({
-              isRunning: true,
-              message,
-              percentage,
-            })
-          },
-        }
-      )
+      }
+      const result = operatorType
+        ? await clients.operator.executeOperator(
+            graphId,
+            operatorType,
+            request,
+            options
+          )
+        : await clients.operator.executeQuery(graphId, request, options)
 
       // The user switched graphs while the operator ran: the reset already
       // cleared the console, so drop the answer rather than print it (and
@@ -469,6 +506,10 @@ export function ConsoleContent({ config }: { config: ConsoleConfig }) {
 
       const duration = Date.now() - startTime
       const metadata = (result.metadata || {}) as Record<string, any>
+
+      const writes = readGraphWrites(metadata)
+      // Pages showing this graph reload what the console just changed.
+      emitGraphWrites(requestGraphId, writes)
 
       const creditsUsed = metadata.credits_consumed as number | undefined
       const resultCount = metadata.result_count as number | undefined
@@ -530,7 +571,11 @@ export function ConsoleContent({ config }: { config: ConsoleConfig }) {
       // otherwise collapse under markdown). With no narrative, fall back to the
       // plain footer, matching the direct-query result style.
       if (narrative) {
-        addResultMessage(narrative, rows, cypher, { markdown: true, footer })
+        addResultMessage(narrative, rows, cypher, {
+          markdown: true,
+          footer,
+          writes,
+        })
         // Record the exchange for follow-ups. Only a narrative answer is
         // worth carrying; the answer is clipped so history stays cheap.
         conversationRef.current = [
@@ -539,7 +584,7 @@ export function ConsoleContent({ config }: { config: ConsoleConfig }) {
           { role: 'assistant' as const, content: narrative.slice(0, 2000) },
         ].slice(-6)
       } else {
-        addResultMessage(footer, rows, cypher)
+        addResultMessage(footer, rows, cypher, { writes })
       }
     } catch (error: any) {
       if (isStale()) return
@@ -713,6 +758,20 @@ export function ConsoleContent({ config }: { config: ConsoleConfig }) {
       } catch {
         addErrorMessage('An error occurred while searching.')
       }
+      return
+    }
+
+    // Handle /do — the author operator, which may change the graph. Writes
+    // are never inferred from a question; they need this command.
+    if (config.enableAuthor && /^\/do(\s|$)/i.test(command)) {
+      const request = command.slice(3).trim()
+      if (!request) {
+        addErrorMessage(
+          'Usage: /do <change>\n\nExamples:\n  /do add Notion Labs as a vendor\n  /do remember that we report ARPC on subscription revenue only'
+        )
+        return
+      }
+      await executeOperatorQuery(request, 'author')
       return
     }
 
@@ -915,6 +974,21 @@ export function ConsoleContent({ config }: { config: ConsoleConfig }) {
 
                 {/* Query-stats footer for markdown answers, kept separate so
                     its line breaks survive markdown rendering. */}
+                {message.writes && (
+                  <div className="mt-3 rounded border border-emerald-900/60 bg-emerald-950/30 px-3 py-2">
+                    <div className="text-xs tracking-wider text-emerald-400 uppercase">
+                      Changes made
+                    </div>
+                    <ul className="mt-1 space-y-0.5 text-sm text-emerald-200">
+                      {message.writes.map((write, idx) => (
+                        <li key={`${write.operation}-${write.id ?? idx}`}>
+                          ✓ {describeWrite(write)}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
                 {message.footer && (
                   <div className="mt-3 text-xs whitespace-pre-wrap text-gray-500">
                     {message.footer}

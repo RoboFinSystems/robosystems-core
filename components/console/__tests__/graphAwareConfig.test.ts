@@ -143,6 +143,13 @@ describe('buildGraphAwareConsoleConfig', () => {
     )
   })
 
+  it('enables /do for user graphs but not shared repositories', () => {
+    expect(buildGraphAwareConsoleConfig(LEDGER, BRANDING).enableAuthor).toBe(
+      true
+    )
+    expect(buildGraphAwareConsoleConfig(SEC, BRANDING).enableAuthor).toBe(false)
+  })
+
   it('selects the generic set and injects the graph name', () => {
     const config = buildGraphAwareConsoleConfig(
       graph({ graphName: 'Acme', schemaExtensions: [] }),

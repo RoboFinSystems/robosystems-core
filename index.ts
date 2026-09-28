@@ -39,6 +39,7 @@ export {
 // Export hooks
 export {
   useApiError,
+  useGraphWrites,
   useMediaQuery,
   useToast,
   useUser,
@@ -82,11 +83,16 @@ export {
   clientGraphCookie,
   clientSidebarCookie,
   createMcpConnectorUrl,
+  emitGraphWrites,
   entityCookie,
+  GRAPH_WRITES_EVENT,
   graphCookie,
+  readGraphWrites,
   sidebarCookie,
   type EntityCookie,
   type GraphCookie,
+  type GraphWrite,
+  type GraphWritesDetail,
   type McpConnectorUrl,
   type SidebarCookie,
 } from './lib'
