@@ -1,4 +1,8 @@
-export { ConsoleContent } from './console'
+export {
+  CONSOLE_DRAWER_BAR_HEIGHT,
+  ConsoleContent,
+  ConsoleDrawer,
+} from './console'
 export {
   EntitySelector,
   type EntityGroup,

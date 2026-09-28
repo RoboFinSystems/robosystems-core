@@ -1,4 +1,5 @@
 export { ConsoleContent } from './ConsoleContent'
+export { CONSOLE_DRAWER_BAR_HEIGHT, ConsoleDrawer } from './ConsoleDrawer'
 export { ConsoleMarkdown } from './ConsoleMarkdown'
 export {
   EXAMPLE_SETS,

@@ -136,7 +136,9 @@ export { customTheme } from './theme'
 // Export console components
 export {
   buildGraphAwareConsoleConfig,
+  CONSOLE_DRAWER_BAR_HEIGHT,
   ConsoleContent,
+  ConsoleDrawer,
   EXAMPLE_SETS,
   getGraphExampleKind,
   useGraphAwareConsoleConfig,
