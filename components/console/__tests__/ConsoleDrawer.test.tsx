@@ -115,6 +115,23 @@ describe('ConsoleDrawer', () => {
     expect(JSON.parse(window.localStorage.getItem(KEY)!).open).toBe(true)
   })
 
+  it('honours a request made before it mounted', () => {
+    // A page's effect runs before its layout's, so /console can ask first.
+    openConsoleDrawer()
+    render(<ConsoleDrawer config={CONFIG} />)
+    expect(toggleButton()).toHaveAttribute('aria-expanded', 'true')
+  })
+
+  it('keeps the remembered height when asked to open', () => {
+    window.localStorage.setItem(
+      KEY,
+      JSON.stringify({ open: false, height: 450 })
+    )
+    openConsoleDrawer()
+    render(<ConsoleDrawer config={CONFIG} />)
+    expect(screen.getByTestId('console-drawer').style.height).toBe('450px')
+  })
+
   it('stays open when asked again', () => {
     render(<ConsoleDrawer config={CONFIG} />)
     act(() => openConsoleDrawer())
