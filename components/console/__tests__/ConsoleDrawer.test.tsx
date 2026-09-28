@@ -7,6 +7,7 @@ vi.mock('../ConsoleContent', () => ({
   ),
 }))
 
+import { openConsoleDrawer } from '../../../lib/console-drawer'
 import { ConsoleDrawer } from '../ConsoleDrawer'
 import type { ConsoleConfig } from '../types'
 
@@ -104,6 +105,21 @@ describe('ConsoleDrawer', () => {
     render(<ConsoleDrawer config={CONFIG} />)
     fireEvent.doubleClick(screen.getByRole('separator'))
     expect(screen.getByTestId('console-drawer').style.height).toBe('320px')
+  })
+
+  it('opens when any page calls openConsoleDrawer', () => {
+    render(<ConsoleDrawer config={CONFIG} />)
+    act(() => openConsoleDrawer())
+    expect(toggleButton()).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.getByTestId('console-content')).toBeInTheDocument()
+    expect(JSON.parse(window.localStorage.getItem(KEY)!).open).toBe(true)
+  })
+
+  it('stays open when asked again', () => {
+    render(<ConsoleDrawer config={CONFIG} />)
+    act(() => openConsoleDrawer())
+    act(() => openConsoleDrawer())
+    expect(toggleButton()).toHaveAttribute('aria-expanded', 'true')
   })
 
   it('ignores corrupt storage', () => {

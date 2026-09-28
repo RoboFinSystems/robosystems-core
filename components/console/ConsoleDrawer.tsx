@@ -9,6 +9,7 @@ import {
   HiTerminal,
 } from 'react-icons/hi'
 
+import { CONSOLE_OPEN_EVENT } from '../../lib/console-drawer'
 import { ConsoleContent } from './ConsoleContent'
 import type { ConsoleConfig } from './types'
 
@@ -109,6 +110,21 @@ export function ConsoleDrawer({
     },
     []
   )
+
+  // openConsoleDrawer() from any button or page.
+  useEffect(() => {
+    const onOpen = () => {
+      setState((prev) => {
+        if (prev.open) return prev
+        const merged = { ...prev, open: true }
+        writeState(merged)
+        return merged
+      })
+      setHasOpened(true)
+    }
+    window.addEventListener(CONSOLE_OPEN_EVENT, onOpen)
+    return () => window.removeEventListener(CONSOLE_OPEN_EVENT, onOpen)
+  }, [])
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {

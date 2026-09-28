@@ -10,6 +10,7 @@ export {
   type GraphCookie,
 } from './graph-cookie'
 
+export { CONSOLE_OPEN_EVENT, openConsoleDrawer } from './console-drawer'
 export { entityCookie, type EntityCookie } from './entity-cookie'
 
 export {
