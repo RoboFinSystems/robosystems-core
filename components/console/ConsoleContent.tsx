@@ -487,8 +487,15 @@ export function ConsoleContent({
 
       // The user switched graphs while the operator ran: the reset already
       // cleared the console, so drop the answer rather than print it (and
-      // record it as history) under the new graph.
-      if (isStale()) return
+      // record it as history) under the new graph. Its writes still landed
+      // on the first graph, so say so.
+      if (isStale()) {
+        reportStaleWrites(
+          requestGraphId,
+          readGraphWrites((result.metadata || {}) as Record<string, any>)
+        )
+        return
+      }
 
       setOperatorProgress({ isRunning: false, message: '' })
 
@@ -507,6 +514,10 @@ export function ConsoleContent({
           string | undefined
         addErrorMessage(
           `Operator error: ${detail || result.content || 'The operator could not complete this request.'}`
+        )
+        reportStoppedWrites(
+          requestGraphId,
+          readGraphWrites((result.metadata || {}) as Record<string, any>)
         )
         return
       }
@@ -594,7 +605,13 @@ export function ConsoleContent({
         addResultMessage(footer, rows, cypher, { writes })
       }
     } catch (error: any) {
-      if (isStale()) return
+      // A run that stopped after writing reports what it changed, so a
+      // retry doesn't repeat it.
+      const landed = readGraphWrites(error)
+      if (isStale()) {
+        reportStaleWrites(requestGraphId, landed)
+        return
+      }
       setOperatorProgress({ isRunning: false, message: '' })
 
       const errorMessage =
@@ -613,7 +630,33 @@ export function ConsoleContent({
       } else {
         addErrorMessage(`Operator error: ${errorMessage}`)
       }
+      reportStoppedWrites(requestGraphId, landed)
     }
+  }
+
+  const reportStoppedWrites = (
+    writtenGraphId: string,
+    writes: GraphWrite[]
+  ) => {
+    if (writes.length === 0) return
+    emitGraphWrites(writtenGraphId, writes)
+    addResultMessage(
+      'The run stopped after making these changes. Check them before asking again.',
+      undefined,
+      undefined,
+      { writes }
+    )
+  }
+
+  const reportStaleWrites = (writtenGraphId: string, writes: GraphWrite[]) => {
+    if (writes.length === 0) return
+    emitGraphWrites(writtenGraphId, writes)
+    addResultMessage(
+      `A request you started on ${writtenGraphId} finished after you switched graphs, and changed that graph:`,
+      undefined,
+      undefined,
+      { writes }
+    )
   }
 
   const showMcpSetup = async (mode: string) => {

@@ -914,6 +914,99 @@ describe('ConsoleContent', () => {
       }
     })
 
+    it('shows what a failed run already changed', async () => {
+      const stopped = Object.assign(new Error('Task timed out after 600s'), {
+        status: 'failed',
+        writes: [WRITES[0]],
+      })
+      mockOperatorExecuteOperator.mockRejectedValue(stopped)
+      const received: any[] = []
+      const listener = (e: Event) => received.push((e as CustomEvent).detail)
+      window.addEventListener('robosystems:graph-writes', listener)
+      try {
+        render(<ConsoleContent config={AUTHOR_CONFIG} />)
+        typeCommand('/do add Notion Labs as a vendor')
+
+        await waitFor(() => {
+          expect(
+            screen.getByText(/Operator error: Task timed out/)
+          ).toBeInTheDocument()
+        })
+        expect(screen.getByText('Changes made')).toBeInTheDocument()
+        expect(
+          screen.getByText(/Created counterparty: Notion Labs/)
+        ).toBeInTheDocument()
+        expect(received).toEqual([
+          { graphId: 'test-graph-id', writes: [WRITES[0]] },
+        ])
+      } finally {
+        window.removeEventListener('robosystems:graph-writes', listener)
+      }
+    })
+
+    it('shows what a run reported as failed had already changed', async () => {
+      mockOperatorExecuteOperator.mockResolvedValue({
+        content: 'Stopped at the credit ceiling.',
+        operator_used: 'Author Operator',
+        mode_used: 'standard',
+        metadata: { writes: [WRITES[0]] },
+        error_details: { error: 'credit ceiling reached' },
+      } as any)
+      render(<ConsoleContent config={AUTHOR_CONFIG} />)
+      typeCommand('/do add Notion Labs as a vendor')
+
+      await waitFor(() => {
+        expect(
+          screen.getByText(/Operator error: credit ceiling reached/)
+        ).toBeInTheDocument()
+      })
+      expect(screen.getByText('Changes made')).toBeInTheDocument()
+    })
+
+    it('says what a run changed on a graph the user has since left', async () => {
+      let finish: (value: unknown) => void = () => undefined
+      mockOperatorExecuteOperator.mockImplementationOnce(
+        () => new Promise((resolve) => (finish = resolve)) as any
+      )
+      const { rerender } = render(<ConsoleContent config={AUTHOR_CONFIG} />)
+      typeCommand('/do add Notion Labs as a vendor')
+      await waitFor(() =>
+        expect(mockOperatorExecuteOperator).toHaveBeenCalledTimes(1)
+      )
+
+      mockUseGraphContext.mockReturnValue(
+        createGraphContext({
+          state: {
+            graphs: [{ graphId: 'test-graph-id' }, { graphId: 'other-graph' }],
+            isLoading: false,
+            currentGraphId: 'other-graph',
+          },
+        })
+      )
+      rerender(<ConsoleContent config={AUTHOR_CONFIG} />)
+      await waitFor(() => {
+        expect(screen.getByText(/context changed/)).toBeInTheDocument()
+      })
+      finish({
+        content: 'Both done.',
+        operator_used: 'Author Operator',
+        mode_used: 'standard',
+        metadata: { writes: WRITES },
+      })
+
+      await waitFor(() => {
+        expect(
+          screen.getByText(
+            /started on test-graph-id finished after you switched graphs/
+          )
+        ).toBeInTheDocument()
+      })
+      expect(screen.queryByText('Both done.')).toBeNull()
+      expect(
+        screen.getByText(/Created counterparty: Notion Labs/)
+      ).toBeInTheDocument()
+    })
+
     it('shows usage when called without a request', async () => {
       render(<ConsoleContent config={AUTHOR_CONFIG} />)
       typeCommand('/do')
