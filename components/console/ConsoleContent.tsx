@@ -515,6 +515,10 @@ export function ConsoleContent({
         addErrorMessage(
           `Operator error: ${detail || result.content || 'The operator could not complete this request.'}`
         )
+        reportStoppedWrites(
+          requestGraphId,
+          readGraphWrites((result.metadata || {}) as Record<string, any>)
+        )
         return
       }
 
@@ -609,7 +613,6 @@ export function ConsoleContent({
         return
       }
       setOperatorProgress({ isRunning: false, message: '' })
-      emitGraphWrites(requestGraphId, landed)
 
       const errorMessage =
         error.message ||
@@ -627,22 +630,29 @@ export function ConsoleContent({
       } else {
         addErrorMessage(`Operator error: ${errorMessage}`)
       }
-      if (landed.length > 0) {
-        addResultMessage(
-          'The run stopped after making these changes. Check them before asking again.',
-          undefined,
-          undefined,
-          { writes: landed }
-        )
-      }
+      reportStoppedWrites(requestGraphId, landed)
     }
   }
 
-  const reportStaleWrites = (requestGraphId: string, writes: GraphWrite[]) => {
+  const reportStoppedWrites = (
+    writtenGraphId: string,
+    writes: GraphWrite[]
+  ) => {
     if (writes.length === 0) return
-    emitGraphWrites(requestGraphId, writes)
+    emitGraphWrites(writtenGraphId, writes)
     addResultMessage(
-      `A request you started on ${requestGraphId} finished after you switched graphs, and changed that graph:`,
+      'The run stopped after making these changes. Check them before asking again.',
+      undefined,
+      undefined,
+      { writes }
+    )
+  }
+
+  const reportStaleWrites = (writtenGraphId: string, writes: GraphWrite[]) => {
+    if (writes.length === 0) return
+    emitGraphWrites(writtenGraphId, writes)
+    addResultMessage(
+      `A request you started on ${writtenGraphId} finished after you switched graphs, and changed that graph:`,
       undefined,
       undefined,
       { writes }

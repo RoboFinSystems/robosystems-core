@@ -944,6 +944,25 @@ describe('ConsoleContent', () => {
       }
     })
 
+    it('shows what a run reported as failed had already changed', async () => {
+      mockOperatorExecuteOperator.mockResolvedValue({
+        content: 'Stopped at the credit ceiling.',
+        operator_used: 'Author Operator',
+        mode_used: 'standard',
+        metadata: { writes: [WRITES[0]] },
+        error_details: { error: 'credit ceiling reached' },
+      } as any)
+      render(<ConsoleContent config={AUTHOR_CONFIG} />)
+      typeCommand('/do add Notion Labs as a vendor')
+
+      await waitFor(() => {
+        expect(
+          screen.getByText(/Operator error: credit ceiling reached/)
+        ).toBeInTheDocument()
+      })
+      expect(screen.getByText('Changes made')).toBeInTheDocument()
+    })
+
     it('says what a run changed on a graph the user has since left', async () => {
       let finish: (value: unknown) => void = () => undefined
       mockOperatorExecuteOperator.mockImplementationOnce(
