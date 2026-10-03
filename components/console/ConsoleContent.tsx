@@ -77,6 +77,9 @@ const WRITE_LABELS: Record<string, string> = {
   'create-agent': 'Created counterparty',
   'update-agent': 'Updated counterparty',
   remember: 'Saved memory',
+  'create-report': 'Created draft report',
+  'update-event-block': 'Classified inbox line',
+  'promote-obligations': 'Drafted due schedule entries',
 }
 
 function describeWrite(write: GraphWrite): string {
@@ -139,6 +142,9 @@ export function ConsoleContent({
   const hasInitialized = useRef(false)
   const previousGraphId = useRef<string | null>(null)
   const operatorProgressMessageId = useRef<string | null>(null)
+  // Graphs with an operator run in flight. A second request to the same
+  // graph is refused: two /do runs writing at once would race each other.
+  const runningGraphsRef = useRef<Set<string>>(new Set())
 
   // ── Helpers ──────────────────────────────────────────────────────────
 
@@ -447,8 +453,16 @@ export function ConsoleContent({
       return
     }
 
+    if (runningGraphsRef.current.has(graphId)) {
+      addErrorMessage(
+        'A request is still running on this graph. Wait for it to finish before sending another.'
+      )
+      return
+    }
+
     const startTime = Date.now()
     const requestGraphId = graphId
+    runningGraphsRef.current.add(requestGraphId)
     const requestEpoch = graphEpochRef.current
     const isStale = () =>
       currentGraphRef.current !== requestGraphId ||
@@ -583,6 +597,13 @@ export function ConsoleContent({
       if (creditsUsed != null && Number(creditsUsed) > 0) {
         footer += `\nCredits used: ${Number(creditsUsed).toFixed(1)}`
       }
+      // A run cut short still answers, so say it stopped early.
+      if (metadata.hit_credit_ceiling) {
+        footer +=
+          '\nStopped at the credit limit for this request; the work may be incomplete'
+      } else if (metadata.hit_step_limit) {
+        footer += '\nStopped at the step limit; the work may be incomplete'
+      }
 
       // Natural-language answers come back as enriched markdown, so render them
       // as such and keep the query-stats footer separate (its line breaks would
@@ -631,6 +652,8 @@ export function ConsoleContent({
         addErrorMessage(`Operator error: ${errorMessage}`)
       }
       reportStoppedWrites(requestGraphId, landed)
+    } finally {
+      runningGraphsRef.current.delete(requestGraphId)
     }
   }
 

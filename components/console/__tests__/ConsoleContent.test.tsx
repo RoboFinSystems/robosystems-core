@@ -1007,6 +1007,115 @@ describe('ConsoleContent', () => {
       ).toBeInTheDocument()
     })
 
+    it('labels the ledger-bound writes in the receipt', async () => {
+      mockOperatorExecuteOperator.mockResolvedValue({
+        content: 'Done.',
+        operator_used: 'Author Operator',
+        mode_used: 'standard',
+        metadata: {
+          writes: [
+            { operation: 'update-event-block', id: 'evt_1', name: null },
+            { operation: 'create-report', id: 'rpt_1', name: 'September' },
+            { operation: 'promote-obligations', id: null, name: null },
+          ],
+        },
+      } as any)
+      render(<ConsoleContent config={AUTHOR_CONFIG} />)
+      typeCommand('/do classify the Stripe line and draft September')
+
+      await waitFor(() => {
+        expect(screen.getByText('Changes made')).toBeInTheDocument()
+      })
+      expect(
+        screen.getByText(/Classified inbox line: evt_1/)
+      ).toBeInTheDocument()
+      expect(
+        screen.getByText(/Created draft report: September/)
+      ).toBeInTheDocument()
+      expect(
+        screen.getByText(/Drafted due schedule entries/)
+      ).toBeInTheDocument()
+    })
+
+    it.each([
+      ['hit_credit_ceiling', /Stopped at the credit limit for this request/],
+      ['hit_step_limit', /Stopped at the step limit/],
+    ])('says so when a run stopped early (%s)', async (flag, note) => {
+      mockOperatorExecuteOperator.mockResolvedValue({
+        content: 'I created two of the three blocks.',
+        operator_used: 'Author Operator',
+        mode_used: 'standard',
+        metadata: { writes: WRITES, [flag]: true },
+      } as any)
+      render(<ConsoleContent config={AUTHOR_CONFIG} />)
+      typeCommand('/do set up three metric blocks')
+
+      await waitFor(() => {
+        expect(screen.getByText(note)).toBeInTheDocument()
+      })
+    })
+
+    it('does not mention a limit on a run that finished', async () => {
+      render(<ConsoleContent config={AUTHOR_CONFIG} />)
+      typeCommand('/do add Notion Labs as a vendor')
+
+      await waitFor(() => {
+        expect(screen.getByText('Changes made')).toBeInTheDocument()
+      })
+      expect(screen.queryByText(/Stopped at/)).not.toBeInTheDocument()
+    })
+
+    it('refuses a second request while one is still running', async () => {
+      let finish: (value: unknown) => void = () => {}
+      mockOperatorExecuteOperator.mockReturnValueOnce(
+        new Promise((resolve) => {
+          finish = resolve
+        }) as any
+      )
+      render(<ConsoleContent config={AUTHOR_CONFIG} />)
+      typeCommand('/do add Notion Labs as a vendor')
+      await waitFor(() =>
+        expect(mockOperatorExecuteOperator).toHaveBeenCalledTimes(1)
+      )
+
+      typeCommand('/do add Linear as a vendor')
+      await waitFor(() => {
+        expect(
+          screen.getByText(/A request is still running on this graph/)
+        ).toBeInTheDocument()
+      })
+      expect(mockOperatorExecuteOperator).toHaveBeenCalledTimes(1)
+
+      // Once the first run settles the console takes requests again.
+      finish({
+        content: 'Added.',
+        operator_used: 'Author Operator',
+        mode_used: 'standard',
+        metadata: { writes: [] },
+      })
+      await waitFor(() => {
+        expect(screen.getByText('Added.')).toBeInTheDocument()
+      })
+      typeCommand('/do add Linear as a vendor')
+      await waitFor(() =>
+        expect(mockOperatorExecuteOperator).toHaveBeenCalledTimes(2)
+      )
+    })
+
+    it('takes requests again after a run fails', async () => {
+      mockOperatorExecuteOperator.mockRejectedValueOnce(new Error('boom'))
+      render(<ConsoleContent config={AUTHOR_CONFIG} />)
+      typeCommand('/do add Notion Labs as a vendor')
+      await waitFor(() => {
+        expect(screen.getByText(/Operator error: boom/)).toBeInTheDocument()
+      })
+
+      typeCommand('/do add Notion Labs as a vendor')
+      await waitFor(() =>
+        expect(mockOperatorExecuteOperator).toHaveBeenCalledTimes(2)
+      )
+    })
+
     it('shows usage when called without a request', async () => {
       render(<ConsoleContent config={AUTHOR_CONFIG} />)
       typeCommand('/do')
