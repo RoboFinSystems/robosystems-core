@@ -1029,11 +1029,10 @@ describe('ConsoleContent', () => {
       expect(
         screen.getByText(/Classified inbox line: evt_1/)
       ).toBeInTheDocument()
+      expect(screen.getByText(/Created report: September/)).toBeInTheDocument()
+      // The sweep may find nothing due, so its line claims no draft.
       expect(
-        screen.getByText(/Created draft report: September/)
-      ).toBeInTheDocument()
-      expect(
-        screen.getByText(/Drafted due schedule entries/)
+        screen.getByText(/Swept due schedule obligations/)
       ).toBeInTheDocument()
     })
 
@@ -1100,6 +1099,41 @@ describe('ConsoleContent', () => {
       await waitFor(() =>
         expect(mockOperatorExecuteOperator).toHaveBeenCalledTimes(2)
       )
+    })
+
+    it('stops refusing once a run has outlived the worker budget', async () => {
+      // A stream that drops without settling leaves the promise pending
+      // for good; the lock must not outlast the run it stood for.
+      mockOperatorExecuteOperator.mockReturnValueOnce(
+        new Promise(() => {}) as any
+      )
+      const now = vi.spyOn(Date, 'now')
+      const start = 1_800_000_000_000
+      now.mockReturnValue(start)
+      try {
+        render(<ConsoleContent config={AUTHOR_CONFIG} />)
+        typeCommand('/do add Notion Labs as a vendor')
+        await waitFor(() =>
+          expect(mockOperatorExecuteOperator).toHaveBeenCalledTimes(1)
+        )
+
+        now.mockReturnValue(start + 10 * 60 * 1000)
+        typeCommand('/do add Linear as a vendor')
+        await waitFor(() => {
+          expect(
+            screen.getByText(/A request is still running on this graph/)
+          ).toBeInTheDocument()
+        })
+        expect(mockOperatorExecuteOperator).toHaveBeenCalledTimes(1)
+
+        now.mockReturnValue(start + 12 * 60 * 1000)
+        typeCommand('/do add Linear as a vendor')
+        await waitFor(() =>
+          expect(mockOperatorExecuteOperator).toHaveBeenCalledTimes(2)
+        )
+      } finally {
+        now.mockRestore()
+      }
     })
 
     it('takes requests again after a run fails', async () => {

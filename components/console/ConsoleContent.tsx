@@ -77,10 +77,15 @@ const WRITE_LABELS: Record<string, string> = {
   'create-agent': 'Created counterparty',
   'update-agent': 'Updated counterparty',
   remember: 'Saved memory',
-  'create-report': 'Created draft report',
+  'create-report': 'Created report',
   'update-event-block': 'Classified inbox line',
-  'promote-obligations': 'Drafted due schedule entries',
+  // The sweep reports counts, not objects, and may find nothing due.
+  'promote-obligations': 'Swept due schedule obligations',
 }
+
+// The worker gives an operator run 600s. A lock older than this is a stream
+// that dropped without settling, not a run, so it stops refusing requests.
+const RUN_LOCK_MS = 11 * 60 * 1000
 
 function describeWrite(write: GraphWrite): string {
   const label = WRITE_LABELS[write.operation] ?? write.operation
@@ -142,9 +147,10 @@ export function ConsoleContent({
   const hasInitialized = useRef(false)
   const previousGraphId = useRef<string | null>(null)
   const operatorProgressMessageId = useRef<string | null>(null)
-  // Graphs with an operator run in flight. A second request to the same
-  // graph is refused: two /do runs writing at once would race each other.
-  const runningGraphsRef = useRef<Set<string>>(new Set())
+  // Graphs with an operator run in flight, by when it started. A second
+  // request to the same graph is refused: two /do runs writing at once would
+  // race each other.
+  const runningGraphsRef = useRef<Map<string, number>>(new Map())
 
   // ── Helpers ──────────────────────────────────────────────────────────
 
@@ -453,7 +459,8 @@ export function ConsoleContent({
       return
     }
 
-    if (runningGraphsRef.current.has(graphId)) {
+    const runningSince = runningGraphsRef.current.get(graphId)
+    if (runningSince !== undefined && Date.now() - runningSince < RUN_LOCK_MS) {
       addErrorMessage(
         'A request is still running on this graph. Wait for it to finish before sending another.'
       )
@@ -462,7 +469,7 @@ export function ConsoleContent({
 
     const startTime = Date.now()
     const requestGraphId = graphId
-    runningGraphsRef.current.add(requestGraphId)
+    runningGraphsRef.current.set(requestGraphId, startTime)
     const requestEpoch = graphEpochRef.current
     const isStale = () =>
       currentGraphRef.current !== requestGraphId ||
@@ -653,7 +660,10 @@ export function ConsoleContent({
       }
       reportStoppedWrites(requestGraphId, landed)
     } finally {
-      runningGraphsRef.current.delete(requestGraphId)
+      // Only this run's own entry: a later run may hold the lock by now.
+      if (runningGraphsRef.current.get(requestGraphId) === startTime) {
+        runningGraphsRef.current.delete(requestGraphId)
+      }
     }
   }
 
