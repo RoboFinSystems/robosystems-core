@@ -150,6 +150,17 @@ describe('buildGraphAwareConsoleConfig', () => {
     expect(buildGraphAwareConsoleConfig(SEC, BRANDING).enableAuthor).toBe(false)
   })
 
+  it('does not offer /do to a viewer, whose role is read-only', () => {
+    expect(
+      buildGraphAwareConsoleConfig(graph({ role: 'viewer' }), BRANDING)
+        .enableAuthor
+    ).toBe(false)
+    expect(
+      buildGraphAwareConsoleConfig(graph({ role: 'member' }), BRANDING)
+        .enableAuthor
+    ).toBe(true)
+  })
+
   it('selects the generic set and injects the graph name', () => {
     const config = buildGraphAwareConsoleConfig(
       graph({ graphName: 'Acme', schemaExtensions: [] }),

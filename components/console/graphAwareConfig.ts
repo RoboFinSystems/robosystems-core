@@ -486,8 +486,10 @@ export function buildGraphAwareConsoleConfig(
       'No graph selected. Please select a graph first.',
     // Semantic memory is per-user-graph; shared repositories reject it.
     enableRecall: !isRepository,
-    // Writes need a user graph; the API also checks the write role.
-    enableAuthor: !isRepository,
+    // Writes need a user graph and a role above viewer, which is read-only.
+    // The API checks the write role either way; this keeps a viewer from
+    // being offered /do only to be refused.
+    enableAuthor: !isRepository && graph?.role?.toLowerCase() !== 'viewer',
   }
 }
 
@@ -509,6 +511,7 @@ export function useGraphAwareConsoleConfig(
       currentGraph?.repositoryType,
       currentGraph?.schemaExtensions,
       currentGraph?.graphName,
+      currentGraph?.role,
       branding,
     ]
   )
