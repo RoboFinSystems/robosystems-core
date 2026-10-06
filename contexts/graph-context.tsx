@@ -156,13 +156,13 @@ export function createGraphProvider<T extends GraphState = GraphState>(
             currentGraphId: graphId,
           }))
 
-          // Only call selectGraph API for user graphs, not repositories
+          // Only call setSelectedGraph for user graphs, not repositories
           // Repositories can be accessed but not "selected" in the backend
           // If graph is not found in local state, skip the API call (likely a repository)
           if (isUserGraph) {
             unwrapSdk(
-              await SDK.selectGraph({
-                path: { graph_id: graphId },
+              await SDK.setSelectedGraph({
+                body: { graph_id: graphId },
               })
             )
           }

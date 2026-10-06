@@ -65,10 +65,11 @@ describe('setCurrentGraph', () => {
     await act(async () => {
       await ctx.setCurrentGraph('sec')
     })
-    const selects = net.requests('POST', '/select').map((r) => r.url)
-    expect(selects).toHaveLength(2)
-    expect(selects[0]).toContain('/v1/graphs/kg_b/select')
-    expect(selects[1]).toContain('/v1/graphs/kg_a/select')
+    const selects = net.requests('PUT', '/v1/user/selected-graph')
+    expect(await Promise.all(selects.map((r) => r.json()))).toEqual([
+      { graph_id: 'kg_b' },
+      { graph_id: 'kg_a' },
+    ])
     expect(ctx.state.currentGraphId).toBe('sec')
   })
 
@@ -87,6 +88,9 @@ describe('setCurrentGraph', () => {
       await ctx.refreshGraphs()
       await ctx.setCurrentGraph('kg_new')
     })
-    expect(net.requests('POST', '/v1/graphs/kg_new/select')).toHaveLength(1)
+    const selects = net.requests('PUT', '/v1/user/selected-graph')
+    expect(await Promise.all(selects.map((r) => r.json()))).toEqual([
+      { graph_id: 'kg_new' },
+    ])
   })
 })
