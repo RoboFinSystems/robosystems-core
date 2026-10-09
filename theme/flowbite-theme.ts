@@ -614,7 +614,11 @@ export const customTheme = createTheme({
       base: 'w-full text-left text-sm text-gray-500 dark:text-gray-400',
       shadow:
         'absolute top-0 left-0 -z-10 h-full w-full rounded-lg bg-white drop-shadow-md dark:bg-zinc-800',
-      wrapper: 'relative',
+      // `shadow` paints the body background at the wrapper's size. A plain
+      // block wrapper stops at an overflow-x scroller's visible width, so a
+      // wide table scrolls its rows off the paint; fit the wrapper to the
+      // table instead, floored at the container width.
+      wrapper: 'relative w-fit min-w-full',
     },
     body: {
       base: 'group/body',
