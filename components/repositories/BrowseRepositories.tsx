@@ -26,6 +26,7 @@ import { useGraphContext } from '../../contexts/graph-context'
 import { useOrg } from '../../contexts/org-context'
 import { useServiceOfferings } from '../../contexts/service-offerings-context'
 import { useToast } from '../../hooks/use-toast'
+import { useUser } from '../../hooks/use-user'
 import { unwrapSdk } from '../../lib/sdk-errors'
 import { useRepositorySubscription } from '../../task-monitoring/operationHooks'
 
@@ -88,6 +89,7 @@ export function BrowseRepositories({
   } | null>(null)
   const { showSuccess, showError, ToastContainer } = useToast()
   const { currentOrg } = useOrg()
+  const { user } = useUser()
   const { offerings, isLoading: offeringsLoading } = useServiceOfferings()
   const repositorySubscription = useRepositorySubscription()
   const { setCurrentGraph, refreshGraphs } = useGraphContext()
@@ -110,9 +112,12 @@ export function BrowseRepositories({
       )
 
       if (subscriptions) {
+        // An owner or admin is listed every member's seat; the viewer's
+        // subscription is only their own (or an org seat with no owner).
         const repositorySubscriptions = (subscriptions || []).filter(
           (sub: SDK.GraphSubscriptionResponse) =>
-            sub.resource_type === 'repository'
+            sub.resource_type === 'repository' &&
+            (!sub.user_id || sub.user_id === user?.id)
         )
         setUserSubscriptions(repositorySubscriptions as SubscriptionInfo[])
       } else {
@@ -129,7 +134,7 @@ export function BrowseRepositories({
     } finally {
       setLoading(false)
     }
-  }, [currentOrg?.id, showError])
+  }, [currentOrg?.id, user?.id, showError])
 
   useEffect(() => {
     loadData()
