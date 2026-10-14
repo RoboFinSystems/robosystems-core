@@ -15,12 +15,22 @@ vi.mock('../../../contexts/service-offerings-context', () => ({
           enabled: true,
           name: 'SEC',
           description: 'SEC filings',
-          plans: [{ plan: 'sec-starter', name: 'Starter', monthlyPrice: 10 }],
+          plans: [
+            {
+              plan: 'sec-starter',
+              name: 'Starter',
+              monthlyPrice: 10,
+              monthlyCredits: 100,
+            },
+          ],
         },
       },
     },
     isLoading: false,
   }),
+}))
+vi.mock('../../../hooks/use-user', () => ({
+  useUser: () => ({ user: { id: 'user_owner' } }),
 }))
 vi.mock('../../../contexts/graph-context', () => ({
   useGraphContext: () => ({
@@ -61,5 +71,42 @@ describe('subscription list failures', () => {
       ).toBeGreaterThan(0)
     )
     expect(screen.queryByRole('button', { name: /Subscribe/ })).toBeNull()
+  })
+})
+
+describe("an owner whose org's only seat is a member's", () => {
+  // The API lists every member's row to an owner or admin.
+  const membersSeat = () =>
+    stubFetch((r) =>
+      r.url.includes('/v1/billing/subscriptions/org_1')
+        ? json(200, [
+            {
+              id: 'sub_m',
+              resource_type: 'repository',
+              resource_id: 'sec',
+              user_id: 'user_member',
+              plan_name: 'sec-starter',
+              plan_display_name: 'Starter',
+              billing_interval: 'monthly',
+              status: 'active',
+              base_price_cents: 1000,
+            },
+          ])
+        : json(200, {})
+    )
+
+  it('BrowseRepositories still offers the owner a seat of their own', async () => {
+    membersSeat()
+    render(<BrowseRepositories />)
+    expect(
+      await screen.findByRole('button', { name: /Subscribe/ })
+    ).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Current Plan/ })).toBeNull()
+  })
+
+  it("ActiveSubscriptions does not list the member's seat as the owner's", async () => {
+    membersSeat()
+    render(<ActiveSubscriptions emptyState={<p>No subscriptions yet</p>} />)
+    expect(await screen.findByText('No subscriptions yet')).toBeInTheDocument()
   })
 })
