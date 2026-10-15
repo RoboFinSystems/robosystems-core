@@ -11,7 +11,7 @@ A PR description written from the diff alone can't know _why_ a change was made,
 
 This is `@robosystems/core` — the **published shared frontend core** for three Next.js apps (`robosystems-app`, `roboledger-app`, `roboinvestor-app`). Every change here reaches all three, deliberately, via a version bump. Precision about the component contract matters more than in an app repo, because three consumers depend on it and none of them see this diff.
 
-**This repository is public.** The PR title and body are world-readable the moment they're pushed, and publishing is triggered by a push to `release/**` rather than by a merge — so the text is often public before the version that carries it. Treat the description as a publication.
+**This repository is public.** The PR title and body are world-readable the moment they're pushed, and publishing happens only when a release is dispatched rather than on merge — so the text is often public before the version that carries it. Treat the description as a publication.
 
 ## Instructions
 
@@ -23,7 +23,7 @@ TARGET=${1:-main}            # override target via the first argument
 ```
 
 - **Never PR from the default branch.** If `CURRENT` is `main`, stop and tell the user to switch to a feature branch first. New branches are created via `npm run feature:create`, not by hand.
-- **Never target a release branch.** `release/**` is what `publish.yml` watches; a PR into one is a publish trigger, not a code review. Target `main`.
+- **Never target a release branch.** `release/<version>` is a cut record that `create-release.yml` tags and publishes from; a PR into one changes nothing on `main` and is not a code review. Target `main`.
 - **Source ≠ target.** If `CURRENT == TARGET`, stop.
 - **Uncommitted changes.** Run `git status --porcelain`. If there are uncommitted/staged changes, surface them and ask whether to commit them (never on `main`, stage files by name, no `git add -A`) or proceed without them. The description must reflect committed state.
 - **Existing PR.** Check `gh pr list --head "$CURRENT" --base "$TARGET" --json url,number`. If one exists, don't duplicate — offer `gh pr edit` instead.
@@ -65,7 +65,7 @@ TARGET=${1:-main}            # override target via the first argument
   - **`sideEffects`.** `index.ts` configures the `@robosystems/client` SDK at import time and `dist/package.json` declares `sideEffects: ['./index.js']`. If you add or remove a side effect, keep that accurate or bundlers will tree-shake it away.
   - **Peers, not deps.** `react`, `react-dom`, `next`, `flowbite-react`, `react-icons`, and `@robosystems/client` stay peers so apps keep one instance each. Widening or narrowing a peer range is a consumer-visible change — a range that excludes what an app has installed produces `ERESOLVE` on every install.
 
-- **Version and publish are not this PR's job.** `create-release.yml` bumps the version on `main` and cuts `release/<version>`; the push to that branch triggers `publish.yml`. Never bump `package.json` in a feature PR.
+- **Version and publish are not this PR's job.** `create-release.yml` bumps the version on `main` and cuts `release/<version>`, tags it, and publishes from the tag in the same run. Never bump `package.json` in a feature PR.
 
 - **Security-fix disclosure.** Keep the prose terse and non-actionable — the area hardened, never the mechanism. No exploit mechanics, attack scenarios, or payloads. For coordinated disclosure use a private GitHub Security Advisory.
 
