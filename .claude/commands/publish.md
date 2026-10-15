@@ -7,12 +7,13 @@ Monitor a release and publish run — pinpoint why it failed, and confirm the ve
 
 ## How a release actually happens here
 
-Two workflows, and the trigger between them is the part that surprises people:
+One workflow, `create-release.yml` (`workflow_dispatch` with a major/minor/patch choice, or `npm run release:create`), with three jobs in sequence:
 
-1. **`create-release.yml`** (`workflow_dispatch` with a major/minor/patch choice, or `npm run release:create`) — reads the version from `package.json`, computes the next one, commits the bump **to `main`**, cuts `release/<version>` from that commit, tags `v<version>`, and creates a GitHub Release with a Claude-generated changelog.
-2. **`publish.yml`** — triggered by **a push to `release/**`**, not by a merge and not by the tag. It builds and runs `npm publish ./dist --provenance` over npm OIDC trusted publishing.
+1. **`create-release`** — reads the version from `package.json`, computes the next one, commits the bump **to `main`**, and cuts `release/<version>` from that commit.
+2. **`create-tag`** — `tag-release.yml` tags `v<version>` and creates a GitHub Release with a Claude-generated changelog.
+3. **`publish`** — runs once the tag exists, under the `production` environment, so its required-reviewer prompt lands on this same run. It checks out the tag, verifies the version is the one just cut, builds, and runs `npm publish ./dist --provenance` over npm OIDC trusted publishing. npm's trusted publisher is registered against `create-release.yml` and the `production` environment.
 
-So **merging a PR to `main` publishes nothing** — the release-branch push is the publishing event.
+So **merging a PR to `main` publishes nothing** — dispatching the workflow is the publishing event, and nothing uploads until the deployment is approved on the run page. A failed publish is retried with **Re-run failed jobs** on that run; the version and tag are already cut, and a new release is warranted only when the code itself is at fault.
 
 Note the publish is `npm publish ./dist`, not `npm publish`. The package is assembled by `scripts/prepare-package.mjs` and published **from `dist/`** so compiled files sit at the package root. A publish that succeeded from the wrong directory would produce a package where every deep import in three apps fails.
 
@@ -28,7 +29,6 @@ Note the publish is `npm publish ./dist`, not `npm publish`. The package is asse
 ## 1. Find the run
 
 ```bash
-gh run list --workflow=publish.yml --limit 5
 gh run list --workflow=create-release.yml --limit 5
 gh run view <run-id>
 gh run watch <run-id>            # live, if in flight
@@ -43,9 +43,11 @@ gh run view <run-id> --log-failed
 - **`create-release.yml` — branch already exists.** A previous run got partway. Resolve the leftover `release/<version>` branch rather than re-dispatching blindly.
 - **`create-release.yml` — push to `main` rejected.** The bump commits directly to a protected branch; a permissions failure shows up at the push step.
 - **`create-release.yml` — changelog step.** A failed Claude API call falls back to a commit-count summary rather than failing the run. A release whose notes look mechanical usually means that fallback fired, not that nothing happened.
-- **`publish.yml` — build.** `tsc` per file plus `prepare-package.mjs`. This is where packaging breaks surface: a missing `'use client'` directive in `dist/`, a malformed `dist/package.json`, or a bad `sideEffects` entry.
-- **`publish.yml` — the upload.** OIDC trusted publishing with provenance. Failures are usually npm-side trust configuration or a name/version mismatch, not the code.
-- **Version already on npm.** The publish will refuse rather than overwrite. If you expected a publish, the version wasn't bumped.
+- **`publish` — waiting.** The job is paused on the `production` environment's required reviewer. Nothing is wrong; approve it from the run page (_Review deployments_).
+- **`publish` — "checked out version X, expected Y".** The tag the job checked out does not carry the version this run cut. Nothing was published; look at what `create-tag` tagged.
+- **`publish` — build.** `tsc` per file plus `prepare-package.mjs`. This is where packaging breaks surface: a missing `'use client'` directive in `dist/`, a malformed `dist/package.json`, or a bad `sideEffects` entry.
+- **`publish` — the upload.** OIDC trusted publishing with provenance. Failures are usually npm-side trust configuration (the publisher must name `create-release.yml`) or a name/version mismatch, not the code.
+- **Version already on npm.** Every later step is skipped rather than overwriting. If you expected a publish, the version wasn't bumped.
 
 ## 3. Verify it actually landed
 
@@ -78,6 +80,6 @@ A peer range that excludes what an app has installed produces `ERESOLVE` at this
 
 ## Output
 
-A short status: which workflow, what failed and at which step, the root cause, the re-run link if any, the verified published version from `npm view`, and whether the three apps can adopt it cleanly. If nothing failed, say so — don't manufacture work.
+A short status: which job, what failed and at which step, the root cause, the re-run link if any, the verified published version from `npm view`, and whether the three apps can adopt it cleanly. If nothing failed, say so — don't manufacture work.
 
 $ARGUMENTS

@@ -48,7 +48,7 @@ Tests live in `__tests__/` directories alongside source and run here (not in the
 
 1. `npm run release:create` (or dispatch the **Create Release & Publish** workflow with a major/minor/patch choice)
 2. The workflow bumps the version on `main`, cuts a `release/<version>` branch, tags `v<version>`, and creates a GitHub Release with an AI-generated changelog
-3. The `release/**` push triggers `publish.yml`: build + `npm publish ./dist --provenance` via npm OIDC Trusted Publishing
+3. A `publish` job in the same run, gated by the `production` environment's required reviewer, checks out the tag and runs build + `npm publish ./dist --provenance` via npm OIDC Trusted Publishing
 4. Apps adopt with `npm install @robosystems/core@<version>` — one app per PR is fine; that's the point of version pinning
 
 ## Important Notes
