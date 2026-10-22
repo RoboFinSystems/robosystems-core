@@ -116,6 +116,14 @@ export function ConsoleContent({
   // Moves on at every graph switch, so a switch away and back (A → B → A)
   // still retires a request made before it.
   const graphEpochRef = useRef(0)
+  // The scope a request made now belongs to; true once the console has left it.
+  const leftScope = () => {
+    const requestGraphId = graphId
+    const requestEpoch = graphEpochRef.current
+    return () =>
+      currentGraphRef.current !== requestGraphId ||
+      graphEpochRef.current !== requestEpoch
+  }
 
   // Terminal state
   const [terminalMessages, setTerminalMessages] = useState<TerminalMessage[]>(
@@ -803,6 +811,7 @@ export function ConsoleContent({
         return
       }
       addSystemMessage(`Searching for "${searchQuery}"...`)
+      const stale = leftScope()
       try {
         const body: Record<string, unknown> = {
           query: searchQuery,
@@ -812,6 +821,7 @@ export function ConsoleContent({
           path: { graph_id: graphId },
           body: body as SDK.SearchRequest,
         })
+        if (stale()) return
         if (res.data) {
           const data = res.data as SearchResponse
           if (data.hits.length === 0) {
@@ -839,6 +849,7 @@ export function ConsoleContent({
           addErrorMessage('Search failed. Please try again.')
         }
       } catch {
+        if (stale()) return
         addErrorMessage('An error occurred while searching.')
       }
       return
@@ -874,11 +885,13 @@ export function ConsoleContent({
         return
       }
       addSystemMessage(`Recalling memories for "${recallQuery}"...`)
+      const stale = leftScope()
       try {
         const res = await SDK.recallMemory({
           path: { graph_id: graphId },
           body: { query: recallQuery, k: 10 },
         })
+        if (stale()) return
         if (res.data) {
           const data = res.data as SearchResponse
           if (data.hits.length === 0) {
@@ -911,6 +924,7 @@ export function ConsoleContent({
           }
         }
       } catch {
+        if (stale()) return
         addErrorMessage('An error occurred while recalling memories.')
       }
       return

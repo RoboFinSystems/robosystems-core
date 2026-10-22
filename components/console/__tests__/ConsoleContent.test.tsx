@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { ConsoleConfig } from '../types'
@@ -1195,6 +1195,48 @@ describe('ConsoleContent', () => {
       fireEvent.change(input, { target: { value } })
       fireEvent.keyDown(input, { key: 'Enter' })
     }
+
+    it('drops a recall that resolves after the console moved to another graph', async () => {
+      let releaseRecall: (value: unknown) => void = () => {}
+      mockRecallMemory.mockImplementation(
+        () => new Promise((resolve) => (releaseRecall = resolve)) as any
+      )
+
+      const { rerender } = render(<ConsoleContent config={RECALL_CONFIG} />)
+      typeCommand('/recall payment terms')
+      await waitFor(() => expect(mockRecallMemory).toHaveBeenCalledTimes(1))
+
+      mockUseGraphContext.mockReturnValue(
+        createGraphContext({ state: { currentGraphId: 'other-graph-id' } })
+      )
+      rerender(<ConsoleContent config={RECALL_CONFIG} />)
+      await act(async () => {
+        releaseRecall({
+          data: {
+            total: 1,
+            hits: [
+              {
+                document_id: 'mem_1',
+                score: 0.87,
+                source_type: 'memory',
+                snippet: 'Acme pays invoices net 30',
+                tags: ['billing'],
+              },
+            ],
+            query: 'payment terms',
+            graph_id: 'test-graph-id',
+          },
+          error: undefined,
+        })
+      })
+
+      expect(
+        screen.queryByText((content) => content.includes('Recalled 1 memory'))
+      ).not.toBeInTheDocument()
+      expect(
+        screen.queryByText((content) => content.includes('[0.87]'))
+      ).not.toBeInTheDocument()
+    })
 
     it('should call recallMemory and render scored hits', async () => {
       mockRecallMemory.mockResolvedValue({
