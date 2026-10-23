@@ -32,6 +32,8 @@ vi.mock('@robosystems/client/clients', () => ({
 vi.mock('@robosystems/client', () => ({
   recallMemory: vi.fn(),
   searchDocuments: vi.fn(),
+  listOperatorThreads: vi.fn(),
+  listOperatorRuns: vi.fn(),
 }))
 
 // /mcp mints an API key before printing the connect instructions.
@@ -52,6 +54,8 @@ const mockUseStreamingQuery = vi.mocked(useStreamingQuery)
 const mockOperatorExecuteQuery = vi.mocked(clients.operator.executeQuery)
 const mockOperatorExecuteOperator = vi.mocked(clients.operator.executeOperator)
 const mockRecallMemory = vi.mocked(SDK.recallMemory)
+const mockListOperatorThreads = vi.mocked(SDK.listOperatorThreads)
+const mockListOperatorRuns = vi.mocked(SDK.listOperatorRuns)
 const mockCreateUserApiKey = vi.mocked(createUserApiKey)
 
 const TEST_CONFIG: ConsoleConfig = {
@@ -173,6 +177,8 @@ describe('ConsoleContent', () => {
     mockStreamingQuery.cancelQuery.mockReset()
     mockStreamingQuery.reset.mockReset()
     mockOperatorExecuteQuery.mockReset()
+    mockListOperatorThreads.mockReset()
+    mockListOperatorRuns.mockReset()
 
     graphContext = createGraphContext()
     mockUseStreamingQuery.mockReturnValue(mockStreamingQuery)
@@ -327,6 +333,133 @@ describe('ConsoleContent', () => {
       )
       expect(output.textContent).not.toContain('?token=')
     })
+    it('/history lists recent conversations and /resume continues one', async () => {
+      mockListOperatorThreads.mockResolvedValue({
+        data: {
+          graph_id: 'test-graph-id',
+          threads: [
+            {
+              thread_id: 'thr_recent',
+              user_id: 'usr_1',
+              title: 'Total expenses July?',
+              run_count: 2,
+              first_run_at: '2026-10-20T10:00:00Z',
+              last_run_at: '2026-10-20T10:05:00Z',
+              last_operator_type: 'analyst',
+              last_status: 'completed',
+            },
+          ],
+          next_cursor: null,
+        },
+      } as any)
+      mockListOperatorRuns.mockResolvedValue({
+        data: {
+          graph_id: 'test-graph-id',
+          runs: [
+            {
+              operation_id: 'op_2',
+              thread_id: 'thr_recent',
+              user_id: 'usr_1',
+              operator_type: 'analyst',
+              mode: 'standard',
+              status: 'failed',
+              question: 'And August?',
+              answer: null,
+              error: 'Bedrock refused',
+              credits_consumed: 0,
+              call_count: 0,
+              tools_called: [],
+              write_count: 0,
+              started_at: '2026-10-20T10:05:00Z',
+              finished_at: '2026-10-20T10:05:01Z',
+              duration_ms: 1000,
+            },
+            {
+              operation_id: 'op_1',
+              thread_id: 'thr_recent',
+              user_id: 'usr_1',
+              operator_type: 'analyst',
+              mode: 'standard',
+              status: 'completed',
+              question: 'Total expenses July?',
+              answer: 'July expenses were **$12,400**.',
+              error: null,
+              credits_consumed: 25.6,
+              call_count: 2,
+              tools_called: ['read-graph-cypher'],
+              write_count: 0,
+              started_at: '2026-10-20T10:00:00Z',
+              finished_at: '2026-10-20T10:00:14Z',
+              duration_ms: 14000,
+            },
+          ],
+          next_cursor: null,
+        },
+      } as any)
+      mockOperatorExecuteQuery.mockResolvedValue({
+        content: 'September was lower.',
+        operator_used: 'analyst',
+        mode_used: 'standard',
+      })
+
+      render(<ConsoleContent config={TEST_CONFIG} />)
+      const input = screen.getByPlaceholderText(
+        'Type a question, /query <cypher>, or /help...'
+      )
+      fireEvent.change(input, { target: { value: '/history' } })
+      fireEvent.keyDown(input, { key: 'Enter' })
+      await waitFor(() => {
+        expect(
+          screen.getByText(/1\. Total expenses July\?/)
+        ).toBeInTheDocument()
+      })
+      expect(mockListOperatorThreads).toHaveBeenCalledWith({
+        path: { graph_id: 'test-graph-id' },
+        query: { limit: 10 },
+      })
+
+      fireEvent.change(input, { target: { value: '/resume 1' } })
+      fireEvent.keyDown(input, { key: 'Enter' })
+      await waitFor(() => {
+        expect(screen.getByText(/Resumed conversation/)).toBeInTheDocument()
+      })
+      expect(mockListOperatorRuns).toHaveBeenCalledWith({
+        path: { graph_id: 'test-graph-id' },
+        query: { thread_id: 'thr_recent', limit: 50 },
+      })
+      // Replayed oldest first: the answer, then the failed follow-up.
+      expect(screen.getByText(/July expenses were/)).toBeInTheDocument()
+      expect(screen.getByText(/Credits used: 25\.6/)).toBeInTheDocument()
+      expect(
+        screen.getByText(/Operator error: Bedrock refused/)
+      ).toBeInTheDocument()
+
+      // The next question continues that conversation.
+      fireEvent.change(input, { target: { value: 'And September?' } })
+      fireEvent.keyDown(input, { key: 'Enter' })
+      await waitFor(() => {
+        expect(mockOperatorExecuteQuery).toHaveBeenCalledTimes(1)
+      })
+      expect(mockOperatorExecuteQuery.mock.calls[0][1]).toEqual({
+        message: 'And September?',
+        mode: 'standard',
+        threadId: 'thr_recent',
+      })
+    })
+
+    it('/resume without a listing says to run /history first', async () => {
+      render(<ConsoleContent config={TEST_CONFIG} />)
+      const input = screen.getByPlaceholderText(
+        'Type a question, /query <cypher>, or /help...'
+      )
+      fireEvent.change(input, { target: { value: '/resume 1' } })
+      fireEvent.keyDown(input, { key: 'Enter' })
+      await waitFor(() => {
+        expect(screen.getByText(/Run \/history first/)).toBeInTheDocument()
+      })
+      expect(mockListOperatorRuns).not.toHaveBeenCalled()
+    })
+
     it('should handle /examples command with config-driven label', async () => {
       render(<ConsoleContent config={TEST_CONFIG} />)
 
@@ -531,13 +664,14 @@ describe('ConsoleContent', () => {
           {
             message: 'Show me all nodes',
             mode: 'standard',
+            threadId: expect.any(String),
           },
           expect.any(Object)
         )
       })
     })
 
-    it('carries prior exchanges as history on follow-up questions', async () => {
+    it('carries one thread id across follow-up questions, and no history', async () => {
       mockOperatorExecuteQuery.mockResolvedValue({
         content: 'Forty-two nodes.',
         operator_used: 'cypher',
@@ -561,22 +695,52 @@ describe('ConsoleContent', () => {
         expect(mockOperatorExecuteQuery).toHaveBeenCalledTimes(2)
       })
 
-      // The first question carried no history; the second carries the
-      // first exchange so the operator can resolve the follow-up.
-      expect(mockOperatorExecuteQuery.mock.calls[0][1]).not.toHaveProperty(
-        'history'
-      )
-      expect(mockOperatorExecuteQuery.mock.calls[1][1]).toEqual({
+      // The server seeds a follow-up from the thread's own record, so the
+      // console sends the thread id and nothing of the exchange itself.
+      const first = mockOperatorExecuteQuery.mock.calls[0][1]
+      const second = mockOperatorExecuteQuery.mock.calls[1][1]
+      expect(first).not.toHaveProperty('history')
+      expect(second).toEqual({
         message: 'And relationships?',
         mode: 'standard',
-        history: [
-          { role: 'user', content: 'How many nodes?' },
-          { role: 'assistant', content: 'Forty-two nodes.' },
-        ],
+        threadId: first.threadId,
       })
+      expect(first.threadId).toMatch(/^[A-Za-z0-9_-]{1,64}$/)
     })
 
-    it('drops the conversation history when the graph changes', async () => {
+    it('/clear starts a new conversation', async () => {
+      mockOperatorExecuteQuery.mockResolvedValue({
+        content: 'Forty-two nodes.',
+        operator_used: 'cypher',
+        mode_used: 'standard',
+      })
+
+      render(<ConsoleContent config={TEST_CONFIG} />)
+      const input = screen.getByPlaceholderText(
+        'Type a question, /query <cypher>, or /help...'
+      )
+      fireEvent.change(input, { target: { value: 'How many nodes?' } })
+      fireEvent.keyDown(input, { key: 'Enter' })
+      await waitFor(() => {
+        expect(mockOperatorExecuteQuery).toHaveBeenCalledTimes(1)
+      })
+      fireEvent.change(input, { target: { value: '/clear' } })
+      fireEvent.keyDown(input, { key: 'Enter' })
+      await waitFor(() => {
+        expect(screen.getByText(/Console cleared/)).toBeInTheDocument()
+      })
+      fireEvent.change(input, { target: { value: 'How many nodes?' } })
+      fireEvent.keyDown(input, { key: 'Enter' })
+      await waitFor(() => {
+        expect(mockOperatorExecuteQuery).toHaveBeenCalledTimes(2)
+      })
+
+      expect(mockOperatorExecuteQuery.mock.calls[1][1].threadId).not.toBe(
+        mockOperatorExecuteQuery.mock.calls[0][1].threadId
+      )
+    })
+
+    it('starts a new conversation when the graph changes', async () => {
       mockOperatorExecuteQuery.mockResolvedValue({
         content: 'Forty-two nodes.',
         operator_used: 'cypher',
@@ -623,7 +787,11 @@ describe('ConsoleContent', () => {
       expect(mockOperatorExecuteQuery.mock.calls[1][1]).toEqual({
         message: 'And here?',
         mode: 'standard',
+        threadId: expect.any(String),
       })
+      expect(mockOperatorExecuteQuery.mock.calls[1][1].threadId).not.toBe(
+        mockOperatorExecuteQuery.mock.calls[0][1].threadId
+      )
     })
 
     const onGraph = (id: string) =>
@@ -699,7 +867,7 @@ describe('ConsoleContent', () => {
         screen.queryByText(/Forty-two nodes on the first graph/)
       ).toBeNull()
 
-      // And it was not recorded as history for the new graph.
+      // And the new graph's question opens a conversation of its own.
       const freshInput = screen.getByPlaceholderText(
         'Type a question, /query <cypher>, or /help...'
       )
@@ -711,7 +879,11 @@ describe('ConsoleContent', () => {
       expect(mockOperatorExecuteQuery.mock.calls[1][1]).toEqual({
         message: 'And here?',
         mode: 'standard',
+        threadId: expect.any(String),
       })
+      expect(mockOperatorExecuteQuery.mock.calls[1][1].threadId).not.toBe(
+        mockOperatorExecuteQuery.mock.calls[0][1].threadId
+      )
     })
 
     it('drops an answer even after switching away and back to its graph', async () => {
@@ -877,7 +1049,11 @@ describe('ConsoleContent', () => {
         expect(mockOperatorExecuteOperator).toHaveBeenCalledWith(
           'test-graph-id',
           'author',
-          { message: 'add Notion Labs as a vendor', mode: 'standard' },
+          {
+            message: 'add Notion Labs as a vendor',
+            mode: 'standard',
+            threadId: expect.any(String),
+          },
           expect.any(Object)
         )
       })

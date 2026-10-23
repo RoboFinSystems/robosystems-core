@@ -17,6 +17,18 @@ import { ConsoleMarkdown } from './ConsoleMarkdown'
 import { ProgressiveText } from './ProgressiveText'
 import type { ConsoleConfig, TerminalMessage } from './types'
 
+// A conversation's id, minted here and sent with every question in it; the
+// server records each run under it. Any URL-safe token under 64 characters.
+function mintThreadId(): string {
+  if (
+    typeof crypto !== 'undefined' &&
+    typeof crypto.randomUUID === 'function'
+  ) {
+    return crypto.randomUUID()
+  }
+  return `thr_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`
+}
+
 function generateMessageId() {
   return `${Date.now()}-${Math.random().toString(36).substring(2, 11)}`
 }
@@ -134,12 +146,14 @@ export function ConsoleContent({
   const [historyIndex, setHistoryIndex] = useState(-1)
   const terminalEndRef = useRef<HTMLDivElement>(null)
   const terminalScrollRef = useRef<HTMLDivElement>(null)
-  // Prior operator exchanges, sent as `history` so a follow-up like "and for
-  // June?" resolves against the previous answer. Bounded to the last three
-  // exchanges — the backend seeds only its last five turns anyway.
-  const conversationRef = useRef<
-    Array<{ role: 'user' | 'assistant'; content: string }>
-  >([])
+  // The conversation the operator questions belong to. Minted on the first
+  // question, sent with every one after it, so a follow-up like "and for
+  // June?" resolves against the previous answers: the server seeds the run
+  // from the thread's own record. Null until a question is asked, and reset
+  // by /clear and by a graph switch.
+  const threadRef = useRef<string | null>(null)
+  // The threads /history last listed, so /resume <n> can name one.
+  const listedThreadsRef = useRef<SDK.OperatorThreadSummary[]>([])
   const [currentQueryStartTime, setCurrentQueryStartTime] = useState<
     number | null
   >(null)
@@ -185,7 +199,9 @@ export function ConsoleContent({
       `  /mcp        - Connect an MCP client (sign in — no key)\n` +
       `  /mcp key    - Mint a graph-scoped API key for header-only clients\n` +
       `  /help       - Show this help message\n` +
-      `  /clear      - Clear console history\n` +
+      `  /history    - List your recent conversations on this graph\n` +
+      `  /resume <n> - Continue a listed conversation\n` +
+      `  /clear      - Clear the console and start a new conversation\n` +
       `  /examples   - Show example queries`
 
     const extraLines = (config.extraCommands ?? [])
@@ -315,7 +331,7 @@ export function ConsoleContent({
       setTerminalMessages([])
       // A follow-up on the new graph must not resolve against the previous
       // graph's answers.
-      conversationRef.current = []
+      threadRef.current = null
       setCurrentQueryStartTime(null)
       addSystemMessage(
         `═══════════════════════════════════════════════════════════════\n` +
@@ -486,13 +502,14 @@ export function ConsoleContent({
     try {
       const { clients } = await import('@robosystems/client/clients')
 
-      const history = conversationRef.current
+      const threadId = threadRef.current ?? mintThreadId()
+      threadRef.current = threadId
       const request = {
         message: userQuery,
         // `standard` gives the operator loop six tool turns; `quick` (three)
         // was exhausted by schema + examples before the first query ran.
         mode: 'standard' as const,
-        ...(history.length > 0 ? { history } : {}),
+        threadId,
       }
       const options = {
         mode: 'auto' as const,
@@ -630,13 +647,6 @@ export function ConsoleContent({
           footer,
           writes,
         })
-        // Record the exchange for follow-ups. Only a narrative answer is
-        // worth carrying; the answer is clipped so history stays cheap.
-        conversationRef.current = [
-          ...conversationRef.current,
-          { role: 'user' as const, content: userQuery },
-          { role: 'assistant' as const, content: narrative.slice(0, 2000) },
-        ].slice(-6)
       } else {
         addResultMessage(footer, rows, cypher, { writes })
       }
@@ -776,6 +786,108 @@ export function ConsoleContent({
           `  Header: X-API-Key: <your key>`
       )
     }
+  }
+
+  // `/history`: the user's own conversations on this graph, newest first.
+  const showThreads = async () => {
+    if (!graphId) {
+      addErrorMessage(config.noSelectionError)
+      return
+    }
+    const stale = leftScope()
+    try {
+      const res = await SDK.listOperatorThreads({
+        path: { graph_id: graphId },
+        query: { limit: 10 },
+      })
+      if (stale()) return
+      const threads = res.data?.threads ?? []
+      listedThreadsRef.current = threads
+      if (threads.length === 0) {
+        addSystemMessage(
+          'No conversations recorded on this graph yet. Ask a question to start one.',
+          true
+        )
+        return
+      }
+      const lines = threads.map((t, idx) => {
+        const when = new Date(t.last_run_at).toLocaleString()
+        const runs = `${t.run_count} ${t.run_count === 1 ? 'question' : 'questions'}`
+        const current = t.thread_id === threadRef.current ? ' (current)' : ''
+        return `${idx + 1}. ${t.title}\n   ${runs} · last ${when}${current}`
+      })
+      addSystemMessage(
+        `Recent conversations:\n\n${lines.join('\n\n')}\n\nUse: /resume <n> to continue one`,
+        true
+      )
+    } catch (err: any) {
+      if (stale()) return
+      addErrorMessage(err?.message || 'Could not load conversations.')
+    }
+  }
+
+  // `/resume <n>`: replay a listed conversation and continue it — the next
+  // question carries its thread id.
+  const resumeThread = async (arg: string) => {
+    if (!graphId) {
+      addErrorMessage(config.noSelectionError)
+      return
+    }
+    const index = Number.parseInt(arg, 10)
+    const thread = listedThreadsRef.current[index - 1]
+    if (!arg || Number.isNaN(index) || !thread) {
+      addErrorMessage(
+        listedThreadsRef.current.length === 0
+          ? 'Run /history first, then /resume <n> with a number from the list.'
+          : `Pick a number from 1 to ${listedThreadsRef.current.length}.`
+      )
+      return
+    }
+    const stale = leftScope()
+    try {
+      const res = await SDK.listOperatorRuns({
+        path: { graph_id: graphId },
+        query: { thread_id: thread.thread_id, limit: 50 },
+      })
+      if (stale()) return
+      // Newest first on the wire; the console reads top to bottom.
+      const runs = [...(res.data?.runs ?? [])].reverse()
+      setTerminalMessages([])
+      threadRef.current = thread.thread_id
+      addSystemMessage(
+        `Resumed conversation from ${new Date(thread.first_run_at).toLocaleString()}. Follow-up questions continue it.`,
+        true
+      )
+      for (const run of runs) {
+        addUserMessage(run.question)
+        replayRun(run)
+      }
+    } catch (err: any) {
+      if (stale()) return
+      addErrorMessage(err?.message || 'Could not load the conversation.')
+    }
+  }
+
+  // A recorded run, rendered the way its answer was first printed: the
+  // Cypher keeps its Run button, the receipt its writes. Rows are not kept.
+  const replayRun = (run: SDK.OperatorRunSummary) => {
+    if (run.status === 'failed') {
+      addErrorMessage(`Operator error: ${run.error || 'The run failed.'}`)
+      return
+    }
+    if (run.status === 'cancelled' || !run.answer) {
+      addSystemMessage('Cancelled before an answer was reached.')
+      return
+    }
+    const seconds = (run.duration_ms / 1000).toFixed(1)
+    let footer = `Answered by ${run.operator_type} in ${seconds}s · ${new Date(run.finished_at).toLocaleString()}`
+    if (run.credits_consumed > 0) {
+      footer += `\nCredits used: ${run.credits_consumed.toFixed(1)}`
+    }
+    addResultMessage(run.answer, undefined, undefined, {
+      markdown: true,
+      footer,
+    })
   }
 
   const handleCommand = async (command: string) => {
@@ -949,8 +1061,14 @@ export function ConsoleContent({
           return
         case '/clear':
           setTerminalMessages([])
-          conversationRef.current = []
+          threadRef.current = null
           addSystemMessage('Console cleared.', true)
+          return
+        case '/history':
+          await showThreads()
+          return
+        case '/resume':
+          await resumeThread(command.slice(cmd.length).trim())
           return
         case '/examples': {
           const examples = config.sampleQueries
