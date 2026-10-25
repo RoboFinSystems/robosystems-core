@@ -7,7 +7,7 @@ import {
   buildReturnTo,
   isSafeRelativePath,
 } from '../auth-core/login-home'
-import { useSSO } from '../auth-core/sso'
+import { hasPendingBridge, mintBrowserNonce, useSSO } from '../auth-core/sso'
 import { BrandSpinner } from '../ui-components'
 
 export interface LoginRedirectorProps {
@@ -52,7 +52,9 @@ export function LoginRedirector({
     const params = new URLSearchParams(window.location.search)
     const sessionId = params.get('session_id')
 
-    if (sessionId) {
+    // A session_id this browser never asked for (a reused or foreign link)
+    // is not consumed; the bridge below starts fresh, bound to this browser.
+    if (sessionId && hasPendingBridge()) {
       const returnUrl = params.get('returnUrl')
       void handleSSOLogin().then((user) => {
         if (user) {
@@ -80,22 +82,33 @@ export function LoginRedirector({
       return
     }
 
-    const localReturnTo = params.get('return_to')
+    const localReturnTo =
+      params.get('return_to') ?? (sessionId ? params.get('returnUrl') : null)
     const path =
       localReturnTo && isSafeRelativePath(localReturnTo)
         ? localReturnTo
         : undefined
     const reason = params.get('reason') ?? undefined
 
-    // replace() keeps the redirector page out of history so Back returns
-    // to the page the user actually came from.
-    window.location.replace(
-      buildLoginHomeUrl(mode, {
-        returnTo: buildReturnTo(CURRENT_APP, path),
-        reason,
-        forwardParams: params,
-      })
-    )
+    // The nonce binds the handoff to this browser; its hash rides to the
+    // login home. replace() keeps the redirector page out of history so Back
+    // returns to the page the user actually came from.
+    void mintBrowserNonce().then((nonceHash) => {
+      // A browser that cannot hold a nonce cannot take a handoff; one that
+      // has just come back with a session_id would only go round again.
+      if (!nonceHash && sessionId) {
+        setBridgeFailed(true)
+        return
+      }
+      window.location.replace(
+        buildLoginHomeUrl(mode, {
+          returnTo: buildReturnTo(CURRENT_APP, path),
+          reason,
+          forwardParams: params,
+          nonceHash: nonceHash ?? undefined,
+        })
+      )
+    })
   }, [handleSSOLogin, mode, homePath])
 
   if (misconfigured) {

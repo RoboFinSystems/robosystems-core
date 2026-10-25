@@ -52,7 +52,9 @@ function formatCell(value: any): string {
   return String(value)
 }
 
-function rowsToCsv(rows: any[]): string {
+const NUMERIC_TEXT = /^[+-]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?$/
+
+export function rowsToCsv(rows: any[]): string {
   const cols = Object.keys(rows[0])
   const escape = (v: any) => {
     const s =
@@ -61,10 +63,19 @@ function rowsToCsv(rows: any[]): string {
         : typeof v === 'object'
           ? JSON.stringify(v)
           : String(v)
-    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
+    // Text that starts like a formula is neutralised: these values come from
+    // the graph, and a spreadsheet would run them. Numbers stay numbers,
+    // including the decimals the graph returns as strings.
+    const guarded =
+      typeof v === 'number' || NUMERIC_TEXT.test(s) || !/^[=+\-@\t\r]/.test(s)
+        ? s
+        : `'${s}`
+    return /[",\n\r]/.test(guarded)
+      ? `"${guarded.replace(/"/g, '""')}"`
+      : guarded
   }
   return [
-    cols.join(','),
+    cols.map(escape).join(','),
     ...rows.map((row) => cols.map((c) => escape(row[c])).join(',')),
   ].join('\n')
 }
