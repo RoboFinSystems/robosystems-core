@@ -126,9 +126,19 @@ describe('buildLoginHomeUrl', () => {
     expect(url.searchParams.get('reason')).toBe('session_expired')
   })
 
+  it('carries the nonce hash that binds the bridge to this browser', () => {
+    const url = new URL(
+      buildLoginHomeUrl('login', {
+        returnTo: 'roboledger',
+        nonceHash: 'ab'.repeat(32),
+      })
+    )
+    expect(url.searchParams.get('nonce_hash')).toBe('ab'.repeat(32))
+  })
+
   it('forwards foreign params but drops flow-owned ones', () => {
     const incoming = new URLSearchParams(
-      'invite=tok123&session_id=abc&returnUrl=/x&return_to=stale&reason=stale'
+      'invite=tok123&session_id=abc&returnUrl=/x&return_to=stale&reason=stale&nonce_hash=stale'
     )
     const url = new URL(
       buildLoginHomeUrl('register', {
@@ -138,6 +148,7 @@ describe('buildLoginHomeUrl', () => {
     )
     expect(url.searchParams.get('invite')).toBe('tok123')
     expect(url.searchParams.get('session_id')).toBeNull()
+    expect(url.searchParams.get('nonce_hash')).toBeNull()
     expect(url.searchParams.get('returnUrl')).toBeNull()
     // Explicit option wins over the stale incoming value
     expect(url.searchParams.get('return_to')).toBe('roboledger')

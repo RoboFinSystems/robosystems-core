@@ -3,8 +3,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { LoginRedirector } from '../LoginRedirector'
 
 const handleSSOLogin = vi.fn()
+const hasPendingBridge = vi.fn(() => true)
+const mintBrowserNonce = vi.fn(async () => 'ab'.repeat(32))
 vi.mock('../../auth-core/sso', () => ({
   useSSO: () => ({ handleSSOLogin }),
+  hasPendingBridge: () => hasPendingBridge(),
+  mintBrowserNonce: () => mintBrowserNonce(),
 }))
 
 const mockIsLoginHome = vi.fn(() => false)
@@ -26,6 +30,7 @@ describe('LoginRedirector', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockIsLoginHome.mockReturnValue(false)
+    hasPendingBridge.mockReturnValue(true)
   })
 
   it('fails safe instead of self-redirecting when mounted on the login home', async () => {
@@ -72,5 +77,35 @@ describe('LoginRedirector', () => {
     await waitFor(() => {
       expect(handleSSOLogin).toHaveBeenCalledTimes(1)
     })
+  })
+
+  it('starts a bound bridge instead of consuming a session_id it never asked for', async () => {
+    window.history.replaceState({}, '', '/login?session_id=abc123')
+    hasPendingBridge.mockReturnValue(false)
+    const replace = vi.fn()
+    const realLocation = window.location
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      value: { ...realLocation, search: '?session_id=abc123', replace },
+    })
+
+    try {
+      render(<LoginRedirector apiUrl="http://localhost:8000" />)
+
+      await waitFor(() => {
+        expect(replace).toHaveBeenCalledTimes(1)
+      })
+      expect(handleSSOLogin).not.toHaveBeenCalled()
+      const target = new URL(replace.mock.calls[0][0] as string)
+      expect(target.origin).toBe('https://robosystems.ai')
+      expect(target.searchParams.get('nonce_hash')).toBe('ab'.repeat(32))
+      expect(target.searchParams.get('session_id')).toBeNull()
+      expect(target.searchParams.get('return_to')).toBe('roboledger')
+    } finally {
+      Object.defineProperty(window, 'location', {
+        configurable: true,
+        value: realLocation,
+      })
+    }
   })
 })

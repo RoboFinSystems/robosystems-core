@@ -56,7 +56,7 @@ export function parseReturnTo(
   const app = separator === -1 ? raw : raw.slice(0, separator)
   const path = separator === -1 ? null : raw.slice(separator + 1)
 
-  if (!APP_CONFIGS[app]) {
+  if (!Object.hasOwn(APP_CONFIGS, app)) {
     return null
   }
   if (path !== null && !isSafeRelativePath(path)) {
@@ -75,10 +75,22 @@ export interface LoginHomeUrlOptions {
    * Params owned by the redirect/bridge flow are dropped.
    */
   forwardParams?: URLSearchParams
+  /**
+   * SHA-256 of the nonce this browser minted for the bridge it is starting
+   * (see `mintBrowserNonce`). The login home passes it into the exchange so
+   * the handoff completes only here.
+   */
+  nonceHash?: string
 }
 
 /** Params the redirect/bridge flow owns; never forwarded verbatim. */
-const OWNED_PARAMS = new Set(['session_id', 'returnUrl', 'return_to', 'reason'])
+const OWNED_PARAMS = new Set([
+  'session_id',
+  'returnUrl',
+  'return_to',
+  'reason',
+  'nonce_hash',
+])
 
 /** Build an absolute URL on the login home for the given auth surface. */
 export function buildLoginHomeUrl(
@@ -98,6 +110,9 @@ export function buildLoginHomeUrl(
   }
   if (options.reason) {
     url.searchParams.set('reason', options.reason)
+  }
+  if (options.nonceHash) {
+    url.searchParams.set('nonce_hash', options.nonceHash)
   }
   return url.toString()
 }

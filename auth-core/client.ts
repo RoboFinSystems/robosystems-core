@@ -656,11 +656,16 @@ export class RoboSystemsAuthClient {
 
   async ssoExchange(
     token: string,
-    targetApp: string
+    targetApp: string,
+    browserNonceHash?: string
   ): Promise<{ session_id: string }> {
     const response = await ssoTokenExchange({
       client: this.client,
-      body: { token, target_app: targetApp },
+      body: {
+        token,
+        target_app: targetApp,
+        ...(browserNonceHash ? { browser_nonce_hash: browserNonceHash } : {}),
+      },
     })
 
     const data = unwrapSdk(response) as unknown as SDKSsoExchangeResponse
@@ -669,10 +674,16 @@ export class RoboSystemsAuthClient {
     }
   }
 
-  async ssoComplete(sessionId: string): Promise<AuthResponse> {
+  async ssoComplete(
+    sessionId: string,
+    browserNonce?: string
+  ): Promise<AuthResponse> {
     const response = await completeSsoAuth({
       client: this.client,
-      body: { session_id: sessionId },
+      body: {
+        session_id: sessionId,
+        ...(browserNonce ? { browser_nonce: browserNonce } : {}),
+      },
     })
 
     const sdkResponse = this.validateSDKAuthResponse(unwrapSdk(response))

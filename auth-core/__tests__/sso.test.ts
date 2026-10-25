@@ -39,6 +39,9 @@ const syncLocationHref = () => {
   window.location.href = `${window.location.origin}${window.location.pathname}${window.location.search || ''}${window.location.hash || ''}`
 }
 
+const NONCE_HASH = 'ab'.repeat(32)
+const BROWSER_NONCE = 'cd'.repeat(32)
+
 describe('SSOManager', () => {
   let ssoManager: SSOManager
   const mockUser = {
@@ -181,13 +184,15 @@ describe('SSOManager', () => {
 
       const result = await ssoManager.getSSORedirectUrl(
         'app1',
-        'https://example.com/dashboard'
+        'https://example.com/dashboard',
+        { nonceHash: NONCE_HASH }
       )
 
       expect(mockAuthClient.generateSSOToken).toHaveBeenCalled()
       expect(mockAuthClient.ssoExchange).toHaveBeenCalledWith(
         'sso-token-123',
-        'app1'
+        'app1',
+        NONCE_HASH
       )
       expect(result).toBe(
         'https://app1.example.com/login?session_id=session-123&returnUrl=https%3A%2F%2Fexample.com%2Fdashboard'
@@ -218,7 +223,9 @@ describe('SSOManager', () => {
           .spyOn(console, 'debug')
           .mockImplementation(() => {})
 
-        const result = await ssoManager.getSSORedirectUrl('app1')
+        const result = await ssoManager.getSSORedirectUrl('app1', undefined, {
+          nonceHash: NONCE_HASH,
+        })
 
         expect(result).toBe(
           'https://app1.example.com/login?session_id=session-123'
@@ -227,6 +234,30 @@ describe('SSOManager', () => {
 
         consoleSpy.mockRestore()
       })
+    })
+
+    it('sends the browser to the target to start a bound bridge when no nonce hash is given', async () => {
+      const mockAuthClient = createMockAuthClient()
+      ;(ssoManager as any).authClient = mockAuthClient
+
+      const result = await ssoManager.getSSORedirectUrl('app1', '/settings')
+
+      expect(result).toBe(
+        'https://app1.example.com/login?return_to=%2Fsettings'
+      )
+      expect(mockAuthClient.generateSSOToken).not.toHaveBeenCalled()
+      expect(mockAuthClient.ssoExchange).not.toHaveBeenCalled()
+    })
+
+    it('does not forward a return path it would not navigate to', async () => {
+      ;(ssoManager as any).authClient = createMockAuthClient()
+
+      const result = await ssoManager.getSSORedirectUrl(
+        'app1',
+        'https://evil.example.com/steal'
+      )
+
+      expect(result).toBe('https://app1.example.com/login')
     })
 
     it('should throw error for unknown app', async () => {
@@ -255,7 +286,9 @@ describe('SSOManager', () => {
       })
       ;(ssoManager as any).authClient = mockAuthClient
 
-      const result = await ssoManager.getSSORedirectUrl('app1')
+      const result = await ssoManager.getSSORedirectUrl('app1', undefined, {
+        nonceHash: NONCE_HASH,
+      })
 
       expect(result).toBe(
         'https://app1.example.com/login?session_id=session-123'
@@ -280,6 +313,7 @@ describe('SSOManager', () => {
 
       const result = await ssoManager.getSSORedirectUrl('app1', '/settings', {
         persistSessionHints: false,
+        nonceHash: NONCE_HASH,
       })
 
       // The URL still carries everything the destination needs; only this
@@ -318,9 +352,12 @@ describe('SSOManager', () => {
         writable: true,
       })
 
-      // Mock sessionStorage
+      // Mock sessionStorage, holding the nonce this browser minted when it
+      // started the bridge
       mockSessionStorage = {
-        getItem: vi.fn(),
+        getItem: vi.fn((key: string) =>
+          key === 'sso_browser_nonce' ? BROWSER_NONCE : null
+        ),
         setItem: vi.fn(),
         removeItem: vi.fn(),
         clear: vi.fn(),
@@ -353,8 +390,14 @@ describe('SSOManager', () => {
 
       const result = await ssoManager.handleSSOLogin()
 
-      expect(mockAuthClient.ssoComplete).toHaveBeenCalledWith('session-123')
+      expect(mockAuthClient.ssoComplete).toHaveBeenCalledWith(
+        'session-123',
+        BROWSER_NONCE
+      )
       expect(result).toEqual(mockUser)
+      expect(mockSessionStorage.removeItem).toHaveBeenCalledWith(
+        'sso_browser_nonce'
+      )
       expect(mockHistory.replaceState).toHaveBeenCalledWith(
         {},
         '',
@@ -468,11 +511,30 @@ describe('SSOManager', () => {
 
         const result = await ssoManager.handleSSOLogin()
 
-        expect(result).toEqual(mockUser)
-        expect(mockSessionStorage.getItem).not.toHaveBeenCalled()
+        // Without a readable nonce there is no bridge of this browser's to
+        // complete; the handoff is left alone.
+        expect(result).toBeNull()
+        expect(mockAuthClient.ssoComplete).not.toHaveBeenCalled()
 
         consoleSpy.mockRestore()
       })
+    })
+
+    it('ignores a session_id this browser never asked for', async () => {
+      mockSessionStorage.getItem = vi.fn().mockReturnValue(null)
+      const mockAuthClient = createMockAuthClient()
+      ;(ssoManager as any).authClient = mockAuthClient
+
+      const result = await ssoManager.handleSSOLogin()
+
+      expect(result).toBeNull()
+      expect(mockAuthClient.ssoComplete).not.toHaveBeenCalled()
+      // The foreign handoff is stripped from the URL rather than redeemed.
+      expect(mockHistory.replaceState).toHaveBeenCalledWith(
+        {},
+        '',
+        'https://app1.example.com/login'
+      )
     })
 
     it('should return null when no session ID in URL', async () => {

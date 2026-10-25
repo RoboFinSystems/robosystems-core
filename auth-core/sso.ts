@@ -4,6 +4,79 @@ import { APP_CONFIGS } from './config'
 import { isSafeRelativePath } from './login-home'
 import type { AppConfig, AuthUser } from './types'
 
+/** Where the browser that starts a bridge keeps the nonce it minted. */
+const BROWSER_NONCE_KEY = 'sso_browser_nonce'
+
+const toHex = (bytes: Uint8Array): string =>
+  Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('')
+
+/**
+ * Mint the nonce that binds a bridge to this browser and return its SHA-256.
+ *
+ * The nonce stays in this origin's sessionStorage; only the hash travels to
+ * the login home and into the exchange. Completion presents the nonce, so a
+ * handoff minted elsewhere cannot be redeemed here. Returns null where the
+ * platform cannot mint one; the bridge then runs unbound.
+ */
+export async function mintBrowserNonce(): Promise<string | null> {
+  try {
+    const nonce = toHex(crypto.getRandomValues(new Uint8Array(32)))
+    const digest = await crypto.subtle.digest(
+      'SHA-256',
+      new TextEncoder().encode(nonce)
+    )
+    sessionStorage.setItem(BROWSER_NONCE_KEY, nonce)
+    return toHex(new Uint8Array(digest))
+  } catch (error) {
+    debugLog('browser nonce unavailable; bridge runs unbound', error)
+    return null
+  }
+}
+
+/** True when this browser started a bridge it has not completed yet. */
+export function hasPendingBridge(): boolean {
+  try {
+    return Boolean(sessionStorage.getItem(BROWSER_NONCE_KEY))
+  } catch {
+    return false
+  }
+}
+
+function takeBrowserNonce(): string | null {
+  let nonce: string | null
+  try {
+    nonce = sessionStorage.getItem(BROWSER_NONCE_KEY)
+  } catch {
+    return null
+  }
+  try {
+    sessionStorage.removeItem(BROWSER_NONCE_KEY)
+  } catch (error) {
+    debugLog('browser nonce could not be cleared', error)
+  }
+  return nonce
+}
+
+function appConfigFor(targetApp: string): AppConfig {
+  if (!Object.hasOwn(APP_CONFIGS, targetApp)) {
+    throw new Error(`Unknown app: ${targetApp}`)
+  }
+  return APP_CONFIGS[targetApp]
+}
+
+/**
+ * Without the target's nonce a handoff cannot be bound to the browser that
+ * will complete it, so the browser is sent to the target's login page, which
+ * starts a bound bridge of its own (through the login home) for `returnUrl`.
+ */
+function boundBridgeEntryUrl(appConfig: AppConfig, returnUrl?: string): string {
+  const url = new URL('/login', appConfig.url)
+  if (returnUrl && isSafeRelativePath(returnUrl)) {
+    url.searchParams.set('return_to', returnUrl)
+  }
+  return url.toString()
+}
+
 // Configuration constants
 const NAVIGATION_DELAY_MS = 100 // 100ms delay for navigation
 
@@ -33,6 +106,13 @@ export interface SSORedirectUrlOptions {
    * its own origin) and misrouted later handoffs into the *source* app.
    */
   persistSessionHints?: boolean
+  /**
+   * SHA-256 of the nonce the target app minted when it started this bridge
+   * (`?nonce_hash=` on the login home). With it, the handoff is minted here
+   * and bound to that browser; without it, the browser is sent to the target
+   * to start a bound bridge instead.
+   */
+  nonceHash?: string
 }
 
 /** Keys an older version wrote; cleared on every handoff completion. */
@@ -78,19 +158,21 @@ export class SSOManager {
   async getSSORedirectUrl(
     targetApp: string,
     returnUrl?: string,
-    _options: SSORedirectUrlOptions = {}
+    options: SSORedirectUrlOptions = {}
   ): Promise<string> {
-    const ssoData = await this.generateSSOToken()
-    const appConfig = APP_CONFIGS[targetApp]
-
-    if (!appConfig) {
-      throw new Error(`Unknown app: ${targetApp}`)
+    const appConfig = appConfigFor(targetApp)
+    if (!options.nonceHash) {
+      return boundBridgeEntryUrl(appConfig, returnUrl)
     }
 
-    // Step 1: Exchange SSO token for secure session ID
+    const ssoData = await this.generateSSOToken()
+
+    // Step 1: Exchange SSO token for secure session ID, bound to the browser
+    // that minted the nonce
     const exchangeResult = await this.authClient.ssoExchange(
       ssoData.token,
-      targetApp
+      targetApp,
+      options.nonceHash
     )
 
     // Step 2: Create URL that will trigger the POST-based flow
@@ -123,9 +205,25 @@ export class SSOManager {
       return null
     }
 
+    // Only a bridge this browser started is completed here: the nonce it
+    // minted proves it. A session_id arriving without one came from a link,
+    // not from this browser's bridge, and is left alone.
+    const nonce = takeBrowserNonce()
+    if (!nonce) {
+      debugLog('session_id present without a pending bridge; ignoring it')
+      const newUrl = new URL(window.location.href)
+      newUrl.searchParams.delete('session_id')
+      newUrl.searchParams.delete('returnUrl')
+      window.history.replaceState({}, '', newUrl.toString())
+      return null
+    }
+
     try {
       // Complete SSO authentication using session ID
-      const authResponse = await this.authClient.ssoComplete(finalSessionId)
+      const authResponse = await this.authClient.ssoComplete(
+        finalSessionId,
+        nonce
+      )
 
       // Clean up both URL parameters and session storage
       if (sessionId) {
@@ -205,67 +303,25 @@ export class SSOManager {
   }
 
   /**
-   * Navigate to another app with secure SSO
+   * Navigate to another app with secure SSO.
+   *
+   * With the target's `nonceHash` (the login home's case), the handoff is
+   * minted here and bound to that browser. Without one, the browser goes to
+   * the target's login page, which starts a bound bridge of its own.
    */
-  async navigateToApp(targetApp: string, returnUrl?: string) {
-    const appConfig = APP_CONFIGS[targetApp]
-    if (!appConfig) {
-      throw new Error(`Unknown app: ${targetApp}`)
-    }
-
-    // Check local auth cache first to avoid unnecessary SSO token generation
-    if (typeof window !== 'undefined') {
-      let cachedUser: string | null = null
-      try {
-        cachedUser = sessionStorage.getItem('auth_user_cache')
-      } catch (error) {
-        // Storage access error - proceed with SSO flow
-        debugLog(
-          'sessionStorage read failed during navigation cache check',
-          error
-        )
-      }
-
-      if (cachedUser) {
-        try {
-          JSON.parse(cachedUser)
-
-          // REMOVED: Cache bypass logic that was skipping SSO flow
-          // Always use proper SSO flow for cross-app authentication
-          debugLog('Proceeding with full SSO flow for secure cross-app auth')
-        } catch (error) {
-          // Invalid cache, proceed with SSO flow
-          debugLog('Invalid cache found, proceeding with SSO flow', error)
-          try {
-            sessionStorage.removeItem('auth_user_cache')
-          } catch {
-            // Storage error - continue silently
-          }
-        }
-      }
-    }
+  async navigateToApp(
+    targetApp: string,
+    returnUrl?: string,
+    options: SSORedirectUrlOptions = {}
+  ) {
+    const appConfig = appConfigFor(targetApp)
 
     try {
-      // Fallback to full SSO flow for stale/missing cache
-      const ssoData = await this.generateSSOToken()
-
-      // Step 2: Exchange token for secure session ID
-      const exchangeResult = await this.authClient.ssoExchange(
-        ssoData.token,
-        targetApp
+      window.location.href = await this.getSSORedirectUrl(
+        targetApp,
+        returnUrl,
+        options
       )
-
-      // Step 3: Navigate to target app with secure session handoff
-      const targetUrl = new URL('/login', appConfig.url)
-
-      // Pass session ID via URL parameters for cross-domain compatibility
-      targetUrl.searchParams.set('session_id', exchangeResult.session_id)
-      if (returnUrl) {
-        targetUrl.searchParams.set('returnUrl', returnUrl)
-      }
-
-      // Navigate to target app
-      window.location.href = targetUrl.toString()
     } catch (error) {
       if (process.env.NODE_ENV === 'development') {
         console.error('Failed to navigate to app:', error)
@@ -273,11 +329,7 @@ export class SSOManager {
       debugLog('SSO navigation failed, attempting fallback', error)
       // Fallback to direct navigation
       try {
-        const targetUrl = new URL(appConfig.url)
-        if (returnUrl) {
-          targetUrl.searchParams.set('returnUrl', returnUrl)
-        }
-        window.location.href = targetUrl.toString()
+        window.location.href = boundBridgeEntryUrl(appConfig, returnUrl)
       } catch (locationError) {
         if (process.env.NODE_ENV === 'development') {
           console.error('Fallback navigation failed:', locationError)
@@ -305,8 +357,11 @@ export function useSSO(apiUrl: string) {
         returnUrl?: string,
         options?: SSORedirectUrlOptions
       ) => ssoManager.getSSORedirectUrl(targetApp, returnUrl, options),
-      navigateToApp: (targetApp: string, returnUrl?: string) =>
-        ssoManager.navigateToApp(targetApp, returnUrl),
+      navigateToApp: (
+        targetApp: string,
+        returnUrl?: string,
+        options?: SSORedirectUrlOptions
+      ) => ssoManager.navigateToApp(targetApp, returnUrl, options),
       getAvailableApps: () => ssoManager.getAvailableApps(),
     }),
     [ssoManager]
