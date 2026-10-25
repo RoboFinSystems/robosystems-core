@@ -94,6 +94,12 @@ export function LoginRedirector({
     // login home. replace() keeps the redirector page out of history so Back
     // returns to the page the user actually came from.
     void mintBrowserNonce().then((nonceHash) => {
+      // A browser that cannot hold a nonce cannot take a handoff; one that
+      // has just come back with a session_id would only go round again.
+      if (!nonceHash && sessionId) {
+        setBridgeFailed(true)
+        return
+      }
       window.location.replace(
         buildLoginHomeUrl(mode, {
           returnTo: buildReturnTo(CURRENT_APP, path),

@@ -108,4 +108,33 @@ describe('LoginRedirector', () => {
       })
     }
   })
+
+  it('stops instead of going round again when this browser cannot hold a nonce', async () => {
+    window.history.replaceState({}, '', '/login?session_id=abc123')
+    hasPendingBridge.mockReturnValue(false)
+    mintBrowserNonce.mockResolvedValueOnce(null as unknown as string)
+    const replace = vi.fn()
+    const realLocation = window.location
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      value: { ...realLocation, search: '?session_id=abc123', replace },
+    })
+
+    try {
+      render(<LoginRedirector apiUrl="http://localhost:8000" />)
+
+      await waitFor(() => {
+        expect(
+          screen.getByText('Sign-in could not be completed')
+        ).toBeInTheDocument()
+      })
+      expect(replace).not.toHaveBeenCalled()
+      expect(handleSSOLogin).not.toHaveBeenCalled()
+    } finally {
+      Object.defineProperty(window, 'location', {
+        configurable: true,
+        value: realLocation,
+      })
+    }
+  })
 })

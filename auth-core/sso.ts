@@ -16,7 +16,7 @@ const toHex = (bytes: Uint8Array): string =>
  * The nonce stays in this origin's sessionStorage; only the hash travels to
  * the login home and into the exchange. Completion presents the nonce, so a
  * handoff minted elsewhere cannot be redeemed here. Returns null where the
- * platform cannot mint one; the bridge then runs unbound.
+ * platform cannot mint one; such a browser cannot complete a handoff.
  */
 export async function mintBrowserNonce(): Promise<string | null> {
   try {
@@ -28,7 +28,7 @@ export async function mintBrowserNonce(): Promise<string | null> {
     sessionStorage.setItem(BROWSER_NONCE_KEY, nonce)
     return toHex(new Uint8Array(digest))
   } catch (error) {
-    debugLog('browser nonce unavailable; bridge runs unbound', error)
+    debugLog('browser nonce unavailable', error)
     return null
   }
 }
@@ -65,9 +65,8 @@ function appConfigFor(targetApp: string): AppConfig {
 }
 
 /**
- * Without the target's nonce a handoff cannot be bound to the browser that
- * will complete it, so the browser is sent to the target's login page, which
- * starts a bound bridge of its own (through the login home) for `returnUrl`.
+ * The target's login page, which starts a bound bridge of its own (through
+ * the login home) for `returnUrl`.
  */
 function boundBridgeEntryUrl(appConfig: AppConfig, returnUrl?: string): string {
   const url = new URL('/login', appConfig.url)
@@ -108,9 +107,10 @@ export interface SSORedirectUrlOptions {
   persistSessionHints?: boolean
   /**
    * SHA-256 of the nonce the target app minted when it started this bridge
-   * (`?nonce_hash=` on the login home). With it, the handoff is minted here
-   * and bound to that browser; without it, the browser is sent to the target
-   * to start a bound bridge instead.
+   * (`?nonce_hash=` on the login home). With it, the handoff is bound to
+   * that browser. Without it, the handoff is unbound: an app on an older
+   * core completes it, and an app on this one ignores it and starts a bound
+   * bridge of its own.
    */
   nonceHash?: string
 }
@@ -161,14 +161,10 @@ export class SSOManager {
     options: SSORedirectUrlOptions = {}
   ): Promise<string> {
     const appConfig = appConfigFor(targetApp)
-    if (!options.nonceHash) {
-      return boundBridgeEntryUrl(appConfig, returnUrl)
-    }
-
     const ssoData = await this.generateSSOToken()
 
     // Step 1: Exchange SSO token for secure session ID, bound to the browser
-    // that minted the nonce
+    // that minted the nonce when there is one
     const exchangeResult = await this.authClient.ssoExchange(
       ssoData.token,
       targetApp,
@@ -306,8 +302,9 @@ export class SSOManager {
    * Navigate to another app with secure SSO.
    *
    * With the target's `nonceHash` (the login home's case), the handoff is
-   * minted here and bound to that browser. Without one, the browser goes to
-   * the target's login page, which starts a bound bridge of its own.
+   * bound to that browser; see `SSORedirectUrlOptions.nonceHash` for the
+   * case without one. If the handoff cannot be minted, the browser goes to
+   * the target's login page to start a bridge of its own.
    */
   async navigateToApp(
     targetApp: string,

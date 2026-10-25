@@ -236,28 +236,38 @@ describe('SSOManager', () => {
       })
     })
 
-    it('sends the browser to the target to start a bound bridge when no nonce hash is given', async () => {
+    it('mints an unbound handoff, the kind an app on an older core completes, when no nonce hash is given', async () => {
       const mockAuthClient = createMockAuthClient()
+      mockAuthClient.generateSSOToken.mockResolvedValue({
+        token: 'sso-token-123',
+        expires_at: '2024-01-01T01:00:00Z',
+        apps: ['app1'],
+      })
+      mockAuthClient.ssoExchange.mockResolvedValue({
+        session_id: 'session-123',
+      })
       ;(ssoManager as any).authClient = mockAuthClient
 
       const result = await ssoManager.getSSORedirectUrl('app1', '/settings')
 
-      expect(result).toBe(
-        'https://app1.example.com/login?return_to=%2Fsettings'
+      expect(mockAuthClient.ssoExchange).toHaveBeenCalledWith(
+        'sso-token-123',
+        'app1',
+        undefined
       )
-      expect(mockAuthClient.generateSSOToken).not.toHaveBeenCalled()
-      expect(mockAuthClient.ssoExchange).not.toHaveBeenCalled()
+      expect(result).toBe(
+        'https://app1.example.com/login?session_id=session-123&returnUrl=%2Fsettings'
+      )
     })
 
-    it('does not forward a return path it would not navigate to', async () => {
-      ;(ssoManager as any).authClient = createMockAuthClient()
+    it('falls back to the target login page, without a return path it would not navigate to, when no handoff can be minted', async () => {
+      const mockAuthClient = createMockAuthClient()
+      mockAuthClient.generateSSOToken.mockRejectedValue(new Error('offline'))
+      ;(ssoManager as any).authClient = mockAuthClient
 
-      const result = await ssoManager.getSSORedirectUrl(
-        'app1',
-        'https://evil.example.com/steal'
-      )
+      await ssoManager.navigateToApp('app1', 'https://evil.example.com/steal')
 
-      expect(result).toBe('https://app1.example.com/login')
+      expect(window.location.href).toBe('https://app1.example.com/login')
     })
 
     it('should throw error for unknown app', async () => {
