@@ -190,7 +190,9 @@ jobs:
 
       - name: Install dependencies
         if: steps.check-published.outputs.already_published == 'false'
-        run: npm install
+        # The reviewed lockfile, with no dependency lifecycle scripts: this job
+        # holds the publishing identity, so nothing unreviewed runs in it.
+        run: npm ci --ignore-scripts
 
       - name: Build
         if: steps.check-published.outputs.already_published == 'false'
