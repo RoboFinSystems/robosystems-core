@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What This Is
 
-`@robosystems/core` is the shared frontend core for the three RoboSystems Next.js apps (robosystems-app, roboledger-app, roboinvestor-app), published to public npmjs. It is Next.js-specific by design (App Router `'use client'`/`'use server'` components, Server Actions, `next/headers` cookie helpers) and its compiled output targets bundler resolution — it is not loadable by Node's native ESM resolver.
+`@robosystems/core` is the shared frontend core for the three RoboSystems Next.js apps (robosystems-app, roboledger-app, roboinvestor-app), published to public npmjs. It is Next.js-specific by design (App Router `'use client'`/`'use server'` components, Server Actions, `next/headers` cookie helpers) and its compiled output targets bundler resolution — it is not loadable by Node's native ESM resolver. `ui/` holds the shared UI primitives the apps import from `@robosystems/core/ui`; there is no external component library.
 
 ## Development Commands
 
@@ -27,11 +27,11 @@ cd ../roboledger-app && npm install ../robosystems-core/robosystems-core-<versio
 
 ## Packaging Rules
 
-- **Published from `dist/`**: `prepare-package.mjs` writes `dist/package.json` and the package is packed/published from that directory, so compiled files sit at the package root. The apps deep-import both directory barrels (`@robosystems/core/ui-components`) and direct files (`@robosystems/core/hooks/use-toast`) — publish-from-dist lets plain bundler resolution serve both with no `exports` map.
+- **Published from `dist/`**: `prepare-package.mjs` writes `dist/package.json` and the package is packed/published from that directory, so compiled files sit at the package root. The apps deep-import both directory barrels (`@robosystems/core/ui`, `@robosystems/core/ui-components`) and direct files (`@robosystems/core/hooks/use-toast`) — publish-from-dist lets plain bundler resolution serve both with no `exports` map.
 - **Per-file tsc, never a bundler**: the build must preserve `'use client'` / `'use server'` directives at the top of each emitted file; bundling would merge files and strip them. CI validates directive counts in `dist/`.
 - **ESM only — no `require()`**: the package is `"type": "module"`; CommonJS `require()` throws at runtime in consumer bundles (and try/catch can swallow it into silent feature loss — this bit the GraphQL auth path once). Use static or dynamic `import`.
 - **Root barrel side effect**: `index.ts` configures the `@robosystems/client` SDK at import time (base URL from `NEXT_PUBLIC_ROBOSYSTEMS_API_URL`, Bearer interceptor, GraphQL `tokenProvider`). `dist/package.json` declares `sideEffects: ['./index.js']` — keep it accurate.
-- **Peers, not deps**: `react`, `react-dom`, `next`, `react-icons`, and `@robosystems/client` (>=0.3.2, uses the `/clients` subpath) stay peer dependencies so apps keep a single instance of each.
+- **Peers, not deps**: `react`, `react-dom`, `next`, `react-icons`, and `@robosystems/client` (`>=2.34 <3`, uses the `/clients` subpath) stay peer dependencies so apps keep a single instance of each.
 
 ## Consumer App Wiring
 
