@@ -183,7 +183,7 @@ jobs:
         uses: actions/setup-node@v7
         with:
           # Node 24 ships npm 11.x, which supports OIDC trusted publishing to
-          # npm (token-less). Node 22's npm 10.x does not, so `npm publish`
+          # npm (token-less). Node 22's npm 10.x did not, so `npm publish`
           # falls back to token auth and fails with ENEEDAUTH on CI. This
           # matches the sibling packages (report-components, typescript-client).
           node-version: '24'

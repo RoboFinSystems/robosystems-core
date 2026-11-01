@@ -14,7 +14,7 @@
     "url": "https://github.com/RoboFinSystems/robosystems-core.git"
   },
   "engines": {
-    "node": ">=22.0.0"
+    "node": ">=24.0.0"
   },
   "scripts": {
     "prepare": "git config core.hooksPath .githooks || true",
@@ -24,15 +24,16 @@
     "build": "npm run clean && tsc -p tsconfig.build.json && node scripts/prepare-package.mjs",
     "typecheck": "tsc -p tsconfig.build.json --noEmit",
     "pack:local": "npm run build && npm pack ./dist",
-    "test": "vitest run --silent",
-    "test:watch": "vitest watch --silent",
-    "test:coverage": "vitest run --coverage --silent",
+    "test": "NODE_OPTIONS=--no-experimental-webstorage vitest run --silent",
+    "test:watch": "NODE_OPTIONS=--no-experimental-webstorage vitest watch --silent",
+    "test:coverage": "NODE_OPTIONS=--no-experimental-webstorage vitest run --coverage --silent",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier . --write",
     "format:check": "prettier . --check",
     "test:all": "npm run format:check && npm run lint && npm run typecheck && npm run test && npm run build"
   },
+  "//scripts": "The vitest scripts turn off Node's Web Storage: Node 25+ defines `localStorage` on globalThis, undefined until a --localstorage-file is given, and vitest's jsdom environment does not replace a global the runtime already owns, so tests would read undefined. Accepted on Node 22, 24 and 26.",
   "peerDependencies": {
     "@robosystems/client": ">=2.34 <3",
     "next": ">=15 <17",
@@ -52,7 +53,7 @@
     "@testing-library/jest-dom": "^7",
     "@testing-library/react": "^16",
     "@testing-library/user-event": "^14",
-    "@types/node": "^22",
+    "@types/node": "^24",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@vitejs/plugin-react": "^6.1.1",

@@ -15,13 +15,14 @@ jobs:
     permissions:
       contents: read
 
-    # Matrix spans the engines.node range this package promises (>=22.0.0):
-    # 22 is the supported floor, 24 is the LTS the consuming apps now run on.
-    # Testing only the newest would leave the floor unverified.
+    # Matrix spans the engines.node range this package promises (>=24.0.0):
+    # 24 is the supported floor and the LTS the consuming apps run on, 26 is
+    # the current LTS they move to next. Testing only the newest would leave
+    # the floor unverified.
     strategy:
       fail-fast: false
       matrix:
-        node-version: ['22', '24']
+        node-version: ['24', '26']
 
     steps:
       - name: Checkout repository
@@ -31,14 +32,6 @@ jobs:
         uses: actions/setup-node@v7
         with:
           node-version: ${{ matrix.node-version }}
-
-      # Node 22 bundles npm 10.9, whose resolver can crash on a fresh dependency
-      # graph ("Cannot read properties of null (reading 'edgesOut')" in
-      # #loadPeerSet, 2026-09-03). This lane verifies our code on the engines
-      # floor, not npm 10, so it runs the npm the release job uses.
-      - name: Use a current npm on the Node 22 lane
-        if: matrix.node-version == '22'
-        run: npm install -g npm@11
 
       - name: Install dependencies
         # The committed lockfile, as the release job installs it: a lockfile out
