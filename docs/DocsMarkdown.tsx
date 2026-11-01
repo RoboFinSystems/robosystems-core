@@ -84,7 +84,7 @@ export function DocsImage({ src, alt = '', title }: ComponentProps<'img'>) {
       title="Open full size"
       className="not-prose block cursor-zoom-in"
     >
-      {/* eslint-disable-next-line @next/next/no-img-element -- CDN files of any size; markdown carries no dimensions for next/image */}
+      {/* A plain img: CDN files of any size, and markdown carries no dimensions for next/image. */}
       <img
         src={src}
         alt={alt}
