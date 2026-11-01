@@ -63,7 +63,7 @@ TARGET=${1:-main}            # override target via the first argument
   - **ESM only.** The package is `"type": "module"` and a CommonJS `require()` throws at runtime in consumer bundles — and a `try`/`catch` around it can swallow the failure into silent feature loss (this bit the GraphQL auth path once). Use static or dynamic `import`.
   - **Published from `dist/`.** `scripts/prepare-package.mjs` writes `dist/package.json`; the apps deep-import both directory barrels and direct files, which plain bundler resolution serves only because of that layout. Touching it risks every deep import in three apps.
   - **`sideEffects`.** `index.ts` configures the `@robosystems/client` SDK at import time and `dist/package.json` declares `sideEffects: ['./index.js']`. If you add or remove a side effect, keep that accurate or bundlers will tree-shake it away.
-  - **Peers, not deps.** `react`, `react-dom`, `next`, `flowbite-react`, `react-icons`, and `@robosystems/client` stay peers so apps keep one instance each. Widening or narrowing a peer range is a consumer-visible change — a range that excludes what an app has installed produces `ERESOLVE` on every install.
+  - **Peers, not deps.** `react`, `react-dom`, `next`, `react-icons`, and `@robosystems/client` stay peers so apps keep one instance each. Widening or narrowing a peer range is a consumer-visible change — a range that excludes what an app has installed produces `ERESOLVE` on every install.
 
 - **Version and publish are not this PR's job.** `create-release.yml` bumps the version on `main` and cuts `release/<version>`, tags it, and publishes from the tag in the same run. Never bump `package.json` in a feature PR.
 

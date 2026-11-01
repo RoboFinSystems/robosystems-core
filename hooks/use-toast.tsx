@@ -136,7 +136,7 @@ function SharedToastContainer() {
 }
 
 /**
- * Toast notifications on Flowbite React, shared across the app.
+ * Toast notifications on the owned Toast primitive, shared across the app.
  *
  * Every call raises into one store, and the first mounted `ToastContainer`
  * renders it, so a component can raise a toast without rendering a

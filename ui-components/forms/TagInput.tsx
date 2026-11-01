@@ -13,7 +13,7 @@ export interface TagInputProps {
    * case-insensitively against the draft input, minus already-added tags.
    */
   suggestions?: string[]
-  /** flowbite Badge color for the tag chips. */
+  /** Badge color for the tag chips. */
   badgeColor?: string
   placeholder?: string
   id?: string

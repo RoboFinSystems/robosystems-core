@@ -31,7 +31,7 @@ cd ../roboledger-app && npm install ../robosystems-core/robosystems-core-<versio
 - **Per-file tsc, never a bundler**: the build must preserve `'use client'` / `'use server'` directives at the top of each emitted file; bundling would merge files and strip them. CI validates directive counts in `dist/`.
 - **ESM only — no `require()`**: the package is `"type": "module"`; CommonJS `require()` throws at runtime in consumer bundles (and try/catch can swallow it into silent feature loss — this bit the GraphQL auth path once). Use static or dynamic `import`.
 - **Root barrel side effect**: `index.ts` configures the `@robosystems/client` SDK at import time (base URL from `NEXT_PUBLIC_ROBOSYSTEMS_API_URL`, Bearer interceptor, GraphQL `tokenProvider`). `dist/package.json` declares `sideEffects: ['./index.js']` — keep it accurate.
-- **Peers, not deps**: `react`, `react-dom`, `next`, `flowbite-react`, `react-icons`, and `@robosystems/client` (>=0.3.2, uses the `/clients` subpath) stay peer dependencies so apps keep a single instance of each.
+- **Peers, not deps**: `react`, `react-dom`, `next`, `react-icons`, and `@robosystems/client` (>=0.3.2, uses the `/clients` subpath) stay peer dependencies so apps keep a single instance of each.
 
 ## Consumer App Wiring
 

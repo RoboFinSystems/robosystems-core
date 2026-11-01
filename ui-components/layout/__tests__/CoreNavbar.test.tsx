@@ -40,7 +40,7 @@ import { CoreNavbar } from '../CoreNavbar'
 
 const props = { appName: 'RoboSystems', currentApp: 'robosystems' as const }
 
-// Flowbite mounts a dropdown's items only once it is open.
+// The dropdown mounts its items only once it is open.
 function openUserMenu() {
   fireEvent.click(screen.getByRole('button', { name: 'User menu' }))
 }
