@@ -1,8 +1,11 @@
-import { createTheme, theme } from 'flowbite-react'
-import { twMerge } from 'tailwind-merge'
+// The RoboSystems look as a flowbite-react theme override: kept only for apps
+// that have not yet cut over to @robosystems/core/ui and still pass it to
+// flowbite-react's ThemeProvider. It is a static snapshot (the former file
+// composed it from flowbite-react's default theme at import time), so core
+// no longer loads flowbite-react at runtime. Deleted with the peer in the
+// exit's final step; ui/theme-defaults.ts is the resolved successor.
 
-export const customTheme = createTheme({
-  // RoboSystems Theme
+export const customTheme = {
   alert: {
     base: 'flex flex-col gap-2 rounded-xl p-4 text-sm backdrop-blur-sm',
     borderAccent: 'border-l-4',
@@ -147,10 +150,6 @@ export const customTheme = createTheme({
       warning:
         'bg-amber-700 text-white hover:bg-amber-800 focus:ring-amber-300 dark:bg-amber-600 dark:hover:bg-amber-700 dark:focus:ring-amber-800',
     },
-    // flowbite-react 0.12 reads outline button colors from `outlineColor`
-    // (Button.js: `outline ? theme.outlineColor[color] : theme.color[color]`).
-    // Keep these keys in sync with `color` above so outline variants of the
-    // brand/state colors render (the old `outline.color` shape was never read).
     outlineColor: {
       primary:
         'border-primary-500 text-primary-500 hover:bg-primary-500 focus:ring-primary-300 dark:border-primary-500 dark:text-primary-500 dark:hover:bg-primary-500 dark:focus:ring-primary-800 hover:text-white dark:hover:text-white',
@@ -180,10 +179,7 @@ export const customTheme = createTheme({
   },
   card: {
     root: {
-      base: twMerge(
-        theme.card.root.base,
-        'border border-gray-200 bg-white/80 shadow-lg backdrop-blur-sm transition-shadow duration-300 hover:shadow-xl dark:border-gray-700 dark:bg-zinc-950'
-      ),
+      base: 'flex rounded-lg border border-gray-200 bg-white/80 shadow-lg backdrop-blur-sm transition-shadow duration-300 hover:shadow-xl dark:border-gray-700 dark:bg-zinc-950',
       children: 'flex h-full flex-col justify-center gap-4 p-6',
       horizontal: {
         off: 'flex-col',
@@ -477,16 +473,12 @@ export const customTheme = createTheme({
         on: 'w-16',
         off: 'w-64',
       },
-      inner: twMerge(
-        theme.sidebar.root.inner,
-        'h-full overflow-x-hidden overflow-y-auto rounded-sm bg-white px-3 py-4 dark:bg-zinc-950'
-      ),
+      inner:
+        'h-full overflow-x-hidden overflow-y-auto rounded-sm bg-white px-3 py-4 dark:bg-zinc-950',
     },
     collapse: {
-      button: twMerge(
-        theme.sidebar.collapse.button,
-        'group w-full text-gray-900 hover:bg-zinc-100 dark:text-gray-200 dark:hover:bg-zinc-700/50'
-      ),
+      button:
+        'group flex items-center rounded-lg p-2 text-base font-normal transition duration-75 group w-full text-gray-900 hover:bg-zinc-100 dark:text-gray-200 dark:hover:bg-zinc-700/50',
       icon: {
         base: 'h-6 w-6 text-gray-500 transition duration-75 group-hover:text-gray-900 dark:text-gray-400 dark:group-hover:text-white',
         open: {
@@ -523,10 +515,7 @@ export const customTheme = createTheme({
       },
     },
     item: {
-      base: twMerge(
-        theme.sidebar.item.base,
-        'flex items-center justify-center rounded-lg p-2 text-base font-normal text-gray-900 hover:bg-zinc-100 dark:text-gray-200 dark:hover:bg-zinc-700/50'
-      ),
+      base: 'flex items-center justify-center rounded-lg p-2 text-base font-normal text-gray-900 hover:bg-zinc-100 dark:text-gray-200 dark:hover:bg-zinc-700/50',
       active:
         'bg-zinc-100 dark:bg-zinc-800 dark:hover:bg-zinc-800 dark:hover:text-white',
       collapsed: {
@@ -547,10 +536,7 @@ export const customTheme = createTheme({
       base: '',
     },
     itemGroup: {
-      base: twMerge(
-        theme.sidebar.itemGroup.base,
-        'mt-4 space-y-2 border-t border-gray-200 pt-4 first:mt-0 first:border-t-0 first:pt-0 dark:border-gray-700'
-      ),
+      base: 'mt-4 space-y-2 border-t border-gray-200 pt-4 first:mt-0 first:border-t-0 first:pt-0 dark:border-gray-700',
     },
     logo: {
       base: 'mb-5 flex items-center pl-2.5',
@@ -614,10 +600,6 @@ export const customTheme = createTheme({
       base: 'w-full text-left text-sm text-gray-500 dark:text-gray-400',
       shadow:
         'absolute top-0 left-0 -z-10 h-full w-full rounded-lg bg-white drop-shadow-md dark:bg-zinc-800',
-      // `shadow` paints the body background at the wrapper's size. A plain
-      // block wrapper stops at an overflow-x scroller's visible width, so a
-      // wide table scrolls its rows off the paint; fit the wrapper to the
-      // table instead, floored at the container width.
       wrapper: 'relative w-fit min-w-full',
     },
     body: {
@@ -699,12 +681,9 @@ export const customTheme = createTheme({
     tabpanel: 'py-3',
   },
   textarea: {
-    base: twMerge(theme.textarea.base, 'p-4'),
+    base: 'block w-full rounded-lg border text-sm focus:outline-none focus:ring-1 disabled:cursor-not-allowed disabled:opacity-50 p-4',
     colors: {
-      gray: twMerge(
-        theme.textarea.colors.gray,
-        'focus:border-secondary-500 focus:ring-secondary-500 dark:focus:border-secondary-500 dark:focus:ring-secondary-500 text-base sm:text-sm'
-      ),
+      gray: 'border-gray-300 bg-gray-50 text-gray-900 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400 focus:border-secondary-500 focus:ring-secondary-500 dark:focus:border-secondary-500 dark:focus:ring-secondary-500 text-base sm:text-sm',
       info: 'border-primary-500 bg-primary-50 text-primary-900 placeholder-primary-700 focus:border-primary-500 focus:ring-primary-500 dark:border-primary-400 dark:bg-primary-100 dark:focus:border-primary-500 dark:focus:ring-primary-500',
       failure:
         'border-red-500 bg-red-50 text-red-900 placeholder-red-700 focus:border-red-500 focus:ring-red-500 dark:border-red-400 dark:bg-red-100 dark:focus:border-red-500 dark:focus:ring-red-500',
@@ -732,10 +711,7 @@ export const customTheme = createTheme({
         svg: 'h-5 w-5 text-gray-500 dark:text-gray-400',
       },
       input: {
-        base: twMerge(
-          theme.textInput.field.input.base,
-          'block w-full border outline-hidden disabled:cursor-not-allowed disabled:opacity-50'
-        ),
+        base: 'focus:outline-none focus:ring-1 block w-full border outline-hidden disabled:cursor-not-allowed disabled:opacity-50',
         sizes: {
           sm: 'p-2 sm:text-xs',
           md: 'p-2.5 sm:text-sm',
@@ -832,4 +808,4 @@ export const customTheme = createTheme({
     },
     content: 'relative z-20',
   },
-})
+} as const
