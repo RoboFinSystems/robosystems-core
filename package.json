@@ -14,7 +14,7 @@
     "url": "https://github.com/RoboFinSystems/robosystems-core.git"
   },
   "engines": {
-    "node": ">=22.0.0"
+    "node": ">=24.0.0"
   },
   "scripts": {
     "prepare": "git config core.hooksPath .githooks || true",
@@ -52,7 +52,7 @@
     "@testing-library/jest-dom": "^7",
     "@testing-library/react": "^16",
     "@testing-library/user-event": "^14",
-    "@types/node": "^22",
+    "@types/node": "^24",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@vitejs/plugin-react": "^6.1.1",
