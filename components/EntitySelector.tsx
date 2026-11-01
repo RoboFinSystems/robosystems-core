@@ -1,10 +1,10 @@
 'use client'
 
-import { Dropdown, DropdownItem, Spinner } from 'flowbite-react'
 import { useRouter } from 'next/navigation'
 import React, { useCallback, useState } from 'react'
 import { HiChevronDown } from 'react-icons/hi'
 import { useApiError, useToast } from '../hooks'
+import { Dropdown, DropdownItem, Spinner } from '../ui'
 
 // Generic interfaces for different entity types
 export interface SelectableEntity {

@@ -1,11 +1,5 @@
-import {
-  Button,
-  Modal,
-  ModalBody,
-  ModalFooter,
-  ModalHeader,
-} from 'flowbite-react'
 import type { ComponentType, ReactNode } from 'react'
+import { Button, Modal, ModalBody, ModalFooter, ModalHeader } from '../ui'
 import { Spinner } from './Spinner'
 
 interface ConfirmModalProps {

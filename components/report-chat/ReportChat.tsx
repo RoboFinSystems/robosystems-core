@@ -13,11 +13,11 @@
  * question, and a `focus` object with the same identifiers for an operator
  * release that reads `context` directly.
  */
-import { Spinner } from 'flowbite-react'
 import { type ReactNode, useCallback, useRef, useState } from 'react'
 import { HiChevronDown, HiChevronRight, HiSparkles } from 'react-icons/hi'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import { Spinner } from '../../ui'
 import { anchoredMessage, errorDetail } from './anchor'
 
 export interface ReportChatProps {

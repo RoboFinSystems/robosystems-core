@@ -1,25 +1,22 @@
-import { Alert } from 'flowbite-react'
 import React from 'react'
 import { HiCheckCircle, HiExclamationCircle } from 'react-icons/hi'
+import { Alert } from '../../ui'
 
 export interface StatusAlertProps {
   type: 'success' | 'error'
   message: string
-  theme?: any
   className?: string
 }
 
 export const StatusAlert: React.FC<StatusAlertProps> = ({
   type,
   message,
-  theme,
   className = 'mb-4',
 }) => {
   const isSuccess = type === 'success'
 
   return (
     <Alert
-      theme={theme}
       color={isSuccess ? 'success' : 'failure'}
       className={`${className} relative z-10 w-full`}
     >

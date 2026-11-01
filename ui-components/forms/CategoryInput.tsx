@@ -1,7 +1,7 @@
 'use client'
 
-import { TextInput } from 'flowbite-react'
 import { useState } from 'react'
+import { TextInput } from '../../ui'
 
 export interface CategoryInputProps {
   /** Controlled value — always freeform; suggestions are conveniences. */

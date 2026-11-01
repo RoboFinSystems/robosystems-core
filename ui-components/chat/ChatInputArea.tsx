@@ -1,6 +1,6 @@
-import { Button, Textarea } from 'flowbite-react'
 import React from 'react'
 import { IoSend } from 'react-icons/io5'
+import { Button, Textarea } from '../../ui'
 import { DeepResearchToggle } from './DeepResearchToggle'
 
 interface ChatInputAreaProps {

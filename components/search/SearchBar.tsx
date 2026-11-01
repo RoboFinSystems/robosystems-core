@@ -1,7 +1,7 @@
 'use client'
 
-import { Button, Spinner, TextInput } from 'flowbite-react'
 import { HiSearch, HiX } from 'react-icons/hi'
+import { Button, Spinner, TextInput } from '../../ui'
 
 export interface SearchBarProps {
   query: string

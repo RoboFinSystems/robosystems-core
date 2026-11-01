@@ -1,6 +1,6 @@
 'use client'
 
-import { Button } from 'flowbite-react'
+import { Button } from '../../ui'
 
 export interface SearchPaginationProps {
   total: number

@@ -1,6 +1,6 @@
-import { Tooltip } from 'flowbite-react'
 import React from 'react'
 import { FaLightbulb } from 'react-icons/fa'
+import { Tooltip } from '../../ui'
 
 interface DeepResearchToggleProps {
   isEnabled: boolean

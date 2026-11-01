@@ -1,9 +1,9 @@
 'use client'
 
 import type { SearchHit } from '@robosystems/client'
-import { Badge, Card } from 'flowbite-react'
 import type { ReactNode } from 'react'
 import { HiChevronDown, HiChevronUp } from 'react-icons/hi'
+import { Badge, Card } from '../../ui'
 
 export interface SearchHitCardProps {
   hit: SearchHit

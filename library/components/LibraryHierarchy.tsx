@@ -7,13 +7,13 @@ import type {
   LibraryTaxonomy,
 } from '@robosystems/client/clients'
 import { clients } from '@robosystems/client/clients'
-import { Alert, Badge, Card, Select, Spinner } from 'flowbite-react'
 import { useEffect, useMemo, useState } from 'react'
 import {
   HiChevronDown,
   HiChevronRight,
   HiInformationCircle,
 } from 'react-icons/hi'
+import { Alert, Badge, Card, Select, Spinner } from '../../ui'
 import { classificationColor } from '../colors'
 
 type ArcType = 'calculation' | 'presentation'

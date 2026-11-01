@@ -1,12 +1,12 @@
 'use client'
 
-import { Toast, ToastToggle } from 'flowbite-react'
 import { useCallback, useEffect, useId, useSyncExternalStore } from 'react'
 import {
   HiCheckCircle,
   HiExclamation,
   HiInformationCircle,
 } from 'react-icons/hi'
+import { Toast, ToastToggle } from '../ui'
 
 export interface ToastMessage {
   id: string

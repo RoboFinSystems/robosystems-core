@@ -6,16 +6,9 @@ import type {
   SearchResponse,
 } from '@robosystems/client'
 import * as SDK from '@robosystems/client'
-import {
-  Alert,
-  Card,
-  Select,
-  Spinner,
-  TextInput,
-  ToggleSwitch,
-} from 'flowbite-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { HiChevronDown, HiChevronUp, HiSearch } from 'react-icons/hi'
+import { Alert, Card, Select, Spinner, TextInput, ToggleSwitch } from '../../ui'
 
 import { useIsRepository } from '../../components/RepositoryGuard'
 import { useGraphContext } from '../../contexts'

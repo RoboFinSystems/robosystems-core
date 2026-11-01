@@ -1,10 +1,10 @@
 'use client'
 
 import * as SDK from '@robosystems/client'
-import { Button } from 'flowbite-react'
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { HiLockClosed } from 'react-icons/hi'
 import { useOptionalAuth } from '../../auth-components/AuthProvider'
+import { Button } from '../../ui'
 import { ConfirmModal } from '../ConfirmModal'
 import { Spinner } from '../Spinner'
 import { SettingsCard } from '../forms/SettingsCard'
@@ -21,7 +21,6 @@ interface PasswordStrengthResult {
 }
 
 export interface PasswordInformationCardProps {
-  theme?: any
   onUpdate?: (data: PasswordUpdateData) => Promise<void>
   onSuccess?: (message: string) => void
   onError?: (message: string) => void
@@ -31,7 +30,6 @@ export interface PasswordInformationCardProps {
 export const PasswordInformationCard: React.FC<
   PasswordInformationCardProps
 > = ({
-  theme,
   onUpdate = undefined,
   onSuccess = undefined,
   onError = undefined,
@@ -232,19 +230,15 @@ export const PasswordInformationCard: React.FC<
       title="Password information"
       description="Update your password to keep your account secure"
       icon={HiLockClosed}
-      theme={theme?.card}
       className={className}
     >
       <div className="space-y-4">
-        {error && (
-          <StatusAlert type="error" message={error} theme={theme?.alert} />
-        )}
+        {error && <StatusAlert type="error" message={error} />}
 
         {success && (
           <StatusAlert
             type="success"
             message="Password updated successfully."
-            theme={theme?.alert}
           />
         )}
       </div>
@@ -257,7 +251,6 @@ export const PasswordInformationCard: React.FC<
               label="Current password"
               type="password"
               placeholder="••••••••"
-              theme={theme}
             />
           </div>
 
@@ -268,7 +261,6 @@ export const PasswordInformationCard: React.FC<
                 label="New password"
                 type="password"
                 placeholder="••••••••"
-                theme={theme}
                 onChange={(e) => setNewPassword(e.target.value)}
               />
               <div className="mt-2 min-h-[2.75rem]">
@@ -308,13 +300,11 @@ export const PasswordInformationCard: React.FC<
               label="Confirm password"
               type="password"
               placeholder="••••••••"
-              theme={theme}
             />
           </div>
 
           <div className="flex justify-end pt-2">
             <Button
-              theme={theme?.button}
               color="blue"
               type="submit"
               disabled={isLoading || checkingPassword}

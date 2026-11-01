@@ -1,7 +1,7 @@
 'use client'
 
 import type { LibraryTaxonomy } from '@robosystems/client/clients'
-import { Badge, Card } from 'flowbite-react'
+import { Badge, Card } from '../../ui'
 
 const SECTION_ORDER = ['reporting', 'chart_of_accounts', 'schedule', 'mapping']
 const SECTION_LABELS: Record<string, string> = {

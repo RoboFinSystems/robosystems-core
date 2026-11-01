@@ -1,5 +1,5 @@
-import { Card } from 'flowbite-react'
 import type { ComponentType, ReactNode } from 'react'
+import { Card } from '../ui'
 
 interface StatCardProps {
   /** Short muted label above the value, e.g. "Total Graphs". */

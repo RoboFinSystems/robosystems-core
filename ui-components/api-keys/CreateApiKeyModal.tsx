@@ -1,5 +1,6 @@
 'use client'
 
+import React, { useState } from 'react'
 import {
   Button,
   Label,
@@ -8,8 +9,7 @@ import {
   ModalFooter,
   ModalHeader,
   Select,
-} from 'flowbite-react'
-import React, { useState } from 'react'
+} from '../../ui'
 import { Spinner } from '../Spinner'
 import { SettingsFormField } from '../forms/SettingsFormField'
 import { StatusAlert } from '../forms/StatusAlert'
@@ -28,7 +28,6 @@ export interface CreateApiKeyModalProps {
     name: string
     graphId?: string
   }) => Promise<ApiKeyWithValue>
-  theme?: any
   /** Graphs offered as scope choices; omit to create account-wide keys only */
   graphs?: CreateApiKeyModalGraph[]
 }
@@ -37,7 +36,6 @@ export const CreateApiKeyModal: React.FC<CreateApiKeyModalProps> = ({
   isOpen,
   onClose,
   onCreateKey,
-  theme,
   graphs,
 }) => {
   const [isCreating, setIsCreating] = useState(false)
@@ -83,7 +81,7 @@ export const CreateApiKeyModal: React.FC<CreateApiKeyModalProps> = ({
   }
 
   return (
-    <Modal theme={theme?.modal} show={isOpen} onClose={handleCloseModal}>
+    <Modal show={isOpen} onClose={handleCloseModal}>
       <ModalHeader>Create API Key</ModalHeader>
       <ModalBody>
         {newApiKey ? (
@@ -91,7 +89,6 @@ export const CreateApiKeyModal: React.FC<CreateApiKeyModalProps> = ({
             <StatusAlert
               type="success"
               message="Your API key has been created."
-              theme={theme?.alert}
             />
 
             <div className="mb-4 space-y-4">
@@ -99,7 +96,6 @@ export const CreateApiKeyModal: React.FC<CreateApiKeyModalProps> = ({
                 label="ROBOSYSTEMS_API_KEY"
                 value={newApiKey.key}
                 keyId={newApiKey.id}
-                theme={theme}
               />
 
               <p className="text-sm font-medium text-red-600 dark:text-red-400">
@@ -109,9 +105,7 @@ export const CreateApiKeyModal: React.FC<CreateApiKeyModalProps> = ({
             </div>
 
             <div className="mb-2">
-              <Label theme={theme?.label} htmlFor="keyDetails">
-                Key Details
-              </Label>
+              <Label htmlFor="keyDetails">Key Details</Label>
               <div className="mt-2 space-y-2 rounded-lg border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-700 dark:bg-zinc-800">
                 <div className="flex justify-between">
                   <span className="text-sm font-medium text-zinc-500 dark:text-zinc-400">
@@ -157,7 +151,6 @@ export const CreateApiKeyModal: React.FC<CreateApiKeyModalProps> = ({
               value={keyName}
               onChange={(e) => setKeyName(e.target.value)}
               required
-              theme={theme}
             />
             <p className="text-sm text-zinc-500 dark:text-zinc-400">
               Give your API key a memorable name to identify it later
@@ -165,12 +158,9 @@ export const CreateApiKeyModal: React.FC<CreateApiKeyModalProps> = ({
 
             {graphs && graphs.length > 0 && (
               <div className="space-y-2">
-                <Label theme={theme?.label} htmlFor="keyScope">
-                  Scope
-                </Label>
+                <Label htmlFor="keyScope">Scope</Label>
                 <Select
                   id="keyScope"
-                  theme={theme?.select}
                   value={scopeGraphId}
                   onChange={(e) => setScopeGraphId(e.target.value)}
                 >
@@ -197,28 +187,21 @@ export const CreateApiKeyModal: React.FC<CreateApiKeyModalProps> = ({
               </p>
             </div>
 
-            {error && (
-              <StatusAlert type="error" message={error} theme={theme?.alert} />
-            )}
+            {error && <StatusAlert type="error" message={error} />}
           </form>
         )}
       </ModalBody>
       <ModalFooter>
         {newApiKey ? (
-          <Button theme={theme?.button} color="blue" onClick={handleCloseModal}>
+          <Button color="blue" onClick={handleCloseModal}>
             Done
           </Button>
         ) : (
           <>
-            <Button
-              theme={theme?.button}
-              color="gray"
-              onClick={handleCloseModal}
-            >
+            <Button color="gray" onClick={handleCloseModal}>
               Cancel
             </Button>
             <Button
-              theme={theme?.button}
               color="primary"
               onClick={handleSubmit}
               disabled={isCreating || !keyName}

@@ -1,7 +1,7 @@
-import { Card, Progress } from 'flowbite-react'
 import React from 'react'
 import { FaClock, FaSpinner } from 'react-icons/fa'
 import ReactMarkdown from 'react-markdown'
+import { Card, Progress } from '../../ui'
 import type { Message } from './types'
 
 interface ChatMessageProps {
