@@ -26,7 +26,8 @@ npm install @robosystems/core
 Import from the root barrel or from subpaths mirroring the folder structure:
 
 ```tsx
-import { AuthProvider, useGraphContext, customTheme } from '@robosystems/core'
+import { AuthProvider, useGraphContext } from '@robosystems/core'
+import { Button, Modal } from '@robosystems/core/ui'
 import { PageHeader, Spinner } from '@robosystems/core/ui-components'
 import { useToast } from '@robosystems/core/hooks/use-toast'
 ```
