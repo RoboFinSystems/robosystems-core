@@ -11,6 +11,7 @@ Shared React core for the RoboSystems ecosystem apps — authentication, platfor
 - **Contexts** — graph, entity, organization, service-offerings, and sidebar state
 - **Task monitoring** — SSE-based operation monitoring with a polling fallback for long-running jobs
 - **UI components** — layout, chat, forms, settings, API keys, and the shared Tailwind theme and the owned UI primitives (`@robosystems/core/ui`)
+- **Docs rendering** — the docs catalog loader (`@robosystems/core/docs/catalog`) and the markdown renderer (`@robosystems/core/docs/DocsMarkdown`), server-side, for each app's `/docs`
 - **Hooks & utilities** — user, limits, toast, and media-query hooks plus cookie persistence helpers
 
 ## Installation
@@ -30,6 +31,7 @@ import { AuthProvider, useGraphContext } from '@robosystems/core'
 import { Button, Modal } from '@robosystems/core/ui'
 import { PageHeader, Spinner } from '@robosystems/core/ui-components'
 import { useToast } from '@robosystems/core/hooks/use-toast'
+import { getDocsCatalog } from '@robosystems/core/docs/catalog'
 ```
 
 ## Resources
