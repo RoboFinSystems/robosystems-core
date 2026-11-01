@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useApiError } from '../use-api-error'
 import { resetToastsForTests, useToast } from '../use-toast'
 
-// Mock Flowbite React components
+// Mock the owned UI primitives
 vi.mock('../../ui', () => ({
   Toast: ({ children }: { children: React.ReactNode }) => (
     <div data-testid="toast">{children}</div>

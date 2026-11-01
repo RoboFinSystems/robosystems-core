@@ -9,12 +9,12 @@ import { useSidebarContext } from '../../contexts'
 import { useMediaQuery, useUser } from '../../hooks'
 import type { User } from '../../types'
 import {
+  Navbar as BaseNavbar,
   DarkThemeToggle,
   Dropdown,
   DropdownDivider,
   DropdownHeader,
   DropdownItem,
-  Navbar as FlowbiteNavbar,
   NavbarBrand,
   Tooltip,
 } from '../../ui'
@@ -108,7 +108,7 @@ export function CoreNavbar({
   )
 
   return (
-    <FlowbiteNavbar
+    <BaseNavbar
       fluid
       className={`fixed top-0 z-30 w-full border-b border-gray-200 p-0 ${borderColorClass} bg-white sm:p-0 dark:bg-black ${className}`}
     >
@@ -175,7 +175,7 @@ export function CoreNavbar({
           </div>
         </div>
       </div>
-    </FlowbiteNavbar>
+    </BaseNavbar>
   )
 }
 

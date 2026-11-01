@@ -23,7 +23,7 @@ These are the changes most likely to break consumers and least likely to be caug
 - **ESM only.** `"type": "module"` — a CommonJS `require()` throws at runtime inside consumer bundles, and a `try`/`catch` around it degrades into **silent feature loss** rather than a visible error. This already bit the GraphQL auth path once. Any `require()` staged here is blocking; use static or dynamic `import`.
 - **Published from `dist/`.** `scripts/prepare-package.mjs` writes `dist/package.json` and the package is packed from that directory so compiled files sit at the package root. That layout is what lets apps deep-import both directory barrels (`@robosystems/core/ui-components`) and direct files (`@robosystems/core/hooks/use-toast`) with no `exports` map. Any change here risks every deep import in three apps.
 - **`sideEffects`.** `index.ts` configures the `@robosystems/client` SDK at import time, and `dist/package.json` declares `sideEffects: ['./index.js']`. A side effect added outside that file will be tree-shaken away in consumers.
-- **Peers, not deps.** `react`, `react-dom`, `next`, `flowbite-react`, `react-icons`, and `@robosystems/client` stay peers so apps keep one instance each. A peer promoted to a dependency causes duplicate-React and context-identity bugs; a narrowed range produces `ERESOLVE` on every app install.
+- **Peers, not deps.** `react`, `react-dom`, `next`, `react-icons`, and `@robosystems/client` stay peers so apps keep one instance each. A peer promoted to a dependency causes duplicate-React and context-identity bugs; a narrowed range produces `ERESOLVE` on every app install.
 
 ## Component quality
 
@@ -31,7 +31,7 @@ These are the changes most likely to break consumers and least likely to be caug
 - `'use client'` applied at the right level — pushed to the leaf that needs it, not hoisted?
 - Does anything server-only leak into a client component, or a client hook into a server one?
 - Is state at the right level, and do the contexts (graph, organization, entity, service-offerings, sidebar) stay the single source they're meant to be?
-- Flowbite and existing Tailwind idiom followed, dark mode handled, responsive behavior checked. These regress silently and reach three apps at once.
+- `@robosystems/core/ui` components and existing Tailwind idiom followed, dark mode handled, responsive behavior checked. These regress silently and reach three apps at once.
 - Accessibility: labels, keyboard reachability, heading order — a shared component's a11y bug is three apps' a11y bug.
 
 ## Auth and secrets

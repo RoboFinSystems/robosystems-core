@@ -10,7 +10,7 @@ Shared React core for the RoboSystems ecosystem apps — authentication, platfor
 - **Authentication** — sign-in/sign-up forms, `AuthProvider`/`AuthGuard`, JWT and SSO token handling
 - **Contexts** — graph, entity, organization, service-offerings, and sidebar state
 - **Task monitoring** — SSE-based operation monitoring with a polling fallback for long-running jobs
-- **UI components** — layout, chat, forms, settings, API keys, and the shared Flowbite/Tailwind theme
+- **UI components** — layout, chat, forms, settings, API keys, and the shared Tailwind theme and the owned UI primitives (`@robosystems/core/ui`)
 - **Hooks & utilities** — user, limits, toast, and media-query hooks plus cookie persistence helpers
 
 ## Installation
@@ -19,7 +19,7 @@ Shared React core for the RoboSystems ecosystem apps — authentication, platfor
 npm install @robosystems/core
 ```
 
-`react`, `react-dom`, `next`, `flowbite-react`, `react-icons`, and `@robosystems/client` are peer dependencies provided by the consuming app. See [CLAUDE.md](CLAUDE.md) for app wiring (Tailwind content scan, vitest inlining), packaging notes, and the release flow.
+`react`, `react-dom`, `next`, `react-icons`, and `@robosystems/client` are peer dependencies provided by the consuming app. See [CLAUDE.md](CLAUDE.md) for app wiring (Tailwind content scan, vitest inlining), packaging notes, and the release flow.
 
 ## Usage
 

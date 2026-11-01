@@ -9,8 +9,9 @@
  * override layer; copying it as defaults would drop everything the base
  * supplies (rounded corners, sizes, disabled styles).
  *
- * Run: node scripts/generate-theme-defaults.mjs   (needs flowbite-react in
- * node_modules; delete this script with the flowbite-react peer).
+ * Run: npm i --no-save flowbite-react@0.12.17 && node scripts/generate-theme-defaults.mjs
+ * flowbite-react is no longer a dependency of any kind; this script and
+ * theme/flowbite-theme.ts go in the exit's final step.
  */
 import { resolveTheme } from 'flowbite-react/helpers/resolve-theme'
 import { setStore } from 'flowbite-react/store'

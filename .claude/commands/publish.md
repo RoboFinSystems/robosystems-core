@@ -68,7 +68,7 @@ In that listing, check specifically:
 
 - **Files at the root** (`ui-components/…`, `hooks/…`), not nested under `dist/` — otherwise every app deep import breaks.
 - **`package.json` has `sideEffects: ['./index.js']`** — without it, bundlers tree-shake away the SDK configuration that `index.ts` performs at import time.
-- **Peers intact** — `react`, `react-dom`, `next`, `flowbite-react`, `react-icons`, `@robosystems/client` should be peer dependencies, not dependencies.
+- **Peers intact** — `react`, `react-dom`, `next`, `react-icons`, `@robosystems/client` should be peer dependencies, not dependencies.
 
 Then the real check — adoption in an app:
 
