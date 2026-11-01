@@ -1,9 +1,9 @@
 'use client'
 
 import * as SDK from '@robosystems/client'
-import { Button } from 'flowbite-react'
 import React, { useState } from 'react'
 import { HiUser } from 'react-icons/hi'
+import { Button } from '../../ui'
 import { Spinner } from '../Spinner'
 import { SettingsCard } from '../forms/SettingsCard'
 import { SettingsFormField } from '../forms/SettingsFormField'
@@ -12,7 +12,6 @@ import type { AuthUser, UserUpdateData } from '../types'
 
 export interface GeneralInformationCardProps {
   user: AuthUser
-  theme?: any
   onUpdate?: (data: UserUpdateData) => Promise<void>
   onRefresh?: () => Promise<void>
   onSuccess?: (message: string) => void
@@ -22,7 +21,6 @@ export interface GeneralInformationCardProps {
 
 export const GeneralInformationCard: React.FC<GeneralInformationCardProps> = ({
   user,
-  theme,
   onUpdate = undefined,
   onRefresh = undefined,
   onSuccess = undefined,
@@ -98,20 +96,13 @@ export const GeneralInformationCard: React.FC<GeneralInformationCardProps> = ({
       title="General information"
       description="Update your account details"
       icon={HiUser}
-      theme={theme?.card}
       className={className}
     >
       <div className="space-y-4">
-        {error && (
-          <StatusAlert type="error" message={error} theme={theme?.alert} />
-        )}
+        {error && <StatusAlert type="error" message={error} />}
 
         {success && (
-          <StatusAlert
-            type="success"
-            message="Profile updated successfully."
-            theme={theme?.alert}
-          />
+          <StatusAlert type="success" message="Profile updated successfully." />
         )}
       </div>
 
@@ -124,7 +115,6 @@ export const GeneralInformationCard: React.FC<GeneralInformationCardProps> = ({
               placeholder="Username"
               defaultValue={user.name}
               required
-              theme={theme}
             />
 
             <SettingsFormField
@@ -134,17 +124,11 @@ export const GeneralInformationCard: React.FC<GeneralInformationCardProps> = ({
               placeholder="Email"
               defaultValue={user.email}
               required
-              theme={theme}
             />
           </div>
 
           <div className="flex justify-end pt-2">
-            <Button
-              theme={theme?.button}
-              color="blue"
-              type="submit"
-              disabled={isLoading}
-            >
+            <Button color="blue" type="submit" disabled={isLoading}>
               {isLoading ? (
                 <Spinner size="sm" className="text-white" />
               ) : (

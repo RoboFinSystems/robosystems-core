@@ -1,8 +1,8 @@
 'use client'
 
-import { Badge, TextInput } from 'flowbite-react'
 import { useState } from 'react'
 import { HiX } from 'react-icons/hi'
+import { Badge, TextInput } from '../../ui'
 
 export interface TagInputProps {
   /** Controlled tag list. */

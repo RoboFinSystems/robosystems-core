@@ -1,6 +1,6 @@
 'use client'
 
-import { DarkThemeToggle, Tooltip } from 'flowbite-react'
+import { DarkThemeToggle, Tooltip } from '../../ui'
 
 export interface ThemeToggleProps {
   className?: string

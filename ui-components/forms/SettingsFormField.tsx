@@ -1,5 +1,5 @@
-import { Label, TextInput } from 'flowbite-react'
 import React from 'react'
+import { Label, TextInput } from '../../ui'
 
 export interface SettingsFormFieldProps {
   id: string
@@ -11,7 +11,6 @@ export interface SettingsFormFieldProps {
   value?: string
   required?: boolean
   disabled?: boolean
-  theme?: any
   className?: string
   onChange?: (e: React.ChangeEvent<HTMLInputElement>) => void
   min?: string | number
@@ -28,7 +27,6 @@ export const SettingsFormField: React.FC<SettingsFormFieldProps> = ({
   value,
   required = false,
   disabled = false,
-  theme,
   className = '',
   onChange,
   min,
@@ -37,11 +35,8 @@ export const SettingsFormField: React.FC<SettingsFormFieldProps> = ({
 }) => {
   return (
     <div className={`grid grid-cols-1 gap-y-3 ${className}`}>
-      <Label theme={theme?.label} htmlFor={id}>
-        {label}
-      </Label>
+      <Label htmlFor={id}>{label}</Label>
       <TextInput
-        theme={theme?.textInput}
         id={id}
         name={name}
         type={type}

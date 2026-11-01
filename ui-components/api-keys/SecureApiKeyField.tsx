@@ -1,6 +1,5 @@
 'use client'
 
-import { Button, TextInput, Tooltip } from 'flowbite-react'
 import React, { useState } from 'react'
 import {
   HiCheckCircle,
@@ -9,6 +8,7 @@ import {
   HiEye,
   HiEyeOff,
 } from 'react-icons/hi'
+import { Button, TextInput, Tooltip } from '../../ui'
 
 export interface SecureApiKeyFieldProps {
   apiKey: string

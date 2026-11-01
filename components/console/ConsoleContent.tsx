@@ -2,9 +2,9 @@
 
 import type { SearchHit, SearchResponse } from '@robosystems/client'
 import * as SDK from '@robosystems/client'
-import { Card } from 'flowbite-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { HiTerminal } from 'react-icons/hi'
+import { Card } from '../../ui'
 
 import { useGraphContext } from '../../contexts'
 import { useStreamingQuery } from '../../hooks'

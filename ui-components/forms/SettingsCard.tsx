@@ -1,13 +1,12 @@
-import { Card } from 'flowbite-react'
 import type { ComponentProps, FC } from 'react'
 import React from 'react'
+import { Card } from '../../ui'
 
 export interface SettingsCardProps {
   title: string
   description?: string
   icon?: FC<ComponentProps<'svg'>>
   children: React.ReactNode
-  theme?: any
   className?: string
 }
 
@@ -16,11 +15,10 @@ export const SettingsCard: React.FC<SettingsCardProps> = ({
   description,
   icon: Icon,
   children,
-  theme,
   className = '',
 }) => {
   return (
-    <Card theme={theme} className={className}>
+    <Card className={className}>
       <div className="mb-6">
         {Icon && (
           <div className="mb-4 flex items-start gap-3">

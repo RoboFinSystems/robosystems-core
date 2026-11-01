@@ -6,9 +6,9 @@ import type {
   LibraryElementClassification,
   LibraryElementDetail,
 } from '@robosystems/client/clients'
-import { Alert, Badge, Card, Spinner } from 'flowbite-react'
 import { useEffect, useMemo, useState } from 'react'
 import { HiExternalLink, HiInformationCircle } from 'react-icons/hi'
+import { Alert, Badge, Card, Spinner } from '../../ui'
 import { arcTypeColor, classificationColor } from '../colors'
 
 type LoadState = 'idle' | 'loading' | 'ready' | 'error'

@@ -1,5 +1,11 @@
 'use client'
 
+import { useRef, useState } from 'react'
+import {
+  TurnstileWidget,
+  type TurnstileWidgetRef,
+} from '../../auth-components/TurnstileWidget'
+import { useUser } from '../../hooks'
 import {
   Button,
   Label,
@@ -8,13 +14,7 @@ import {
   ModalHeader,
   Textarea,
   TextInput,
-} from 'flowbite-react'
-import { useRef, useState } from 'react'
-import {
-  TurnstileWidget,
-  type TurnstileWidgetRef,
-} from '../../auth-components/TurnstileWidget'
-import { useUser } from '../../hooks'
+} from '../../ui'
 import {
   isTurnstileEnabled,
   isTurnstileValid,

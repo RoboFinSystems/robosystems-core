@@ -38,6 +38,7 @@ const pkg = {
   engines: root.engines,
   dependencies: root.dependencies,
   peerDependencies: root.peerDependencies,
+  peerDependenciesMeta: root.peerDependenciesMeta,
 }
 
 writeFileSync(join('dist', 'package.json'), JSON.stringify(pkg, null, 2) + '\n')
@@ -51,6 +52,15 @@ mkdirSync(join('dist', 'types'), { recursive: true })
 for (const f of readdirSync('types')) {
   if (f.endsWith('.d.ts')) {
     copyFileSync(join('types', f), join('dist', 'types', f))
+  }
+}
+
+// Stylesheets the apps @import (the Flowbite palette and forms reset lifted
+// for the owned UI layer) — tsc does not emit them.
+mkdirSync(join('dist', 'styles'), { recursive: true })
+for (const f of readdirSync('styles')) {
+  if (f.endsWith('.css')) {
+    copyFileSync(join('styles', f), join('dist', 'styles', f))
   }
 }
 

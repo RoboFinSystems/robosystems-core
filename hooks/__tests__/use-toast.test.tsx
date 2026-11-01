@@ -5,7 +5,7 @@ import { useApiError } from '../use-api-error'
 import { resetToastsForTests, useToast } from '../use-toast'
 
 // Mock Flowbite React components
-vi.mock('flowbite-react', () => ({
+vi.mock('../../ui', () => ({
   Toast: ({ children }: { children: React.ReactNode }) => (
     <div data-testid="toast">{children}</div>
   ),

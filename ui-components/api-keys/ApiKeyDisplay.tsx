@@ -1,7 +1,7 @@
 'use client'
 
-import { Label } from 'flowbite-react'
 import React from 'react'
+import { Label } from '../../ui'
 import { SecureApiKeyField } from './SecureApiKeyField'
 
 export interface ApiKeyDisplayProps {
@@ -9,7 +9,6 @@ export interface ApiKeyDisplayProps {
   value: string
   keyId?: string
   colorScheme?: 'blue' | 'green'
-  theme?: any
   className?: string
   onCopy?: () => void
   onReveal?: () => void
@@ -20,7 +19,6 @@ export const ApiKeyDisplay: React.FC<ApiKeyDisplayProps> = ({
   label,
   value,
   keyId = 'api-key',
-  theme,
   className = '',
   onCopy,
   onReveal,
@@ -28,11 +26,7 @@ export const ApiKeyDisplay: React.FC<ApiKeyDisplayProps> = ({
 }) => {
   return (
     <div className={className}>
-      <Label
-        theme={theme?.label}
-        htmlFor={`display-${label}`}
-        className="text-base font-bold"
-      >
+      <Label htmlFor={`display-${label}`} className="text-base font-bold">
         {label}
       </Label>
       <div className="mt-2">

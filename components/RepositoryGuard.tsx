@@ -1,10 +1,10 @@
 'use client'
 
-import { Alert, Button, Card } from 'flowbite-react'
 import { useRouter } from 'next/navigation'
 import { useEffect, type ReactNode } from 'react'
 import { HiInformationCircle } from 'react-icons/hi'
 import { useGraphContext } from '../contexts/graph-context'
+import { Alert, Button, Card } from '../ui'
 
 export interface RepositoryGuardProps {
   children: ReactNode

@@ -1,5 +1,12 @@
 'use client'
 
+import Link from 'next/link'
+import { usePathname } from 'next/navigation'
+import type { ComponentProps, FC, HTMLAttributeAnchorTarget } from 'react'
+import React from 'react'
+import { HiCog, HiOfficeBuilding } from 'react-icons/hi'
+import { twMerge } from 'tailwind-merge'
+import { useOrg, useSidebarContext } from '../../contexts'
 import {
   Button,
   Sidebar,
@@ -8,15 +15,7 @@ import {
   SidebarItemGroup,
   SidebarItems,
   Tooltip,
-} from 'flowbite-react'
-import Link from 'next/link'
-import { usePathname } from 'next/navigation'
-import type { ComponentProps, FC, HTMLAttributeAnchorTarget } from 'react'
-import React from 'react'
-import { HiCog, HiOfficeBuilding } from 'react-icons/hi'
-import { twMerge } from 'tailwind-merge'
-import { useOrg, useSidebarContext } from '../../contexts'
-import { customTheme } from '../../theme'
+} from '../../ui'
 import { useAccountSettingsLink } from './account-settings'
 
 export interface SidebarItemData {
@@ -110,7 +109,6 @@ function DesktopSidebar({
   return (
     <Sidebar
       aria-label="Sidebar with multi-level dropdown example"
-      theme={customTheme.sidebar}
       collapsed={isCollapsed}
       className={twMerge(
         `fixed inset-y-0 left-0 z-20 flex h-full shrink-0 flex-col border-r border-gray-200 pt-16 duration-75 ${borderColorClass} lg:flex`
@@ -161,7 +159,6 @@ function MobileSidebar({
     <>
       <Sidebar
         aria-label="Sidebar with multi-level dropdown example"
-        theme={customTheme.sidebar}
         className={twMerge(
           `fixed inset-y-0 left-0 z-20 hidden h-full shrink-0 flex-col border-r border-gray-200 pt-16 ${borderColorClass} lg:flex`,
           isOpen && 'flex'
@@ -239,7 +236,6 @@ function CustomSidebarItem({
           {...newTabProps(target)}
           icon={Icon}
           active={pathname === href}
-          theme={customTheme.sidebar.item}
           className={
             pathname === href
               ? 'bg-primary-50 text-primary-700 dark:bg-primary-200 dark:text-primary-800'
@@ -257,7 +253,6 @@ function CustomSidebarItem({
         href={href || '#'}
         icon={Icon}
         active={pathname === href}
-        theme={customTheme.sidebar.item}
         className={
           pathname === href
             ? 'bg-zinc-100 text-gray-900 dark:bg-zinc-800 dark:text-gray-200'
@@ -273,7 +268,6 @@ function CustomSidebarItem({
     <SidebarCollapse
       icon={Icon}
       label={label}
-      theme={customTheme.sidebar.collapse}
       open={items.some((item) => pathname === item.href)}
     >
       {items.map((item) => {
@@ -287,7 +281,6 @@ function CustomSidebarItem({
               href={item.href || '#'}
               {...newTabProps(item.target)}
               active={pathname === item.href}
-              theme={customTheme.sidebar.item}
               className={
                 pathname === item.href
                   ? 'bg-primary-50 text-primary-700 dark:bg-primary-200 dark:text-primary-800'
@@ -305,7 +298,6 @@ function CustomSidebarItem({
             as={Link}
             href={item.href || '#'}
             active={pathname === item.href}
-            theme={customTheme.sidebar.item}
             className={
               pathname === item.href
                 ? 'bg-primary-50 text-primary-700 dark:bg-primary-200 dark:text-primary-800'
@@ -340,7 +332,6 @@ function OrgSection({
         href="/organization"
         icon={HiOfficeBuilding}
         active={isActive}
-        theme={customTheme.sidebar.item}
         className={
           isActive
             ? 'bg-zinc-100 text-gray-900 dark:bg-zinc-800 dark:text-gray-200'
@@ -362,7 +353,7 @@ function SettingsButton() {
 
   if (!settings.isCrossApp) {
     return (
-      <Tooltip content={settings.description} theme={customTheme.tooltip}>
+      <Tooltip content={settings.description}>
         <Button
           as={Link}
           href={settings.href}
@@ -376,7 +367,7 @@ function SettingsButton() {
   }
 
   return (
-    <Tooltip content={settings.description} theme={customTheme.tooltip}>
+    <Tooltip content={settings.description}>
       <Button
         onClick={() => {
           void settings.open()
@@ -423,11 +414,7 @@ function BottomMenu({
 
       {/* Custom bottom menu actions */}
       {bottomMenuActions.map((action, index) => (
-        <Tooltip
-          key={index}
-          content={action.tooltip}
-          theme={customTheme.tooltip}
-        >
+        <Tooltip key={index} content={action.tooltip}>
           <Button
             onClick={action.onClick}
             color="ghost"

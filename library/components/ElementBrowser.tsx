@@ -6,6 +6,8 @@ import type {
   LibrarySearchResult,
   LibraryTaxonomy,
 } from '@robosystems/client/clients'
+import { useEffect, useState } from 'react'
+import { HiInformationCircle, HiSearch } from 'react-icons/hi'
 import {
   Alert,
   Badge,
@@ -14,9 +16,7 @@ import {
   Select,
   Spinner,
   TextInput,
-} from 'flowbite-react'
-import { useEffect, useState } from 'react'
-import { HiInformationCircle, HiSearch } from 'react-icons/hi'
+} from '../../ui'
 import { classificationColor } from '../colors'
 import { ClassificationPicker } from './ClassificationPicker'
 

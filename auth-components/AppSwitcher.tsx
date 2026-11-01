@@ -1,11 +1,10 @@
 'use client'
 
-import { Dropdown, DropdownItem } from 'flowbite-react'
 import { HiViewGrid } from 'react-icons/hi'
 import { useSSO } from '../auth-core/sso'
 import type { AppConfig, AppName } from '../auth-core/types'
 import { useToast } from '../hooks/use-toast'
-import { customTheme } from '../theme'
+import { Dropdown, DropdownItem } from '../ui'
 import { LogoBadge } from '../ui-components/Logo'
 
 export interface AppSwitcherProps {
@@ -45,14 +44,7 @@ export function AppSwitcher({
       <ToastContainer />
       <div className={className}>
         <Dropdown
-          theme={{
-            ...customTheme.dropdown,
-            floating: {
-              ...customTheme.dropdown.floating,
-              base: `${customTheme.dropdown.floating.base} z-50!`,
-            },
-          }}
-          className="w-64"
+          className="z-50! w-64"
           arrowIcon={false}
           inline
           label={
@@ -64,7 +56,6 @@ export function AppSwitcher({
           {availableApps.map((app) => (
             <DropdownItem
               key={app.name}
-              theme={customTheme.dropdown.floating.item}
               onClick={() => handleAppClick(app)}
               className="flex w-full items-center space-x-3 p-3"
             >

@@ -1,5 +1,13 @@
 'use client'
 
+import Link from 'next/link'
+import React from 'react'
+import { HiExternalLink, HiMenuAlt1, HiUserCircle, HiX } from 'react-icons/hi'
+import { AppSwitcher } from '../../auth-components'
+import { useAuth } from '../../auth-components/AuthProvider'
+import { useSidebarContext } from '../../contexts'
+import { useMediaQuery, useUser } from '../../hooks'
+import type { User } from '../../types'
 import {
   DarkThemeToggle,
   Dropdown,
@@ -9,16 +17,7 @@ import {
   Navbar as FlowbiteNavbar,
   NavbarBrand,
   Tooltip,
-} from 'flowbite-react'
-import Link from 'next/link'
-import React from 'react'
-import { HiExternalLink, HiMenuAlt1, HiUserCircle, HiX } from 'react-icons/hi'
-import { AppSwitcher } from '../../auth-components'
-import { useAuth } from '../../auth-components/AuthProvider'
-import { useSidebarContext } from '../../contexts'
-import { useMediaQuery, useUser } from '../../hooks'
-import { customTheme } from '../../theme'
-import type { User } from '../../types'
+} from '../../ui'
 import { LogoBadge } from '../Logo'
 import { useAccountSettingsLink } from './account-settings'
 import { ThemeToggle } from './ThemeToggle'
@@ -89,12 +88,12 @@ export function CoreNavbar({
     return (
       <>
         <div className="hidden dark:block">
-          <Tooltip content="Toggle light mode" theme={customTheme.tooltip}>
+          <Tooltip content="Toggle light mode">
             <DarkThemeToggle />
           </Tooltip>
         </div>
         <div className="dark:hidden">
-          <Tooltip content="Toggle dark mode" theme={customTheme.tooltip}>
+          <Tooltip content="Toggle dark mode">
             <DarkThemeToggle />
           </Tooltip>
         </div>
@@ -103,7 +102,7 @@ export function CoreNavbar({
   }
 
   const renderAppSwitcher = () => (
-    <Tooltip content="Switch apps" theme={customTheme.tooltip}>
+    <Tooltip content="Switch apps">
       <AppSwitcher apiUrl={apiUrl} currentApp={currentApp} />
     </Tooltip>
   )
@@ -111,7 +110,6 @@ export function CoreNavbar({
   return (
     <FlowbiteNavbar
       fluid
-      theme={customTheme.navbar}
       className={`fixed top-0 z-30 w-full border-b border-gray-200 p-0 ${borderColorClass} bg-white sm:p-0 dark:bg-black ${className}`}
     >
       <div className="w-full p-3 pr-4">
@@ -194,13 +192,7 @@ function UserDropdown({ user, apiUrl, docsHref, onLogout }: UserDropdownProps) {
   return (
     <div className="relative">
       <Dropdown
-        theme={{
-          ...customTheme.dropdown,
-          floating: {
-            ...customTheme.dropdown.floating,
-            base: `${customTheme.dropdown.floating.base} z-50! w-64`,
-          },
-        }}
+        className="z-50! w-64"
         arrowIcon={false}
         inline
         label={
@@ -210,10 +202,7 @@ function UserDropdown({ user, apiUrl, docsHref, onLogout }: UserDropdownProps) {
           </span>
         }
       >
-        <DropdownHeader
-          theme={{ header: customTheme.dropdown.floating.header }}
-          className="px-4 py-3"
-        >
+        <DropdownHeader className="px-4 py-3">
           <div className="block text-sm font-medium text-gray-900 dark:text-white">
             {user?.name || 'User'}
           </div>
@@ -225,7 +214,6 @@ function UserDropdown({ user, apiUrl, docsHref, onLogout }: UserDropdownProps) {
         </DropdownHeader>
         {settings.isCrossApp ? (
           <DropdownItem
-            theme={customTheme.dropdown.floating.item}
             onClick={() => {
               void settings.open()
             }}
@@ -243,7 +231,6 @@ function UserDropdown({ user, apiUrl, docsHref, onLogout }: UserDropdownProps) {
           </DropdownItem>
         ) : (
           <DropdownItem
-            theme={customTheme.dropdown.floating.item}
             as={Link}
             href={settings.href}
             className="flex w-full items-center space-x-3 p-3"
@@ -257,7 +244,6 @@ function UserDropdown({ user, apiUrl, docsHref, onLogout }: UserDropdownProps) {
           // a signed-in visitor to / is sent to /home and never sees the public
           // header's links.
           <DropdownItem
-            theme={customTheme.dropdown.floating.item}
             as={Link}
             href={docsHref}
             target="_blank"
@@ -272,11 +258,8 @@ function UserDropdown({ user, apiUrl, docsHref, onLogout }: UserDropdownProps) {
             <span className="sr-only"> (opens in a new tab)</span>
           </DropdownItem>
         )}
-        <DropdownDivider
-          theme={{ divider: customTheme.dropdown.floating.divider }}
-        />
+        <DropdownDivider />
         <DropdownItem
-          theme={customTheme.dropdown.floating.item}
           onClick={() => {
             onLogout()
           }}

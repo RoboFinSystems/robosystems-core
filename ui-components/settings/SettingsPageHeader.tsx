@@ -1,6 +1,6 @@
-import { Breadcrumb, BreadcrumbItem } from 'flowbite-react'
 import React from 'react'
 import { HiHome } from 'react-icons/hi'
+import { Breadcrumb, BreadcrumbItem } from '../../ui'
 
 export interface SettingsPageHeaderProps {
   title?: string

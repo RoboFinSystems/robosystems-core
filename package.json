@@ -41,7 +41,13 @@
     "react-dom": ">=18 <20",
     "react-icons": ">=4 <6"
   },
+  "peerDependenciesMeta": {
+    "flowbite-react": {
+      "optional": true
+    }
+  },
   "dependencies": {
+    "@floating-ui/react": "^0.27.20",
     "react-markdown": "^10",
     "remark-gfm": "^4.0.1",
     "tailwind-merge": "^3"

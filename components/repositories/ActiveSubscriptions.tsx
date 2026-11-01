@@ -1,7 +1,6 @@
 'use client'
 
 import * as SDK from '@robosystems/client'
-import { Badge, Button, Card, Spinner } from 'flowbite-react'
 import { useCallback, useEffect, useState } from 'react'
 import { GoRepo } from 'react-icons/go'
 import {
@@ -21,6 +20,7 @@ import { useServiceOfferings } from '../../contexts/service-offerings-context'
 import { useToast } from '../../hooks/use-toast'
 import { useUser } from '../../hooks/use-user'
 import { unwrapSdk } from '../../lib/sdk-errors'
+import { Badge, Button, Card, Spinner } from '../../ui'
 
 // Use the SDK type directly - id field contains the subscription ID
 type SubscriptionInfo = SDK.GraphSubscriptionResponse
