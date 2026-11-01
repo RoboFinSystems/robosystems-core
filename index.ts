@@ -132,7 +132,6 @@ export {
 export type { Entities, Entity, User } from './types'
 
 // Export theme
-export { customTheme } from './theme'
 
 // Export components
 // Export console components

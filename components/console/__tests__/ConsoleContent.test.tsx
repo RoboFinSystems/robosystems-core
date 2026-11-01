@@ -11,12 +11,6 @@ vi.mock('../../../hooks', () => ({
   useStreamingQuery: vi.fn(),
 }))
 
-vi.mock('../../../theme', () => ({
-  customTheme: {
-    card: {},
-  },
-}))
-
 vi.mock('@robosystems/client/clients', () => ({
   clients: {
     operator: {
