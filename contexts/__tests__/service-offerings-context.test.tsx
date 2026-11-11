@@ -37,6 +37,7 @@ function offeringsResponse() {
             name: 'SEC EDGAR Filings',
             description: 'SEC data',
             enabled: true,
+            trial_days: 14,
             plans: [
               // Repository plans genuinely use these field names — the two
               // shapes differ, which is how the tier mapping went wrong.
@@ -68,6 +69,9 @@ function Probe() {
       </span>
       <span data-testid="multiplier">{String(standard?.creditMultiplier)}</span>
       <span data-testid="repo-price">{String(starter?.monthlyPrice)}</span>
+      <span data-testid="repo-trial">
+        {String(offerings?.repositoryPlans?.['sec']?.trialDays)}
+      </span>
     </div>
   )
 }
@@ -107,6 +111,7 @@ describe('ServiceOfferingsProvider', () => {
     await waitFor(() =>
       expect(screen.getByTestId('repo-price')).toHaveTextContent('29')
     )
+    expect(screen.getByTestId('repo-trial')).toHaveTextContent('14')
   })
 
   it('never yields an undefined price for a tier the API priced', async () => {
