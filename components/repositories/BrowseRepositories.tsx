@@ -17,6 +17,7 @@ import { useServiceOfferings } from '../../contexts/service-offerings-context'
 import { useToast } from '../../hooks/use-toast'
 import { useUser } from '../../hooks/use-user'
 import { unwrapSdk } from '../../lib/sdk-errors'
+import { utcDate } from '../../lib/utc-date'
 import { useRepositorySubscription } from '../../task-monitoring/operationHooks'
 import {
   Alert,
@@ -391,7 +392,7 @@ export function BrowseRepositories({
                 ? (repoData.trialDays ?? 0)
                 : 0
             const trialEndsAt = userSub?.trial_ends_at
-            const onTrial = !!trialEndsAt && new Date(trialEndsAt) > new Date()
+            const onTrial = !!trialEndsAt && utcDate(trialEndsAt) > new Date()
 
             return (
               <Card key={repoType} className="overflow-hidden">

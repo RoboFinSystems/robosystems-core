@@ -20,6 +20,7 @@ import { useServiceOfferings } from '../../contexts/service-offerings-context'
 import { useToast } from '../../hooks/use-toast'
 import { useUser } from '../../hooks/use-user'
 import { unwrapSdk } from '../../lib/sdk-errors'
+import { utcDate } from '../../lib/utc-date'
 import { Badge, Button, Card, Spinner } from '../../ui'
 
 // The id field contains the subscription ID. `trial_ends_at` arrived in
@@ -253,10 +254,10 @@ export function ActiveSubscriptions({
                   </div>
                 </div>
                 {subscription.trial_ends_at &&
-                new Date(subscription.trial_ends_at) > now ? (
+                utcDate(subscription.trial_ends_at) > now ? (
                   <Badge color="info" icon={HiCheckCircle}>
                     Free trial, ends{' '}
-                    {new Date(subscription.trial_ends_at).toLocaleDateString(
+                    {utcDate(subscription.trial_ends_at).toLocaleDateString(
                       undefined,
                       { month: 'short', day: 'numeric' }
                     )}
