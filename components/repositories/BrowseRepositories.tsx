@@ -30,13 +30,18 @@ import {
   Spinner,
 } from '../../ui'
 
-// Use the SDK type directly - id field contains the subscription ID
-type SubscriptionInfo = SDK.GraphSubscriptionResponse
+// The id field contains the subscription ID.
+// `trial_ends_at` arrived in @robosystems/client 2.37; the peer range starts
+// below it, so the field is named here rather than read off the SDK type.
+type SubscriptionInfo = SDK.GraphSubscriptionResponse & {
+  trial_ends_at?: string | null
+}
 
 // Type for repository plan from offerings
 type RepositoryPlan = {
   enabled: boolean
   comingSoon?: boolean
+  trialDays?: number
   name: string
   description: string
   plans: Array<{
@@ -70,6 +75,9 @@ export function BrowseRepositories({
   const [userSubscriptions, setUserSubscriptions] = useState<
     SubscriptionInfo[]
   >([])
+  // Repositories anyone in the org has already subscribed to: the free trial
+  // is one per subscriber and per org, so those open on the paid plan.
+  const [trialSpent, setTrialSpent] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(true)
   // A failed subscription read must not render as "no subscriptions": that
   // offers Subscribe on repositories the org already holds.
@@ -120,8 +128,21 @@ export function BrowseRepositories({
             (!sub.user_id || sub.user_id === user?.id)
         )
         setUserSubscriptions(repositorySubscriptions as SubscriptionInfo[])
+        setTrialSpent(
+          new Set(
+            (subscriptions || [])
+              .filter(
+                (sub: SDK.GraphSubscriptionResponse) =>
+                  sub.resource_type === 'repository' &&
+                  sub.resource_id &&
+                  sub.status !== 'failed'
+              )
+              .map((sub: SDK.GraphSubscriptionResponse) => sub.resource_id)
+          )
+        )
       } else {
         setUserSubscriptions([])
+        setTrialSpent(new Set())
       }
     } catch (error) {
       console.error('Failed to load user subscriptions:', error)
@@ -160,7 +181,15 @@ export function BrowseRepositories({
         return
       }
 
-      showSuccess('Successfully subscribed to repository!')
+      const trialDays = trialSpent.has(repositoryType)
+        ? 0
+        : ((offerings?.repositoryPlans?.[repositoryType] as RepositoryPlan)
+            ?.trialDays ?? 0)
+      showSuccess(
+        trialDays > 0
+          ? `Your ${trialDays}-day free trial has started. Your card is charged when it ends.`
+          : 'Successfully subscribed to repository!'
+      )
 
       // Reload subscriptions
       await loadData()
@@ -357,6 +386,12 @@ export function BrowseRepositories({
           .map(([repoType, repo]) => {
             const repoData = repo as RepositoryPlan
             const userSub = getUserSubscription(repoType)
+            const trialDays =
+              !userSub && !trialSpent.has(repoType)
+                ? (repoData.trialDays ?? 0)
+                : 0
+            const trialEndsAt = userSub?.trial_ends_at
+            const onTrial = !!trialEndsAt && new Date(trialEndsAt) > new Date()
 
             return (
               <Card key={repoType} className="overflow-hidden">
@@ -377,13 +412,33 @@ export function BrowseRepositories({
                       </div>
                     </div>
                     {userSub && (
-                      <Badge color="success" icon={HiCheckCircle} size="lg">
-                        Active -{' '}
+                      <Badge
+                        color={onTrial ? 'info' : 'success'}
+                        icon={HiCheckCircle}
+                        size="lg"
+                      >
+                        {onTrial ? 'Free trial' : 'Active'} -{' '}
                         {userSub.plan_name.charAt(0).toUpperCase() +
                           userSub.plan_name.slice(1)}
                       </Badge>
                     )}
                   </div>
+
+                  {trialDays > 0 && (
+                    <Alert color="info" icon={HiInformationCircle}>
+                      <p className="text-sm">
+                        <span className="font-semibold">
+                          Start with a {trialDays}-day free trial on either
+                          plan.
+                        </span>{' '}
+                        The trial opens the analysis tools over MCP and the API.
+                        Raw Cypher queries, the AI analyst and your monthly
+                        credits open with the first payment. A card is required;
+                        your plan starts when the trial ends, and you can cancel
+                        any time before then and keep the rest of the trial.
+                      </p>
+                    </Alert>
+                  )}
 
                   {/* Pricing Plans */}
                   <div
@@ -445,6 +500,11 @@ export function BrowseRepositories({
                                   /month
                                 </span>
                               </div>
+                              {trialDays > 0 && (
+                                <p className="text-primary-600 dark:text-primary-400 mb-1 text-sm font-medium">
+                                  after a {trialDays}-day free trial
+                                </p>
+                              )}
                               <p className="mb-6 text-sm font-medium text-zinc-600 dark:text-zinc-400">
                                 {plan.monthlyCredits.toLocaleString()}{' '}
                                 credits/month
@@ -523,7 +583,9 @@ export function BrowseRepositories({
                               >
                                 {subscribing === `${repoType}-${plan.plan}`
                                   ? 'Subscribing...'
-                                  : `Subscribe to ${plan.name}`}
+                                  : trialDays > 0
+                                    ? `Start ${plan.name} free trial`
+                                    : `Subscribe to ${plan.name}`}
                               </Button>
                             )}
                           </div>

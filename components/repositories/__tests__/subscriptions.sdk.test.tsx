@@ -13,6 +13,7 @@ vi.mock('../../../contexts/service-offerings-context', () => ({
       repositoryPlans: {
         sec: {
           enabled: true,
+          trialDays: 14,
           name: 'SEC',
           description: 'SEC filings',
           plans: [
@@ -108,5 +109,55 @@ describe("an owner whose org's only seat is a member's", () => {
     membersSeat()
     render(<ActiveSubscriptions emptyState={<p>No subscriptions yet</p>} />)
     expect(await screen.findByText('No subscriptions yet')).toBeInTheDocument()
+  })
+})
+
+describe('a repository that opens with a free trial', () => {
+  const listing = (rows: object[]) =>
+    stubFetch((r) =>
+      r.url.includes('/v1/billing/subscriptions/org_1')
+        ? json(200, rows)
+        : json(200, {})
+    )
+  const seat = (overrides: object) => ({
+    id: 'sub_1',
+    resource_type: 'repository',
+    resource_id: 'sec',
+    user_id: 'user_owner',
+    plan_name: 'sec-starter',
+    plan_display_name: 'Starter',
+    billing_interval: 'monthly',
+    status: 'active',
+    base_price_cents: 1000,
+    ...overrides,
+  })
+
+  it('offers the trial to an org that has never subscribed', async () => {
+    listing([])
+    render(<BrowseRepositories />)
+    expect(
+      await screen.findByRole('button', { name: 'Start Starter free trial' })
+    ).toBeInTheDocument()
+    expect(screen.getByText(/14-day free trial on either/)).toBeInTheDocument()
+  })
+
+  it('offers the paid plan once anyone in the org has had a seat', async () => {
+    listing([seat({ user_id: 'user_member', status: 'canceled' })])
+    render(<BrowseRepositories />)
+    expect(
+      await screen.findByRole('button', { name: 'Subscribe to Starter' })
+    ).toBeInTheDocument()
+    expect(screen.queryByText(/free trial/)).toBeNull()
+  })
+
+  it('marks a running trial on both screens', async () => {
+    const trialEnd = new Date(Date.now() + 5 * 86_400_000).toISOString()
+    listing([seat({ trial_ends_at: trialEnd, current_period_end: trialEnd })])
+    const { unmount } = render(<BrowseRepositories />)
+    expect(await screen.findByText(/Free trial -/)).toBeInTheDocument()
+    unmount()
+
+    render(<ActiveSubscriptions />)
+    expect(await screen.findByText(/Free trial, ends/)).toBeInTheDocument()
   })
 })

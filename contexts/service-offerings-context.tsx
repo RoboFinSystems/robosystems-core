@@ -27,6 +27,8 @@ export interface ServiceOfferings {
       description: string
       enabled: boolean
       comingSoon?: boolean
+      /** Days of free trial a first subscription opens with; 0 for none. */
+      trialDays?: number
       plans: Array<{
         plan: string
         name: string
@@ -89,6 +91,7 @@ export function ServiceOfferingsProvider({
               description: repo.description,
               enabled: repo.enabled,
               comingSoon: repo.coming_soon,
+              trialDays: repo.trial_days ?? 0,
               plans: repo.plans.map((plan: any) => ({
                 plan: plan.plan,
                 name: plan.name,

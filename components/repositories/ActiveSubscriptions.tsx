@@ -22,8 +22,12 @@ import { useUser } from '../../hooks/use-user'
 import { unwrapSdk } from '../../lib/sdk-errors'
 import { Badge, Button, Card, Spinner } from '../../ui'
 
-// Use the SDK type directly - id field contains the subscription ID
-type SubscriptionInfo = SDK.GraphSubscriptionResponse
+// The id field contains the subscription ID. `trial_ends_at` arrived in
+// @robosystems/client 2.37; the peer range starts below it, so the field is
+// named here rather than read off the SDK type.
+type SubscriptionInfo = SDK.GraphSubscriptionResponse & {
+  trial_ends_at?: string | null
+}
 
 export interface ActiveSubscriptionsProps {
   /** Called when user clicks "Open Console" for a repository */
@@ -248,9 +252,20 @@ export function ActiveSubscriptions({
                     </div>
                   </div>
                 </div>
-                <Badge color="success" icon={HiCheckCircle}>
-                  Active
-                </Badge>
+                {subscription.trial_ends_at &&
+                new Date(subscription.trial_ends_at) > now ? (
+                  <Badge color="info" icon={HiCheckCircle}>
+                    Free trial, ends{' '}
+                    {new Date(subscription.trial_ends_at).toLocaleDateString(
+                      undefined,
+                      { month: 'short', day: 'numeric' }
+                    )}
+                  </Badge>
+                ) : (
+                  <Badge color="success" icon={HiCheckCircle}>
+                    Active
+                  </Badge>
+                )}
               </div>
 
               {/* Management Actions */}
