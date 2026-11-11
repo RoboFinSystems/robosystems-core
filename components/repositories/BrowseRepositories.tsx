@@ -95,6 +95,8 @@ export function BrowseRepositories({
     newPlanName: string
     newPrice: number
     isUpgrade: boolean
+    /** Set while the seat is on its free trial: when that trial ends. */
+    trialEndsAt?: string
   } | null>(null)
   const { showSuccess, showError, ToastContainer } = useToast()
   const { currentOrg } = useOrg()
@@ -234,7 +236,8 @@ export function BrowseRepositories({
     currentPrice: number,
     newPlan: string,
     newPlanName: string,
-    newPrice: number
+    newPrice: number,
+    trialEndsAt?: string
   ) => {
     setPlanChangeModal({
       repoType,
@@ -246,6 +249,7 @@ export function BrowseRepositories({
       newPlanName,
       newPrice,
       isUpgrade: newPrice > currentPrice,
+      trialEndsAt,
     })
   }
 
@@ -432,11 +436,13 @@ export function BrowseRepositories({
                           Start with a {trialDays}-day free trial on either
                           plan.
                         </span>{' '}
-                        The trial opens the analysis tools over MCP and the API.
-                        Raw Cypher queries, the AI analyst and your monthly
-                        credits open with the first payment. A card is required;
-                        your plan starts when the trial ends, and you can cancel
-                        any time before then and keep the rest of the trial.
+                        The trial opens the analysis tools over MCP and the API,
+                        at lower rate limits than the plan. Raw Cypher queries,
+                        the AI analyst and your monthly credits open with the
+                        first payment. A card is required and your plan starts
+                        when the trial ends; you can start it sooner from your
+                        organization&apos;s Subscriptions tab, or cancel any
+                        time before then and keep the rest of the trial.
                       </p>
                     </Alert>
                   )}
@@ -551,7 +557,10 @@ export function BrowseRepositories({
                                     currentPlanData?.monthlyPrice ?? 0,
                                     plan.plan,
                                     plan.name,
-                                    plan.monthlyPrice
+                                    plan.monthlyPrice,
+                                    onTrial
+                                      ? (trialEndsAt ?? undefined)
+                                      : undefined
                                   )
                                 }
                                 className="w-full"
@@ -661,9 +670,11 @@ export function BrowseRepositories({
                 icon={HiInformationCircle}
               >
                 <p className="text-sm">
-                  {planChangeModal.isUpgrade
-                    ? 'Your new plan will take effect immediately. You will be charged a prorated amount for the remainder of this billing period.'
-                    : 'Your plan will be downgraded immediately. You will receive a prorated credit for the remainder of this billing period.'}
+                  {planChangeModal.trialEndsAt
+                    ? `Your free trial carries on, now for ${planChangeModal.newPlanName}. Nothing is charged today, and the trial's limits stay as they are. The first charge is $${planChangeModal.newPrice} when the trial ends on ${utcDate(planChangeModal.trialEndsAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}.`
+                    : planChangeModal.isUpgrade
+                      ? 'Your new plan will take effect immediately. You will be charged a prorated amount for the remainder of this billing period.'
+                      : 'Your plan will be downgraded immediately. You will receive a prorated credit for the remainder of this billing period.'}
                 </p>
               </Alert>
             </div>

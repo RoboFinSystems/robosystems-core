@@ -1,6 +1,6 @@
 // A failed subscription read against the real @robosystems/client must not
 // render as "no subscriptions".
-import { render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { json, stubFetch, type FetchStub } from '../../../test/sdk-fetch'
 
@@ -22,6 +22,12 @@ vi.mock('../../../contexts/service-offerings-context', () => ({
               name: 'Starter',
               monthlyPrice: 10,
               monthlyCredits: 100,
+            },
+            {
+              plan: 'sec-advanced',
+              name: 'Advanced',
+              monthlyPrice: 30,
+              monthlyCredits: 300,
             },
           ],
         },
@@ -100,8 +106,8 @@ describe("an owner whose org's only seat is a member's", () => {
     membersSeat()
     render(<BrowseRepositories />)
     expect(
-      await screen.findByRole('button', { name: /Subscribe/ })
-    ).toBeInTheDocument()
+      await screen.findAllByRole('button', { name: /Subscribe/ })
+    ).toHaveLength(2)
     expect(screen.queryByRole('button', { name: /Current Plan/ })).toBeNull()
   })
 
@@ -159,5 +165,31 @@ describe('a repository that opens with a free trial', () => {
 
     render(<ActiveSubscriptions />)
     expect(await screen.findByText(/Free trial, ends/)).toBeInTheDocument()
+  })
+
+  it('says a plan change inside the trial charges nothing today', async () => {
+    const trialEnd = new Date(Date.now() + 5 * 86_400_000).toISOString()
+    listing([seat({ trial_ends_at: trialEnd, current_period_end: trialEnd })])
+    render(<BrowseRepositories />)
+
+    fireEvent.click(
+      await screen.findByRole('button', { name: /Upgrade to Advanced/ })
+    )
+
+    expect(
+      await screen.findByText(/Nothing is charged today/)
+    ).toBeInTheDocument()
+    expect(screen.queryByText(/prorated/)).toBeNull()
+  })
+
+  it('keeps the proration notice for a paid seat', async () => {
+    listing([seat({})])
+    render(<BrowseRepositories />)
+
+    fireEvent.click(
+      await screen.findByRole('button', { name: /Upgrade to Advanced/ })
+    )
+
+    expect(await screen.findByText(/prorated amount/)).toBeInTheDocument()
   })
 })
