@@ -3,7 +3,7 @@
 [![npm version](https://badge.fury.io/js/@robosystems%2Fcore.svg)](https://www.npmjs.com/package/@robosystems/core)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-Shared React core for the RoboSystems ecosystem apps — authentication, platform contexts, task monitoring, and the common UI component set used by robosystems-app, roboledger-app, and roboinvestor-app. Built for the Next.js App Router (client/server components and Server Actions) and consumed as a versioned npm package.
+Part of RoboSystems, the open-source knowledge graph for finance. Shared React core for the RoboSystems apps: authentication, platform contexts, task monitoring, and the common UI component set used by robosystems-app, roboledger-app, and roboinvestor-app. Built for the Next.js App Router (client/server components and Server Actions) and consumed as a versioned npm package.
 
 ## Features
 
