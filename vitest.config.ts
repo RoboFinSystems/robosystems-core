@@ -43,10 +43,6 @@ export default defineConfig({
               mocksDir,
               '@robosystems/client-clients.js'
             ),
-            '@robosystems/client/extensions': path.resolve(
-              mocksDir,
-              '@robosystems/client-extensions.js'
-            ),
             '@robosystems/client/sdk': path.resolve(
               mocksDir,
               '@robosystems/client-sdk.js'
