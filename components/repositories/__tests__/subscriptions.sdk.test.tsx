@@ -147,6 +147,31 @@ describe('a repository that opens with a free trial', () => {
     expect(screen.getByText(/14-day free trial on either/)).toBeInTheDocument()
   })
 
+  it('keeps a refused trial on the page, with the way to verify', async () => {
+    stubFetch((r) =>
+      r.url.includes('/v1/billing/checkout')
+        ? json(403, {
+            detail:
+              'Verify your email to start the free trial: use the link we sent to a@b.co, or send a new one from Settings at https://robosystems.ai/settings',
+          })
+        : r.url.includes('/v1/billing/subscriptions/org_1')
+          ? json(200, [])
+          : json(200, {})
+    )
+    render(<BrowseRepositories />)
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Start Starter free trial' })
+    )
+
+    const notice = await screen.findByTestId('subscribe-error')
+    expect(notice).toHaveTextContent(
+      /Verify your email to start the free trial/
+    )
+    expect(
+      screen.getByRole('link', { name: 'Send a new verification email' })
+    ).toHaveAttribute('href', '/settings')
+  })
+
   it('offers the paid plan once anyone in the org has had a seat', async () => {
     listing([seat({ user_id: 'user_member', status: 'canceled' })])
     render(<BrowseRepositories />)
