@@ -99,6 +99,9 @@ export function BrowseRepositories({
     trialEndsAt?: string
   } | null>(null)
   const { showSuccess, showError, ToastContainer } = useToast()
+  // A refused subscribe stays on the page: a toast fades before an
+  // unverified user has read where to verify.
+  const [subscribeError, setSubscribeError] = useState<string | null>(null)
   const { currentOrg } = useOrg()
   const { user } = useUser()
   const { offerings, isLoading: offeringsLoading } = useServiceOfferings()
@@ -171,6 +174,7 @@ export function BrowseRepositories({
     }
 
     try {
+      setSubscribeError(null)
       setSubscribing(`${repositoryType}-${tier}`)
 
       const result = await repositorySubscription.subscribe({
@@ -207,7 +211,7 @@ export function BrowseRepositories({
       onSubscribed?.(repositoryType)
     } catch (error) {
       console.error('Failed to subscribe:', error)
-      showError(
+      setSubscribeError(
         error instanceof Error
           ? error.message
           : 'Failed to subscribe to repository'
@@ -445,6 +449,24 @@ export function BrowseRepositories({
                         Subscriptions tab. Without a card the trial ends and
                         nothing is charged.
                       </p>
+                    </Alert>
+                  )}
+
+                  {subscribeError && (
+                    <Alert
+                      color="failure"
+                      onDismiss={() => setSubscribeError(null)}
+                      data-testid="subscribe-error"
+                    >
+                      <p className="text-sm">{subscribeError}</p>
+                      {/^verify your email/i.test(subscribeError) && (
+                        <a
+                          href="/settings"
+                          className="mt-2 inline-block text-sm font-medium underline underline-offset-4"
+                        >
+                          Send a new verification email
+                        </a>
+                      )}
                     </Alert>
                   )}
 
