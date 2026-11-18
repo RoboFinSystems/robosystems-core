@@ -359,7 +359,7 @@ export function BrowseRepositories({
                 <div className="flex items-start gap-2">
                   <div className="bg-primary-500 mt-1 h-2 w-2 rounded-full"></div>
                   <span className="text-sm text-zinc-600 dark:text-zinc-400">
-                    Credits are used for AI agent calls - queries are unlimited
+                    Queries and MCP tools are included. Credits are for AI only.
                   </span>
                 </div>
                 <div className="flex items-start gap-2">
@@ -439,10 +439,11 @@ export function BrowseRepositories({
                         The trial opens the analysis tools over MCP and the API,
                         at lower rate limits than the plan. Raw Cypher queries,
                         the AI analyst and your monthly credits open with the
-                        first payment. A card is required and your plan starts
-                        when the trial ends; you can start it sooner from your
-                        organization&apos;s Subscriptions tab, or cancel any
-                        time before then and keep the rest of the trial.
+                        first payment. No card is needed to start: add one
+                        before the trial ends and your plan starts when it does,
+                        or start it sooner from your organization&apos;s
+                        Subscriptions tab. Without a card the trial ends and
+                        nothing is charged.
                       </p>
                     </Alert>
                   )}
@@ -486,14 +487,6 @@ export function BrowseRepositories({
                                 : 'border-zinc-200 bg-white hover:border-zinc-300 dark:border-zinc-700 dark:bg-zinc-800'
                           }`}
                         >
-                          {isPopular && (
-                            <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                              <Badge color="purple" size="sm">
-                                Most Popular
-                              </Badge>
-                            </div>
-                          )}
-
                           <div className="flex-1">
                             <div className="text-center">
                               <h3 className="font-heading mb-2 text-xl font-bold text-zinc-900 dark:text-zinc-100">
