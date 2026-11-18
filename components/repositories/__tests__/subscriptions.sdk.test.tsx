@@ -167,6 +167,20 @@ describe('a repository that opens with a free trial', () => {
     expect(await screen.findByText(/Free trial, ends/)).toBeInTheDocument()
   })
 
+  it('drops a trial that ended at once, though its period runs on', async () => {
+    const trialEnd = new Date(Date.now() + 5 * 86_400_000).toISOString()
+    listing([
+      seat({
+        status: 'canceled',
+        trial_ends_at: trialEnd,
+        current_period_end: trialEnd,
+        ends_at: new Date(Date.now() - 60_000).toISOString(),
+      }),
+    ])
+    render(<ActiveSubscriptions emptyState={<p>No subscriptions yet</p>} />)
+    expect(await screen.findByText('No subscriptions yet')).toBeInTheDocument()
+  })
+
   it('puts a banner under the page header, not above it', async () => {
     listing([seat({})])
     render(<ActiveSubscriptions banner={<p>Trial notice</p>} />)
