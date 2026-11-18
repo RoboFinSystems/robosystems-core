@@ -51,6 +51,8 @@ export interface ActiveSubscriptionsProps {
   onCancel?: (subscription: SubscriptionInfo) => void
   /** Fallback component to render when there are no active subscriptions */
   emptyState?: React.ReactNode
+  /** Shown under the page header, above the subscriptions (e.g. a trial notice) */
+  banner?: React.ReactNode
 }
 
 export function ActiveSubscriptions({
@@ -62,6 +64,7 @@ export function ActiveSubscriptions({
   onBrowse,
   onCancel,
   emptyState,
+  banner,
 }: ActiveSubscriptionsProps) {
   const [userSubscriptions, setUserSubscriptions] = useState<
     SubscriptionInfo[]
@@ -215,6 +218,8 @@ export function ActiveSubscriptions({
           </Button>
         )}
       </div>
+
+      {banner}
 
       {/* Active Subscriptions */}
       {activeSubscriptions.map((subscription) => {

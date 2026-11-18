@@ -167,6 +167,18 @@ describe('a repository that opens with a free trial', () => {
     expect(await screen.findByText(/Free trial, ends/)).toBeInTheDocument()
   })
 
+  it('puts a banner under the page header, not above it', async () => {
+    listing([seat({})])
+    render(<ActiveSubscriptions banner={<p>Trial notice</p>} />)
+    const heading = await screen.findByRole('heading', {
+      name: 'Repository Subscriptions',
+    })
+    const banner = screen.getByText('Trial notice')
+    expect(
+      heading.compareDocumentPosition(banner) & Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy()
+  })
+
   it('says a plan change inside the trial charges nothing today', async () => {
     const trialEnd = new Date(Date.now() + 5 * 86_400_000).toISOString()
     listing([seat({ trial_ends_at: trialEnd, current_period_end: trialEnd })])
