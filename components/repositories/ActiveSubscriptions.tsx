@@ -148,15 +148,15 @@ export function ActiveSubscriptions({
     )
   }
 
-  // Treat a period-end-canceled sub as "still active" until its access
-  // window actually closes. Otherwise the row would disappear from this
-  // view the moment the user clicks Cancel — even though the modal
-  // promises continued access through current_period_end.
+  // A canceled sub stays listed until its access ends: `ends_at`, the period's
+  // end for a cancel at period end, the moment itself for one that ended at
+  // once (an immediate cancel, or one the payment provider ended).
   const now = new Date()
   const activeSubscriptions = userSubscriptions.filter((s) => {
     if (s.status === 'active') return true
-    if (s.status === 'canceled' && s.current_period_end) {
-      return new Date(s.current_period_end) > now
+    const endsAt = s.ends_at ?? s.current_period_end
+    if (s.status === 'canceled' && endsAt) {
+      return utcDate(endsAt) > now
     }
     return false
   })
