@@ -228,7 +228,7 @@ export function BrowseRepositories({
         (sub.status === 'active' ||
           (sub.status === 'canceled' &&
             sub.ends_at &&
-            new Date(sub.ends_at) > new Date()))
+            utcDate(sub.ends_at) > new Date()))
     )
   }
 
