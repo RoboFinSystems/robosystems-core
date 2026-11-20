@@ -206,6 +206,25 @@ describe('a repository that opens with a free trial', () => {
     expect(await screen.findByText('No subscriptions yet')).toBeInTheDocument()
   })
 
+  it('offers Subscribe again once a seat has ended, west of UTC too', async () => {
+    const zone = process.env.TZ
+    process.env.TZ = 'America/Chicago'
+    try {
+      // As the API writes it: UTC with no zone.
+      const ended = new Date(Date.now() - 30 * 60_000)
+        .toISOString()
+        .replace('Z', '')
+      listing([seat({ status: 'canceled', ends_at: ended })])
+      render(<BrowseRepositories />)
+      expect(
+        await screen.findByRole('button', { name: 'Subscribe to Starter' })
+      ).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: /Current Plan/ })).toBeNull()
+    } finally {
+      process.env.TZ = zone
+    }
+  })
+
   it('puts a banner under the page header, not above it', async () => {
     listing([seat({})])
     render(<ActiveSubscriptions banner={<p>Trial notice</p>} />)
