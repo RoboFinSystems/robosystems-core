@@ -40,6 +40,14 @@ Apps consuming this package need two config entries (already present in all thre
 - Tailwind content scan: `'node_modules/@robosystems/core/**/*.js'` (Tailwind classes are authored here but compiled by the app; the `primary-*` brand tokens are defined per-app)
 - Vitest: `test.server.deps.inline: [/@robosystems\/core/]` — the compiled ESM uses directory imports and needs the apps' `@robosystems/client` mock aliases applied inside it
 
+## Graph Stage
+
+`graph-stage/` is the landing pages' backdrop, shared by the three sites: `GraphStage` (the hero's live graph, plain WebGL), `Dust`, `GraphOrb`, `GraphGalaxies`, `GridFloor`, `NodeGlow`, and in `styles/graph-stage.css` the `node-card`, `node-link` and `node-icon` classes an app puts on its own cards and icons.
+
+- An app imports `@robosystems/core/styles/graph-stage.css` once, and sets its colours on `:root` after the import: `--graph-1`, `--graph-2`, `--graph-3` and a `-light` shade of each, as space-separated RGB (`34 211 238`) so the styles can give them an opacity. The defaults are RoboSystems' cyan, blue and indigo. `--graph-1` leads: the dust, the floor, the light on cards and icons.
+- The hero graph is seeded, and the content machine's film stage (`renderer/templates/film_stage.js`, `clusters`) draws the same graph node for node. Change the geometry in `graphStageGl.ts` and change it there too; colour takes no part in where a node sits.
+- Check canvas changes in a real GPU-backed Chrome, not only headless: a headless browser has shown a canvas that real Chrome dropped.
+
 ## Testing
 
 Tests live in `__tests__/` directories alongside source and run here (not in the apps) via vitest with jsdom and the mock surface in `test/__mocks__/` (mirrors the apps' `src/__mocks__`). `vitest.setup.ts` assigns `globalThis.jest = vi` — source guards dev-only logging with `typeof jest === 'undefined'`.
