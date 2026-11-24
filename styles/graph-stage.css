@@ -221,8 +221,8 @@
 
 /* A link between two node cards (a span inside the first): a thin line across the gap to
    the next card, with a port at each end. It runs sideways where the cards sit in a row
-   (from md) and downward where they stack. When either card it joins is under the pointer,
-   the line lights and a pulse travels along it. */
+   (from md, or from lg with `node-link-lg` beside it) and downward where they stack. When
+   either card it joins is under the pointer, the line lights and a pulse travels along it. */
 @property --on {
   syntax: '<number>';
   inherits: true;
@@ -291,27 +291,55 @@
 }
 
 @media (min-width: 768px) {
-  .node-link {
+  .node-link:not(.node-link-lg) {
     top: 50%;
     left: 100%;
     width: var(--gap, 1.5rem);
     height: 1px;
   }
 
-  .node-link::before,
-  .node-link::after {
+  .node-link:not(.node-link-lg)::before,
+  .node-link:not(.node-link-lg)::after {
     top: -2px;
   }
 
-  .node-link::before {
+  .node-link:not(.node-link-lg)::before {
     left: -3px;
   }
 
-  .node-link::after {
+  .node-link:not(.node-link-lg)::after {
     left: calc(100% - 2px);
   }
 
-  .node-link > i {
+  .node-link:not(.node-link-lg) > i {
+    left: 0;
+    top: -2px;
+    animation-name: node-pulse-across;
+  }
+}
+
+@media (min-width: 1024px) {
+  .node-link-lg {
+    top: 50%;
+    left: 100%;
+    width: var(--gap, 1.5rem);
+    height: 1px;
+  }
+
+  .node-link-lg::before,
+  .node-link-lg::after {
+    top: -2px;
+  }
+
+  .node-link-lg::before {
+    left: -3px;
+  }
+
+  .node-link-lg::after {
+    left: calc(100% - 2px);
+  }
+
+  .node-link-lg > i {
     left: 0;
     top: -2px;
     animation-name: node-pulse-across;
