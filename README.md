@@ -12,6 +12,7 @@ Part of RoboSystems, the open-source knowledge graph for finance. Shared React c
 - **Task monitoring** — SSE-based operation monitoring with a polling fallback for long-running jobs
 - **UI components** — layout, chat, forms, settings, API keys, and the shared Tailwind theme and the owned UI primitives (`@robosystems/core/ui`)
 - **Docs rendering** — the docs catalog loader (`@robosystems/core/docs/catalog`) and the markdown renderer (`@robosystems/core/docs/DocsMarkdown`), server-side, for each app's `/docs`
+- **Graph stage** — the landing pages' backdrop (`@robosystems/core/graph-stage`): a live clustered graph, dust, sphere orbs, galaxies, a grid floor and the `node-card` / `node-icon` styles, in each app's own colours
 - **Hooks & utilities** — user, limits, toast, and media-query hooks plus cookie persistence helpers
 
 ## Installation

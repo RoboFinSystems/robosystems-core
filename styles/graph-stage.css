@@ -1,0 +1,360 @@
+/*
+ * The graph stage: the styles behind the pieces in graph-stage/ (the live graph, dust, orbs,
+ * galaxies, grid floor) and the node classes an app puts on its own cards and icons
+ * (`node-card`, `node-link`, `node-icon`). An app imports this once.
+ *
+ * Colour: three brand colours, each with a lighter shade, as space-separated RGB so they
+ * take an opacity (`rgb(var(--graph-1) / 0.4)`). These defaults are RoboSystems' cyan, blue
+ * and indigo; an app sets its own on :root after the import. --graph-1 is the lead colour:
+ * the dust, the floor, and the light on cards and icons.
+ */
+:root {
+  --graph-1: 34 211 238;
+  --graph-1-light: 103 232 249;
+  --graph-2: 59 122 245;
+  --graph-2-light: 97 166 250;
+  --graph-3: 99 102 241;
+  --graph-3-light: 129 140 248;
+}
+
+/* Orbs and galaxies: each floats on one of two slow paths and turns at its own pace (the
+   component sets the duration and direction). */
+@keyframes graph-float-a {
+  50% {
+    transform: translate(20px, -40px);
+  }
+}
+
+@keyframes graph-float-b {
+  50% {
+    transform: translate(-15px, 30px);
+  }
+}
+
+@keyframes graph-turn {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.graph-float-a {
+  animation: graph-float-a 8s ease-in-out infinite;
+}
+
+.graph-float-b {
+  animation: graph-float-b 10s ease-in-out infinite;
+}
+
+.graph-turn {
+  animation: graph-turn 300s linear infinite;
+}
+
+/* The dust backdrop (Dust.tsx): each layer is a tile of points masking the lead colour, and
+   rises by exactly one tile, so the loop has no seam. */
+.graph-dust {
+  background-color: rgb(var(--graph-1));
+}
+
+@keyframes graph-dust-near {
+  to {
+    transform: translateY(-900px);
+  }
+}
+
+@keyframes graph-dust-far {
+  to {
+    transform: translateY(-620px);
+  }
+}
+
+.graph-dust-near {
+  animation: graph-dust-near 150s linear infinite;
+}
+
+.graph-dust-far {
+  animation: graph-dust-far 260s linear infinite;
+}
+
+/* The grid floor (GridFloor.tsx). */
+.graph-floor {
+  transform: perspective(900px) rotateX(62deg);
+  background-image:
+    linear-gradient(rgb(var(--graph-1) / 0.6) 2.5px, transparent 2.5px),
+    linear-gradient(90deg, rgb(var(--graph-1) / 0.55) 1px, transparent 1px);
+  background-size: 80px 80px;
+  -webkit-mask-image: linear-gradient(to top, black, transparent 96%);
+  mask-image: linear-gradient(to top, black, transparent 96%);
+}
+
+/* A card as a node (NodeGlow.tsx tells it where the pointer is). Every node card wears the
+   mark the hubs wear in the galaxies, a white point in a thin ring, in its top right corner.
+   Under the pointer a soft light spreads inside the card, its edge lights up nearest the
+   pointer and the mark brightens, as a node does when it is picked out of a graph.
+   --lit runs 0 to 1 with the hover; registering it lets it be eased. */
+@property --lit {
+  syntax: '<number>';
+  inherits: true;
+  initial-value: 0;
+}
+
+.node-card {
+  --lit: 0;
+  --mark: calc(100% - 18px) 18px;
+  position: relative;
+  isolation: isolate;
+  transition: --lit 0.35s ease;
+}
+
+.node-card:hover {
+  --lit: 1;
+}
+
+.node-card::before,
+.node-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+.node-card::before {
+  z-index: -1;
+  background:
+    radial-gradient(
+      circle at var(--mark),
+      rgb(255 255 255 / calc(0.5 + 0.5 * var(--lit))) 0 2.4px,
+      transparent 3.2px
+    ),
+    radial-gradient(
+      circle at var(--mark),
+      transparent 0 5.6px,
+      rgb(var(--graph-1-light) / calc(0.28 + 0.6 * var(--lit))) 5.6px 6.5px,
+      transparent 7.3px
+    ),
+    radial-gradient(
+      circle at var(--mark),
+      rgb(var(--graph-1) / calc(0.4 * var(--lit))),
+      transparent 26px
+    ),
+    radial-gradient(
+      460px circle at var(--mx, 50%) var(--my, 0%),
+      rgb(var(--graph-1) / calc(0.15 * var(--lit))),
+      rgb(var(--graph-2) / calc(0.06 * var(--lit))) 45%,
+      transparent 68%
+    );
+}
+
+.node-card::after {
+  padding: 1px;
+  background: radial-gradient(
+    320px circle at var(--mx, 50%) var(--my, 0%),
+    rgb(var(--graph-1-light) / calc(0.95 * var(--lit))),
+    rgb(var(--graph-1) / calc(0.35 * var(--lit))) 45%,
+    transparent 72%
+  );
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#000 0 0) content-box exclude,
+    linear-gradient(#000 0 0);
+}
+
+/* An icon inside a node: the glyph sits in a small ball of linked points, the same sphere
+   the sections hang at their edges, so a card is a node and its icon is the graph inside
+   it. The ball is two images, its links (a mask over the lead colour) and its points
+   (white), both shown only near the rim so the glyph stays clear, turning slowly together.
+   Inside a node card it brightens with the card. */
+.node-icon {
+  --node-links: url('data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%22-1.08 -1.08 2.16 2.16%22%3E%3Cg stroke=%22%23000%22 stroke-width=%22.022%22%3E%3Cpath d=%22M0.00 0.96L-0.10 0.83%22 opacity=%220.62%22/%3E%3Cpath d=%22M0.00 0.96L-0.17 0.97%22 opacity=%220.43%22/%3E%3Cpath d=%22M0.00 0.96L0.48 0.75%22 opacity=%220.59%22/%3E%3Cpath d=%22M-0.10 0.83L-0.58 0.71%22 opacity=%220.66%22/%3E%3Cpath d=%22M-0.10 0.83L0.16 0.47%22 opacity=%220.70%22/%3E%3Cpath d=%22M-0.17 0.97L0.33 0.88%22 opacity=%220.24%22/%3E%3Cpath d=%22M-0.17 0.97L-0.63 0.74%22 opacity=%220.28%22/%3E%3Cpath d=%22M0.48 0.75L0.16 0.47%22 opacity=%220.70%22/%3E%3Cpath d=%22M0.48 0.75L0.80 0.60%22 opacity=%220.53%22/%3E%3Cpath d=%22M-0.58 0.71L-0.53 0.34%22 opacity=%220.70%22/%3E%3Cpath d=%22M-0.58 0.71L-0.92 0.38%22 opacity=%220.52%22/%3E%3Cpath d=%22M0.33 0.88L-0.05 0.71%22 opacity=%220.13%22/%3E%3Cpath d=%22M0.33 0.88L0.72 0.49%22 opacity=%220.14%22/%3E%3Cpath d=%22M0.16 0.47L0.64 0.24%22 opacity=%220.70%22/%3E%3Cpath d=%22M0.16 0.47L-0.12 0.00%22 opacity=%220.70%22/%3E%3Cpath d=%22M-0.63 0.74L-0.92 0.38%22 opacity=%220.34%22/%3E%3Cpath d=%22M-0.63 0.74L-0.56 0.44%22 opacity=%220.13%22/%3E%3Cpath d=%22M0.80 0.60L0.72 0.49%22 opacity=%220.26%22/%3E%3Cpath d=%22M0.80 0.60L0.96 0.12%22 opacity=%220.47%22/%3E%3Cpath d=%22M-0.53 0.34L-0.12 0.00%22 opacity=%220.70%22/%3E%3Cpath d=%22M-0.53 0.34L-0.85 -0.02%22 opacity=%220.70%22/%3E%3Cpath d=%22M-0.05 0.71L-0.56 0.44%22 opacity=%220.13%22/%3E%3Cpath d=%22M-0.05 0.71L0.29 0.34%22 opacity=%220.13%22/%3E%3Cpath d=%22M0.64 0.24L0.96 0.12%22 opacity=%220.66%22/%3E%3Cpath d=%22M0.64 0.24L0.43 -0.23%22 opacity=%220.70%22/%3E%3Cpath d=%22M-0.92 0.38L-0.85 -0.02%22 opacity=%220.55%22/%3E%3Cpath d=%22M-0.92 0.38L-0.92 0.08%22 opacity=%220.30%22/%3E%3Cpath d=%22M0.72 0.49L0.29 0.34%22 opacity=%220.13%22/%3E%3Cpath d=%22M0.72 0.49L0.93 0.02%22 opacity=%220.14%22/%3E%3Cpath d=%22M-0.12 0.00L0.43 -0.23%22 opacity=%220.70%22/%3E%3Cpath d=%22M-0.12 0.00L-0.45 -0.37%22 opacity=%220.70%22/%3E%3Cpath d=%22M-0.56 0.44L-0.26 0.09%22 opacity=%220.13%22/%3E%3Cpath d=%22M0.96 0.12L0.82 -0.37%22 opacity=%220.58%22/%3E%3Cpath d=%22M-0.85 -0.02L-0.94 -0.32%22 opacity=%220.56%22/%3E%3Cpath d=%22M0.29 0.34L0.57 -0.11%22 opacity=%220.13%22/%3E%3Cpath d=%22M0.43 -0.23L0.09 -0.63%22 opacity=%220.70%22/%3E%3Cpath d=%22M-0.92 0.08L-0.94 -0.32%22 opacity=%220.30%22/%3E%3Cpath d=%22M-0.92 0.08L-0.67 -0.25%22 opacity=%220.13%22/%3E%3Cpath d=%22M0.93 0.02L0.57 -0.11%22 opacity=%220.13%22/%3E%3Cpath d=%22M0.93 0.02L0.87 -0.47%22 opacity=%220.24%22/%3E%3Cpath d=%22M-0.45 -0.37L0.09 -0.63%22 opacity=%220.70%22/%3E%3Cpath d=%22M-0.45 -0.37L-0.62 -0.68%22 opacity=%220.70%22/%3E%3Cpath d=%22M-0.26 0.09L-0.67 -0.25%22 opacity=%220.13%22/%3E%3Cpath d=%22M-0.26 0.09L0.07 -0.34%22 opacity=%220.13%22/%3E%3Cpath d=%22M0.82 -0.37L0.87 -0.47%22 opacity=%220.47%22/%3E%3Cpath d=%22M0.82 -0.37L0.47 -0.78%22 opacity=%220.62%22/%3E%3Cpath d=%22M-0.94 -0.32L-0.62 -0.68%22 opacity=%220.52%22/%3E%3Cpath d=%22M-0.94 -0.32L-0.71 -0.63%22 opacity=%220.32%22/%3E%3Cpath d=%22M0.57 -0.11L0.07 -0.34%22 opacity=%220.13%22/%3E%3Cpath d=%22M0.57 -0.11L0.56 -0.61%22 opacity=%220.13%22/%3E%3Cpath d=%22M0.09 -0.63L0.47 -0.78%22 opacity=%220.70%22/%3E%3Cpath d=%22M0.09 -0.63L-0.15 -0.93%22 opacity=%220.70%22/%3E%3Cpath d=%22M-0.67 -0.25L-0.71 -0.63%22 opacity=%220.13%22/%3E%3Cpath d=%22M0.87 -0.47L0.56 -0.61%22 opacity=%220.18%22/%3E%3Cpath d=%22M-0.62 -0.68L-0.15 -0.93%22 opacity=%220.59%22/%3E%3Cpath d=%22M0.07 -0.34L-0.25 -0.68%22 opacity=%220.13%22/%3E%3Cpath d=%22M0.47 -0.78L0.41 -0.90%22 opacity=%220.47%22/%3E%3Cpath d=%22M-0.71 -0.63L-0.25 -0.68%22 opacity=%220.13%22/%3E%3Cpath d=%22M-0.71 -0.63L-0.29 -0.95%22 opacity=%220.25%22/%3E%3Cpath d=%22M0.56 -0.61L0.41 -0.90%22 opacity=%220.20%22/%3E%3Cpath d=%22M-0.15 -0.93L-0.29 -0.95%22 opacity=%220.44%22/%3E%3Cpath d=%22M-0.25 -0.68L0.00 -0.96%22 opacity=%220.13%22/%3E%3Cpath d=%22M0.41 -0.90L0.00 -0.96%22 opacity=%220.27%22/%3E%3Cpath d=%22M-0.29 -0.95L0.00 -0.96%22 opacity=%220.26%22/%3E%3C/g%3E%3C/svg%3E');
+  --node-points: url('data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%22-1.08 -1.08 2.16 2.16%22%3E%3Cg fill=%22%23fff%22%3E%3Ccircle cx=%220.00%22 cy=%220.96%22 r=%22.04%22 opacity=%220.78%22/%3E%3Ccircle cx=%22-0.10%22 cy=%220.83%22 r=%22.04%22 opacity=%221.00%22/%3E%3Ccircle cx=%22-0.17%22 cy=%220.97%22 r=%22.04%22 opacity=%220.44%22/%3E%3Ccircle cx=%220.48%22 cy=%220.75%22 r=%22.04%22 opacity=%220.92%22/%3E%3Ccircle cx=%22-0.58%22 cy=%220.71%22 r=%22.04%22 opacity=%220.88%22/%3E%3Ccircle cx=%220.33%22 cy=%220.88%22 r=%22.04%22 opacity=%220.26%22/%3E%3Ccircle cx=%220.16%22 cy=%220.47%22 r=%22.04%22 opacity=%221.00%22/%3E%3Ccircle cx=%22-0.63%22 cy=%220.74%22 r=%22.04%22 opacity=%220.36%22/%3E%3Ccircle cx=%220.80%22 cy=%220.60%22 r=%22.04%22 opacity=%220.60%22/%3E%3Ccircle cx=%22-0.53%22 cy=%220.34%22 r=%22.04%22 opacity=%221.00%22/%3E%3Ccircle cx=%22-0.05%22 cy=%220.71%22 r=%22.04%22 opacity=%220.18%22/%3E%3Ccircle cx=%220.64%22 cy=%220.24%22 r=%22.04%22 opacity=%221.00%22/%3E%3Ccircle cx=%22-0.92%22 cy=%220.38%22 r=%22.04%22 opacity=%220.61%22/%3E%3Ccircle cx=%220.72%22 cy=%220.49%22 r=%22.04%22 opacity=%220.18%22/%3E%3Ccircle cx=%22-0.12%22 cy=%220.00%22 r=%22.04%22 opacity=%221.00%22/%3E%3Ccircle cx=%22-0.56%22 cy=%220.44%22 r=%22.04%22 opacity=%220.18%22/%3E%3Ccircle cx=%220.96%22 cy=%220.12%22 r=%22.04%22 opacity=%220.75%22/%3E%3Ccircle cx=%22-0.85%22 cy=%22-0.02%22 r=%22.04%22 opacity=%220.97%22/%3E%3Ccircle cx=%220.29%22 cy=%220.34%22 r=%22.04%22 opacity=%220.18%22/%3E%3Ccircle cx=%220.43%22 cy=%22-0.23%22 r=%22.04%22 opacity=%221.00%22/%3E%3Ccircle cx=%22-0.92%22 cy=%220.08%22 r=%22.04%22 opacity=%220.25%22/%3E%3Ccircle cx=%220.93%22 cy=%220.02%22 r=%22.04%22 opacity=%220.26%22/%3E%3Ccircle cx=%22-0.45%22 cy=%22-0.37%22 r=%22.04%22 opacity=%221.00%22/%3E%3Ccircle cx=%22-0.26%22 cy=%220.09%22 r=%22.04%22 opacity=%220.18%22/%3E%3Ccircle cx=%220.82%22 cy=%22-0.37%22 r=%22.04%22 opacity=%220.90%22/%3E%3Ccircle cx=%22-0.94%22 cy=%22-0.32%22 r=%22.04%22 opacity=%220.62%22/%3E%3Ccircle cx=%220.57%22 cy=%22-0.11%22 r=%22.04%22 opacity=%220.18%22/%3E%3Ccircle cx=%220.09%22 cy=%22-0.63%22 r=%22.04%22 opacity=%221.00%22/%3E%3Ccircle cx=%22-0.67%22 cy=%22-0.25%22 r=%22.04%22 opacity=%220.18%22/%3E%3Ccircle cx=%220.87%22 cy=%22-0.47%22 r=%22.04%22 opacity=%220.43%22/%3E%3Ccircle cx=%22-0.62%22 cy=%22-0.68%22 r=%22.04%22 opacity=%220.88%22/%3E%3Ccircle cx=%220.07%22 cy=%22-0.34%22 r=%22.04%22 opacity=%220.18%22/%3E%3Ccircle cx=%220.47%22 cy=%22-0.78%22 r=%22.04%22 opacity=%220.88%22/%3E%3Ccircle cx=%22-0.71%22 cy=%22-0.63%22 r=%22.04%22 opacity=%220.30%22/%3E%3Ccircle cx=%220.56%22 cy=%22-0.61%22 r=%22.04%22 opacity=%220.18%22/%3E%3Ccircle cx=%22-0.15%22 cy=%22-0.93%22 r=%22.04%22 opacity=%220.83%22/%3E%3Ccircle cx=%22-0.25%22 cy=%22-0.68%22 r=%22.04%22 opacity=%220.18%22/%3E%3Ccircle cx=%220.41%22 cy=%22-0.90%22 r=%22.04%22 opacity=%220.46%22/%3E%3Ccircle cx=%22-0.29%22 cy=%22-0.95%22 r=%22.04%22 opacity=%220.43%22/%3E%3Ccircle cx=%220.00%22 cy=%22-0.96%22 r=%22.04%22 opacity=%220.32%22/%3E%3C/g%3E%3C/svg%3E');
+  --node-rim: radial-gradient(circle, transparent 42%, #000 74%);
+  position: relative;
+  isolation: isolate;
+  border-radius: 9999px;
+  color: color-mix(in srgb, rgb(var(--graph-1-light)) 35%, white);
+  background: radial-gradient(
+    circle at 36% 30%,
+    rgb(var(--graph-1) / 0.24),
+    rgb(var(--graph-2) / 0.12) 55%,
+    rgb(4 7 12 / 0.5)
+  );
+  box-shadow:
+    inset 0 0 0 1px rgb(var(--graph-1-light) / calc(0.3 + 0.5 * var(--lit, 0))),
+    0 0 calc(4px + 16px * var(--lit, 0))
+      rgb(var(--graph-1) / calc(0.1 + 0.45 * var(--lit, 0)));
+}
+
+.node-icon svg {
+  color: color-mix(in srgb, rgb(var(--graph-1-light)) 35%, white);
+}
+
+.node-icon::before,
+.node-icon::after {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  z-index: -1;
+  border-radius: inherit;
+  opacity: calc(0.55 + 0.45 * var(--lit, 0));
+  animation: graph-turn 70s linear infinite;
+}
+
+.node-icon::before {
+  background: rgb(var(--graph-1-light));
+  -webkit-mask:
+    var(--node-links) center / 100% no-repeat,
+    var(--node-rim);
+  -webkit-mask-composite: source-in;
+  mask:
+    var(--node-links) center / 100% no-repeat intersect,
+    var(--node-rim);
+}
+
+.node-icon::after {
+  background: var(--node-points) center / 100% no-repeat;
+  -webkit-mask: var(--node-rim);
+  mask: var(--node-rim);
+}
+
+/* A link between two node cards (a span inside the first): a thin line across the gap to
+   the next card, with a port at each end. It runs sideways where the cards sit in a row
+   (from md, or from lg with `node-link-lg` beside it) and downward where they stack. When
+   either card it joins is under the pointer, the line lights and a pulse travels along it. */
+@property --on {
+  syntax: '<number>';
+  inherits: true;
+  initial-value: 0;
+}
+
+.node-link {
+  --on: 0;
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  width: 1px;
+  height: var(--gap, 1.5rem);
+  pointer-events: none;
+  background: rgb(var(--graph-1-light) / calc(0.3 + 0.6 * var(--on)));
+  transition: --on 0.35s ease;
+}
+
+.node-link::before,
+.node-link::after {
+  content: '';
+  position: absolute;
+  left: -2px;
+  width: 5px;
+  height: 5px;
+  border-radius: 9999px;
+  background: rgb(255 255 255 / calc(0.55 + 0.45 * var(--on)));
+}
+
+.node-link::before {
+  top: -3px;
+}
+
+.node-link::after {
+  top: calc(100% - 2px);
+}
+
+.node-card:hover > .node-link,
+.node-card:has(+ .node-card:hover) > .node-link {
+  --on: 1;
+}
+
+.node-link > i {
+  position: absolute;
+  left: -2px;
+  top: 0;
+  width: 5px;
+  height: 5px;
+  border-radius: 9999px;
+  background: #fff;
+  box-shadow: 0 0 8px 2px rgb(var(--graph-1) / 0.9);
+  opacity: var(--on);
+  animation: node-pulse-down 1.4s linear infinite;
+}
+
+@keyframes node-pulse-down {
+  to {
+    transform: translateY(var(--gap, 1.5rem));
+  }
+}
+
+@keyframes node-pulse-across {
+  to {
+    transform: translateX(var(--gap, 1.5rem));
+  }
+}
+
+@media (min-width: 768px) {
+  .node-link:not(.node-link-lg) {
+    top: 50%;
+    left: 100%;
+    width: var(--gap, 1.5rem);
+    height: 1px;
+  }
+
+  .node-link:not(.node-link-lg)::before,
+  .node-link:not(.node-link-lg)::after {
+    top: -2px;
+  }
+
+  .node-link:not(.node-link-lg)::before {
+    left: -3px;
+  }
+
+  .node-link:not(.node-link-lg)::after {
+    left: calc(100% - 2px);
+  }
+
+  .node-link:not(.node-link-lg) > i {
+    left: 0;
+    top: -2px;
+    animation-name: node-pulse-across;
+  }
+}
+
+@media (min-width: 1024px) {
+  .node-link-lg {
+    top: 50%;
+    left: 100%;
+    width: var(--gap, 1.5rem);
+    height: 1px;
+  }
+
+  .node-link-lg::before,
+  .node-link-lg::after {
+    top: -2px;
+  }
+
+  .node-link-lg::before {
+    left: -3px;
+  }
+
+  .node-link-lg::after {
+    left: calc(100% - 2px);
+  }
+
+  .node-link-lg > i {
+    left: 0;
+    top: -2px;
+    animation-name: node-pulse-across;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .graph-float-a,
+  .graph-float-b,
+  .graph-turn,
+  .graph-dust-near,
+  .graph-dust-far,
+  .node-icon::before,
+  .node-icon::after,
+  .node-link > i {
+    animation: none;
+  }
+}
