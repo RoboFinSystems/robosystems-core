@@ -1,6 +1,6 @@
 {
   "name": "@robosystems/core",
-  "version": "0.22.0",
+  "version": "0.22.1",
   "description": "Shared React core for the RoboSystems apps",
   "license": "MIT",
   "private": false,
