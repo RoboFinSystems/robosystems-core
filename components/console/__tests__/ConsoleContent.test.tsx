@@ -274,12 +274,12 @@ describe('ConsoleContent', () => {
       // on its closing line before asserting on the whole body.
       await waitFor(
         () => {
-          expect(screen.getByText(/robosystems-mcp-client/)).toBeInTheDocument()
+          expect(screen.getByText(/robosystems-mcp-bridge/)).toBeInTheDocument()
         },
         { timeout: 15000 }
       )
 
-      const output = screen.getByText(/robosystems-mcp-client/)
+      const output = screen.getByText(/robosystems-mcp-bridge/)
       // The per-graph URL, credential-free — OAuth on it preselects the graph
       // at consent — plus the graph-agnostic address. No key is minted for a
       // user who is going to sign in, and nothing ever rides in the URL.
