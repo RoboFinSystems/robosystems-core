@@ -56,6 +56,19 @@ describe('EmptyState', () => {
     expect(screen.getByRole('button', { name: 'Create' })).toBeInTheDocument()
   })
 
+  it('centers the action, which a block-level button would not do itself', () => {
+    render(
+      <EmptyState
+        icon={HiInbox}
+        title="X"
+        action={<button type="button">Create</button>}
+      />
+    )
+    expect(
+      screen.getByRole('button', { name: 'Create' }).parentElement
+    ).toHaveClass('flex', 'items-center')
+  })
+
   it('merges a className override onto the container', () => {
     const { container } = render(
       <EmptyState icon={HiInbox} title="X" className="py-4" />

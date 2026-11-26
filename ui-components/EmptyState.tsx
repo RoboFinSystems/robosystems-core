@@ -46,7 +46,9 @@ export function EmptyState({
           {description}
         </div>
       )}
-      {action && <div className="mt-6">{action}</div>}
+      {action && (
+        <div className="mt-6 flex flex-col items-center">{action}</div>
+      )}
     </div>
   )
 }
