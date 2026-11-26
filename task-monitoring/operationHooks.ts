@@ -224,20 +224,19 @@ export function useOperationMonitoring(): UseOperationMonitoringResult {
 }
 
 /**
- * The schema sent for a generic graph: the caller's, or an empty one named
- * after the graph (a bare database the user fills in later).
+ * The schema of a generic graph. A graph cannot be provisioned without a node
+ * table, so a missing schema or one with no nodes is refused before any request.
  */
 function genericSchema(graphData: {
-  graph_name: string
   custom_schema?: Record<string, unknown>
 }): Record<string, unknown> {
-  if (graphData.custom_schema) return graphData.custom_schema
-  const name =
-    graphData.graph_name
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '_')
-      .replace(/^_+|_+$/g, '') || 'custom_graph'
-  return { name, nodes: [], relationships: [] }
+  const nodes = graphData.custom_schema?.nodes
+  if (!graphData.custom_schema || !Array.isArray(nodes) || nodes.length === 0) {
+    throw new Error(
+      'A generic graph needs a schema that defines at least one node.'
+    )
+  }
+  return graphData.custom_schema
 }
 
 /**
@@ -256,8 +255,8 @@ export function useGraphCreation() {
       instance_tier?: string
       schema_extensions?: string[]
       /**
-       * Generic graphs only: the node/relationship schema to apply. When
-       * omitted, a generic graph is created with an empty schema.
+       * Generic graphs only, and required for them: the node/relationship
+       * schema to apply, with at least one node.
        */
       custom_schema?: Record<string, unknown>
       create_entity?: boolean
@@ -274,6 +273,11 @@ export function useGraphCreation() {
     }) => {
       setIsCreating(true)
       try {
+        const customSchema =
+          graphData.graph_type === 'generic'
+            ? genericSchema(graphData)
+            : undefined
+
         // Check if billing is enabled and user needs to complete checkout
         let billingData = null
         if (graphData.org_id) {
@@ -305,10 +309,7 @@ export function useGraphCreation() {
                 description: graphData.description,
                 tags: graphData.tags,
                 schema_extensions: graphData.schema_extensions,
-                custom_schema:
-                  graphData.graph_type === 'generic'
-                    ? genericSchema(graphData)
-                    : undefined,
+                custom_schema: customSchema,
                 create_entity: graphData.create_entity,
                 entity_name: graphData.entity_name,
                 entity_identifier: graphData.entity_identifier,
@@ -363,8 +364,8 @@ export function useGraphCreation() {
 
         // A generic graph is defined by its schema; the API requires either
         // a custom_schema or an initial_entity.
-        if (graphData.graph_type === 'generic') {
-          requestBody.custom_schema = genericSchema(graphData)
+        if (customSchema) {
+          requestBody.custom_schema = customSchema
         }
 
         // Add initial_entity for entity or company graphs
@@ -491,7 +492,7 @@ export function useGraphCreation() {
       tags?: string[]
       instance_tier?: string
       schema_extensions?: string[]
-      custom_schema?: Record<string, unknown>
+      custom_schema: Record<string, unknown>
       org_id?: string
     }) => {
       return createGraph({

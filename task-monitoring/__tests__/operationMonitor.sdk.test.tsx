@@ -325,18 +325,26 @@ describe('useGraphCreation.createGraph', () => {
     expect(body.initial_entity).toBeUndefined()
   })
 
-  it('gives a generic graph without a schema an empty one', async () => {
+  it.each([
+    ['no schema', undefined],
+    ['a schema with no nodes', { name: 'scratch', nodes: [] }],
+  ])('refuses a generic graph with %s, sending nothing', async (_l, schema) => {
     net.setHandler(() => json(200, { graph_id: 'kg_new' }))
     const { result } = renderHook(() => useGraphCreation())
+    let outcome: unknown
     await act(async () => {
-      await result.current.createGenericGraph({ graph_name: 'Scratch Pad' })
+      outcome = await result.current
+        .createGraph({
+          graph_type: 'generic',
+          graph_name: 'Scratch Pad',
+          custom_schema: schema,
+          org_id: 'org_1',
+        })
+        .catch((e) => e)
     })
-    const body = await net.requests('POST', '/v1/graphs')[0].clone().json()
-    expect(body.custom_schema).toEqual({
-      name: 'scratch_pad',
-      nodes: [],
-      relationships: [],
-    })
+    expect((outcome as Error).message).toMatch(/at least one node/)
+    expect(net.requests('POST', '/v1/graphs')).toHaveLength(0)
+    expect(result.current.isLoading).toBe(false)
   })
 
   it('sends entity graph tags at the top level', async () => {
@@ -398,7 +406,7 @@ describe('useGraphCreation.createGraph', () => {
         .createGraph({
           graph_type: 'generic',
           graph_name: 'Inventory',
-          custom_schema: { name: 'inventory' },
+          custom_schema: { name: 'inventory', nodes: [{ name: 'Product' }] },
           org_id: 'org_1',
         })
         .catch((e) => e)
