@@ -759,7 +759,7 @@ export function ConsoleContent({
           `Once connected, ask questions like:\n` +
           `${exampleLines}\n\n` +
           `Clients without HTTP transport support can use the stdio bridge\n` +
-          `in proxy mode: https://github.com/RoboFinSystems/robosystems-mcp-client`,
+          `in proxy mode: https://github.com/RoboFinSystems/robosystems-mcp-bridge`,
         true
       )
       return
