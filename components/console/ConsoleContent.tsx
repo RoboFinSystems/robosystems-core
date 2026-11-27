@@ -758,8 +758,9 @@ export function ConsoleContent({
           `an API key scoped to this graph, with the header snippets filled in.\n\n` +
           `Once connected, ask questions like:\n` +
           `${exampleLines}\n\n` +
-          `Clients without HTTP transport support can use the stdio bridge\n` +
-          `in proxy mode: https://github.com/RoboFinSystems/robosystems-mcp-bridge`,
+          `Every graph you can reach, in one connection (Claude Code, Cursor,\n` +
+          `VS Code): ${apiUrl}/v1/mcp/graphs, with an account-wide API key\n` +
+          `from Settings → API Keys in the X-API-Key header.`,
         true
       )
       return
