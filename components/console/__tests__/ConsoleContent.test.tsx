@@ -274,12 +274,12 @@ describe('ConsoleContent', () => {
       // on its closing line before asserting on the whole body.
       await waitFor(
         () => {
-          expect(screen.getByText(/robosystems-mcp-bridge/)).toBeInTheDocument()
+          expect(screen.getByText(/X-API-Key header\./)).toBeInTheDocument()
         },
         { timeout: 15000 }
       )
 
-      const output = screen.getByText(/robosystems-mcp-bridge/)
+      const output = screen.getByText(/X-API-Key header\./)
       // The per-graph URL, credential-free — OAuth on it preselects the graph
       // at consent — plus the graph-agnostic address. No key is minted for a
       // user who is going to sign in, and nothing ever rides in the URL.
@@ -287,6 +287,10 @@ describe('ConsoleContent', () => {
         'https://api.robosystems.ai/v1/graphs/test-graph-id/mcp'
       )
       expect(output.textContent).toContain('https://api.robosystems.ai/v1/mcp')
+      expect(output.textContent).toContain(
+        'https://api.robosystems.ai/v1/mcp/graphs'
+      )
+      expect(output.textContent).not.toContain('robosystems-mcp-bridge')
       expect(output.textContent).toContain('/mcp key')
       expect(output.textContent).not.toContain('?token=')
       expect(mockCreateUserApiKey).not.toHaveBeenCalled()
