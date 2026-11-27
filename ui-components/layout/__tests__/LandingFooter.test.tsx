@@ -132,3 +132,23 @@ describe('LandingFooter Harbinger credit', () => {
     }
   )
 })
+
+describe('LandingFooter Substack link', () => {
+  afterEach(() => {
+    vi.doUnmock('../../../auth-core/config')
+  })
+
+  it.each(Object.keys(APPS))(
+    'links the RoboSystems Substack from %s, as an external link',
+    async (app) => {
+      await renderAs(app)
+      const substack = link('RoboSystems on Substack')
+      expect(substack).toHaveAttribute(
+        'href',
+        'https://robosystems.substack.com'
+      )
+      expect(substack).toHaveAttribute('target', '_blank')
+      expect(substack).toHaveAttribute('rel', 'noopener noreferrer')
+    }
+  )
+})
